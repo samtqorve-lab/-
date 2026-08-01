@@ -6,14 +6,14 @@
 <title>مسئول فنی — اداره صنعت، معدن و تجارت قروه</title>
 
 <!-- نصب روی صفحه اصلی گوشی (PWA) -->
-<link rel="manifest" href="manifest.json">
+<link rel="manifest" href="/tech-officer/manifest.json">
 <meta name="theme-color" content="#00695c">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="مسئول فنی">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="/tech-officer/icons/apple-touch-icon.png">
+<link rel="icon" href="/tech-officer/icons/icon-192.png">
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -2200,7 +2200,7 @@ sb.auth.getSession().then(async ({data}) => {
 });
 if('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').then((reg) => {
+    navigator.serviceWorker.register('/tech-officer/sw.js', { scope: '/tech-officer/' }).then((reg) => {
       // اگر ورکر جدیدی نصب و منتظر مانده (یعنی نسخه‌ی جدید اپ در دسترس است)، به کاربر اطلاع بده
       function notifyIfWaiting() {
         if(reg.waiting) showUpdateBanner(reg.waiting);

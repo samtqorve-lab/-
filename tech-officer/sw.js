@@ -3,8 +3,8 @@
 // (به‌جای کش خشک که تا تغییر دستی CACHE_NAME هیچ‌وقت رفرش نمی‌شد).
 // آپلود گزارش/عکس/داده همیشه مستقیم از شبکه می‌رود (هیچ‌وقت کش نمی‌شود) — صف آفلاین
 // آن را در سطح صفحه (index.html، نه اینجا) مدیریت می‌کند.
-const CACHE_NAME = 'tech-officer-app-v6';
-const APP_SHELL = ['./', './index.html', './manifest.json', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-192.png', './icons/icon-maskable-512.png'];
+const CACHE_NAME = 'tech-officer-app-v7';
+const APP_SHELL = ['/tech-officer/', '/tech-officer/index.html', '/tech-officer/manifest.json', '/tech-officer/icons/icon-192.png', '/tech-officer/icons/icon-512.png', '/tech-officer/icons/icon-maskable-192.png', '/tech-officer/icons/icon-maskable-512.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
