@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "ir.novinproduct.twa",
+        "sha256_cert_fingerprints": ["B9:2E:3E:29:DA:D4:14:FF:50:50:6B:F8:BB:3E:7A:F7:43:15:A8:BE:36:BE:54:B0:70:EE:01:52:74:36:AE:E0"]
+      }
+    }]
