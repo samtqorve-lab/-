@@ -1,0 +1,2150 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>مسئول فنی — اداره صنعت، معدن و تجارت قروه</title>
+
+<!-- نصب روی صفحه اصلی گوشی (PWA) -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#00695c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="مسئول فنی">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{font-size:16px}
+body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:#f0f4f8;overflow-x:hidden;
+     padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+
+.gate-screen{position:fixed;inset:0;z-index:999;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,#0d1f33,#1a3a5c 60%,#00695c);padding:20px}
+.gate-box{background:#fff;border-radius:20px;padding:34px 26px;max-width:400px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.gate-logo{font-size:40px;margin-bottom:10px}
+.gate-box h2{font-size:17px;color:#1a3a5c;margin-bottom:6px}
+.gate-box p{font-size:12.5px;color:#607d8b;margin-bottom:18px;line-height:1.8}
+.gate-box label{display:block;text-align:right;font-size:12px;color:#455a64;margin:10px 0 4px}
+.gate-box input{width:100%;border:1.5px solid #cfd8dc;border-radius:10px;padding:11px 13px;font-size:16px;font-family:Tahoma}
+.login-err{color:#e53935;font-size:12px;text-align:center;margin-top:8px;min-height:18px}
+
+.topbar{background:rgba(0,0,0,.3);backdrop-filter:blur(10px);padding:10px 14px;display:flex;align-items:center;
+  justify-content:space-between;position:sticky;top:0;z-index:50;flex-wrap:wrap;gap:8px;
+  padding-top:calc(10px + env(safe-area-inset-top))}
+.topbar-title{color:#fff;font-size:15px;font-weight:700}
+.topbar-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.topbar-user{color:rgba(255,255,255,.65);font-size:11px}
+.logout-btn{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;font-family:Tahoma}
+
+#techOfficerShell{max-width:720px;margin:0 auto;padding:16px;display:none;background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);min-height:100vh}
+.panel-card{background:#fff;border-radius:14px;padding:18px;margin-top:16px;box-shadow:0 2px 10px rgba(0,0,0,.06)}
+.panel-card h3{font-size:15px;color:#1a3a5c;margin-bottom:8px}
+label{display:block;font-size:12px;color:#455a64;margin:10px 0 4px}
+input,select,textarea{width:100%;border:1.5px solid #b0bec5;border-radius:8px;padding:10px 12px;font-size:16px;font-family:Tahoma;color:#1a3a5c;outline:none}
+textarea{resize:vertical}
+.btn{padding:10px 16px;border-radius:9px;border:none;cursor:pointer;font-family:Tahoma;font-size:13px;font-weight:700}
+.btn-save{background:#00897b;color:#fff}
+.btn-sm{padding:8px 14px;border-radius:7px;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:Tahoma}
+.mine-card{background:#fff;border-radius:12px;padding:14px;margin-bottom:8px;box-shadow:0 2px 8px rgba(0,0,0,.05)}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#323232;color:#fff;padding:11px 20px;
+  border-radius:24px;font-size:13px;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.3);opacity:0;transition:opacity .3s;
+  pointer-events:none;max-width:90vw;text-align:center}
+
+/* ابزار پیاده کردن نقاط پروانه (استیک‌اوت GPS) */
+.stakeout-view{position:fixed;inset:0;z-index:1100;background:#eceff1;display:none;flex-direction:column}
+.stakeout-header{background:#1a3a5c;color:#fff;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+.stakeout-header h3{font-size:14.5px;margin:0}
+.stakeout-close{background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:50%;width:34px;height:34px;font-size:16px;cursor:pointer}
+.stakeout-mode-row{display:flex;gap:8px;padding:8px 12px;background:#fff;border-bottom:1px solid #e0e0e0}
+.stakeout-mode-btn{flex:1;padding:8px 6px;border-radius:8px;border:2px solid #cfd8dc;background:#fff;color:#607d8b;font-size:12px;font-weight:700;cursor:pointer}
+.stakeout-mode-btn.active{background:#1a3a5c;color:#fff;border-color:#1a3a5c}
+.stakeout-chip.visited{opacity:.55}
+.stakeout-chip.visited::after{content:' ✓';color:#2e7d32}
+.stakeout-chips{display:flex;gap:6px;overflow-x:auto;padding:10px 12px;background:#fff;flex-shrink:0;border-bottom:1px solid #e0e0e0}
+.stakeout-chip{flex-shrink:0;padding:8px 14px;border-radius:20px;background:#eceff1;color:#1a3a5c;font-size:12.5px;font-weight:700;border:2px solid transparent;cursor:pointer;white-space:nowrap}
+.stakeout-chip.active{background:#1a3a5c;color:#fff;border-color:#ffc107}
+#stakeoutMap{flex:1;min-height:0;position:relative}
+.stakeout-compass{position:absolute;top:12px;left:12px;z-index:500;background:#fff;border-radius:50%;width:44px;height:44px;
+  display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3);font-weight:900;color:#c62828;font-size:15px}
+.stakeout-panel{background:#fff;padding:14px 16px 18px;flex-shrink:0;box-shadow:0 -4px 14px rgba(0,0,0,.12)}
+.stakeout-dist{font-size:32px;font-weight:900;color:#1a3a5c;text-align:center}
+.stakeout-dist span{font-size:14px;font-weight:700;color:#607d8b}
+.stakeout-dirs{display:flex;gap:10px;margin-top:10px}
+.stakeout-dir{flex:1;background:#f5f7fa;border-radius:10px;padding:10px;text-align:center;font-size:13.5px;font-weight:700;color:#1a3a5c}
+.stakeout-dir b{display:block;font-size:19px;margin-bottom:2px}
+.stakeout-acc{text-align:center;font-size:11px;color:#90a4ae;margin-top:8px}
+.stakeout-reached{background:#2e7d32 !important;color:#fff !important}
+.stakeout-reached b{color:#fff !important}
+</style>
+</head>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<body>
+
+<div id="authGate" class="gate-screen">
+  <div class="gate-box">
+    <div class="gate-logo">🦺</div>
+    <h2>اپلیکیشن مسئول فنی</h2>
+    <p>اداره صنعت، معدن و تجارت شهرستان قروه<br>برای ارسال گزارش ماهانه و عکس با ایمیل یا شماره عضویت و رمز خود وارد شوید.</p>
+    <label>ایمیل یا شماره عضویت نظام مهندسی</label>
+    <input id="gateEmail" type="text" dir="ltr" autocomplete="username">
+    <label>رمز عبور</label>
+    <input id="gatePass" type="password" dir="ltr" autocomplete="current-password">
+    <button class="btn btn-save" style="width:100%;margin-top:16px" onclick="doGateLogin()">ورود</button>
+    <div class="login-err" id="gateErr"></div>
+    <div style="margin-top:10px;font-size:12px"><a href="#" onclick="showForgotGate();return false" style="color:#607d8b">رمز عبور را فراموش کرده‌اید؟</a></div>
+    <div style="margin-top:6px;font-size:12px;color:#607d8b">قبلاً ثبت‌نام نکرده‌اید؟ <a href="#" onclick="showRegisterGate();return false" style="color:#00695c;font-weight:700">ثبت‌نام کنید</a></div>
+  </div>
+</div>
+
+<div id="forgotGate" class="gate-screen" style="display:none">
+  <div class="gate-box">
+    <div class="gate-logo">🔑</div>
+    <h2>بازیابی رمز عبور</h2>
+    <p>ایمیل خود را وارد کنید؛ لینک بازیابی رمز عبور برایتان ارسال می‌شود. (اگر با شماره عضویت ثبت‌نام کرده‌اید، همان ایمیلی که هنگام ثبت‌نام وارد کردید را بنویسید)</p>
+    <label>ایمیل</label>
+    <input id="forgotEmail" type="email" dir="ltr" autocomplete="username" onkeydown="if(event.key==='Enter')doForgotPassword()">
+    <div class="login-err" id="forgotErr"></div>
+    <div id="forgotSent" style="display:none;color:#2e7d32;font-size:12.5px;margin-top:8px;line-height:1.8">✅ اگر این ایمیل در سامانه ثبت باشد، لینک بازیابی رمز عبور برایش ارسال شد. صندوق ورودی (و پوشه اسپم) را بررسی کنید.</div>
+    <button class="btn btn-save" id="forgotSendBtn" style="width:100%;margin-top:16px" onclick="doForgotPassword()">ارسال لینک بازیابی</button>
+    <div style="margin-top:14px;font-size:12px"><a href="#" onclick="showLoginGate();return false" style="color:#00695c;font-weight:700">بازگشت به ورود</a></div>
+  </div>
+</div>
+
+<div id="resetPassGate" class="gate-screen" style="display:none">
+  <div class="gate-box">
+    <div class="gate-logo">🔑</div>
+    <h2>تعیین رمز عبور جدید</h2>
+    <p>یک رمز عبور جدید برای حساب خود تعیین کنید.</p>
+    <label>رمز عبور جدید</label>
+    <input id="resetPass1" type="password" dir="ltr" autocomplete="new-password">
+    <label>تکرار رمز عبور جدید</label>
+    <input id="resetPass2" type="password" dir="ltr" autocomplete="new-password">
+    <div class="login-err" id="resetPassErr"></div>
+    <button class="btn btn-save" style="width:100%;margin-top:16px" onclick="doResetPassword()">ذخیره رمز عبور جدید</button>
+  </div>
+</div>
+
+<div id="registerGate" class="gate-screen" style="display:none">
+  <div class="gate-box" style="max-width:440px;max-height:88vh;overflow-y:auto">
+    <div class="gate-logo">📝</div>
+    <h2>ثبت‌نام مسئول فنی</h2>
+    <p>اطلاعات زیر برای تطبیق و استعلام به مدیر سامانه ارسال می‌شود؛ پس از تایید می‌توانید وارد شوید.</p>
+
+    <div style="font-weight:700;color:#1a3a5c;font-size:12.5px;text-align:right;margin-top:6px">👤 اطلاعات هویتی</div>
+    <label>نام و نام خانوادگی</label>
+    <input id="regFullName" type="text">
+    <label>کد ملی</label>
+    <input id="regNationalCode" type="text" dir="ltr" inputmode="numeric">
+    <label>شماره تماس</label>
+    <input id="regPhone" type="tel" dir="ltr" inputmode="numeric">
+    <label>ایمیل (برای ورود)</label>
+    <input id="regEmail" type="email" dir="ltr" autocomplete="username">
+    <label>رمز عبور</label>
+    <input id="regPass" type="password" dir="ltr" autocomplete="new-password">
+    <label>تکرار رمز عبور</label>
+    <input id="regPass2" type="password" dir="ltr" autocomplete="new-password">
+
+    <div style="font-weight:700;color:#1a3a5c;font-size:12.5px;text-align:right;margin-top:14px">🦺 اطلاعات نظام مهندسی و معدن</div>
+    <label>نوع تخصص مسئول فنی</label>
+    <select id="regSpecialty">
+      <option value="استخراج">⛏️ استخراج</option>
+      <option value="اکتشاف">🔍 اکتشاف</option>
+      <option value="فرآوری">⚗️ فرآوری</option>
+    </select>
+    <label>شماره عضویت نظام مهندسی</label>
+    <input id="regMembershipNo" type="text" dir="ltr">
+    <label>شماره پروانه اشتغال به کار</label>
+    <input id="regLicenseNo" type="text" dir="ltr">
+    <label>نام معدن/محدوده اکتشافی/واحد فرآوری که مسئول فنی آن هستید</label>
+    <input id="regMineName" type="text">
+    <label>شماره ثبت قرارداد نظام مهندسی معدن</label>
+    <input id="regContractNo" type="text" dir="ltr">
+    <label>پیام‌رسان پیش‌فرض اطلاع‌رسانی</label>
+    <select id="regMessenger" onchange="toggleRegMessengerHint()">
+      <option value="telegram">تلگرام</option>
+      <option value="bale">بله</option>
+      <option value="eitaa">ایتا</option>
+      <option value="rubika">روبیکا</option>
+      <option value="whatsapp">واتساپ</option>
+    </select>
+    <label id="regMessengerIdLabel">آیدی چت تلگرام</label>
+    <input id="regMessengerChatId" type="text" dir="ltr" placeholder="شناسه چت">
+
+    <div id="signupCaptcha" style="margin-top:12px"></div>
+    <button class="btn btn-save" style="width:100%;margin-top:16px" onclick="doGateRegister()">ارسال درخواست ثبت‌نام</button>
+    <div class="login-err" id="regErr"></div>
+    <div style="margin-top:12px;font-size:12px;color:#607d8b">حساب دارید؟ <a href="#" onclick="showLoginGate();return false" style="color:#00695c;font-weight:700">ورود</a></div>
+  </div>
+</div>
+
+<div id="registerDoneGate" class="gate-screen" style="display:none">
+  <div class="gate-box">
+    <div class="gate-logo">✅</div>
+    <h2>درخواست ثبت شد</h2>
+    <p>اطلاعات شما برای مدیر سامانه ارسال شد. پس از بررسی و تایید، می‌توانید با همین ایمیل و رمز وارد شوید.</p>
+    <button class="btn btn-save" style="width:100%" onclick="showLoginGate()">بازگشت به ورود</button>
+  </div>
+</div>
+
+<div class="gate-screen" id="incidentModal" style="display:none;z-index:1000">
+  <div class="gate-box" style="max-width:440px;max-height:88vh;overflow-y:auto;text-align:right">
+    <h2 style="color:#c62828">🚨 اعلام حادثه در معدن</h2>
+    <div id="incidentMineNameBox" style="font-size:12.5px;color:#607d8b;margin-bottom:10px"></div>
+
+    <label>نوع حادثه</label>
+    <select id="incMineType">
+      <option value="ریزش">🪨 ریزش</option>
+      <option value="آتش‌سوزی">🔥 آتش‌سوزی</option>
+      <option value="حادثه انسانی/جرح">🤕 حادثه انسانی/جرح</option>
+      <option value="نشت آلاینده">☣️ نشت آلاینده/زیست‌محیطی</option>
+      <option value="خرابی تجهیزات">⚙️ خرابی تجهیزات</option>
+      <option value="سایر">❓ سایر</option>
+    </select>
+
+    <label>زمان وقوع</label>
+    <input id="incOccurredAt" type="datetime-local">
+
+    <label>محل دقیق حادثه</label>
+    <input id="incLocation" type="text" placeholder="مثلاً پله سوم، جبهه‌کار شمالی">
+
+    <div style="display:flex;gap:10px;margin-top:10px">
+      <div style="flex:1"><label>تعداد مصدومان</label><input id="incInjured" type="number" min="0" value="0"></div>
+      <div style="flex:1"><label>تعداد فوتی</label><input id="incFatal" type="number" min="0" value="0"></div>
+    </div>
+
+    <label>شرح حادثه</label>
+    <textarea id="incDescription" rows="3" placeholder="چه اتفاقی افتاد؟"></textarea>
+    <button class="btn-sm" style="background:#f3e5f5;color:#6a1b9a;margin-top:4px" onclick="polishNarrativeWithAI('incDescription')">✨ رسمی‌نویسی با هوش مصنوعی</button>
+
+    <label>اقدامات انجام‌شده (اختیاری)</label>
+    <textarea id="incActions" rows="2" placeholder="مثلاً تخلیه محل، اطلاع اورژانس"></textarea>
+
+    <label>عکس از محل حادثه</label>
+    <input id="incPhotoInput" type="file" accept="image/*" capture="environment" multiple onchange="onIncidentPhotosSelected(event)">
+    <div id="incPhotoThumbs" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"></div>
+
+    <div class="login-err" id="incidentErr"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn" style="flex:1;background:#eee;color:#333" onclick="closeIncidentModal()">انصراف</button>
+      <button class="btn" style="flex:1;background:#c62828;color:#fff" id="incidentSubmitBtn" onclick="submitIncident()">🚨 ارسال فوری</button>
+    </div>
+  </div>
+</div>
+
+<div class="gate-screen" id="aiPolishModal" style="display:none;z-index:1100">
+  <div class="gate-box" style="max-width:440px;max-height:88vh;overflow-y:auto;text-align:right">
+    <h2 style="color:#6a1b9a">✨ پیشنهاد رسمی‌نویسی</h2>
+    <div style="font-size:11.5px;color:#607d8b;margin-bottom:10px">فقط جمله‌بندی و نگارش رسمی می‌شود؛ هیچ عدد/تاریخ/ادعای جدیدی اضافه نمی‌شود. متن نهایی با خودتان است.</div>
+    <label>متن پیشنهادی</label>
+    <textarea id="aiPolishResultBox" rows="8"></textarea>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn" style="flex:1;background:#eee;color:#333" onclick="closeAiPolishModal()">انصراف</button>
+      <button class="btn btn-save" style="flex:1" onclick="acceptAiPolish()">✅ جایگزینی متن</button>
+    </div>
+  </div>
+</div>
+
+<div class="stakeout-view" id="stakeoutView">
+  <div class="stakeout-header">
+    <h3 id="stakeoutTitle">🎯 پیاده کردن نقاط پروانه</h3>
+    <button class="stakeout-close" onclick="closeStakeout()">✕</button>
+  </div>
+  <div class="stakeout-mode-row">
+    <button class="stakeout-mode-btn active" id="stakeoutModeManualBtn" onclick="setStakeoutMode('manual')">🖐 دستی</button>
+    <button class="stakeout-mode-btn" id="stakeoutModeAutoBtn" onclick="setStakeoutMode('auto')">🔄 خودکار (تور همه‌ی نقاط)</button>
+  </div>
+  <div class="stakeout-chips" id="stakeoutChips"></div>
+  <div id="stakeoutMap">
+    <div class="stakeout-compass">N</div>
+
+  </div>
+  <div class="stakeout-panel">
+    <div id="stakeoutStatus" style="font-size:12.5px;color:#607d8b;text-align:center;margin-bottom:6px">در حال دریافت موقعیت GPS...</div>
+    <div class="stakeout-dist" id="stakeoutDistBox" style="display:none">
+      <span id="stakeoutTargetLabel"></span><br>
+      <span id="stakeoutDistNum"></span> <span>متر فاصله</span>
+    </div>
+    <div class="stakeout-dirs" id="stakeoutDirs" style="display:none">
+      <div class="stakeout-dir" id="stakeoutDirNS"></div>
+      <div class="stakeout-dir" id="stakeoutDirEW"></div>
+    </div>
+    <div class="stakeout-acc" id="stakeoutAcc"></div>
+  </div>
+</div>
+
+<div id="biometricGate" class="gate-screen" style="display:none">
+  <div class="gate-box">
+    <div class="gate-logo">👆</div>
+    <h2>ورود با اثر انگشت</h2>
+    <p id="biometricGateEmail" style="direction:ltr"></p>
+    <button class="btn btn-save" style="width:100%;margin-top:10px" onclick="tryBiometricLogin()">👆 تایید با اثر انگشت / Face ID</button>
+    <div class="login-err" id="biometricErr"></div>
+    <div style="margin-top:14px;font-size:12px;color:#607d8b">
+      <a href="#" onclick="fallbackToPasswordLogin();return false" style="color:#00695c;font-weight:700">ورود با ایمیل و رمز عبور</a>
+    </div>
+  </div>
+</div>
+
+<div id="pendingGate" class="gate-screen" style="display:none">
+  <div class="gate-box">
+    <div class="gate-logo">⏳</div>
+    <h2>در انتظار تایید</h2>
+    <p>حساب شما هنوز توسط مدیر سامانه تایید یا معدنی به شما اختصاص داده نشده است.</p>
+    <button class="btn" style="width:100%;background:#eee;color:#333" onclick="doLogout()">خروج از حساب</button>
+  </div>
+</div>
+
+<div id="identityGate" class="gate-screen" style="display:none;z-index:998">
+  <div class="gate-box" style="max-width:440px;max-height:88vh;overflow-y:auto">
+    <div class="gate-logo">📸</div>
+    <h2 id="identityGateTitle">احراز هویت مسئول فنی</h2>
+    <p id="identityGateDesc" style="text-align:right"></p>
+
+    <label>معدن (باید همین لحظه داخل محدوده آن باشید)</label>
+    <select id="identityMineSelect"></select>
+
+    <div style="margin-top:10px;padding:10px;background:#fff8e1;border-radius:8px;font-size:11px;color:#8d6e00;text-align:right">
+      📍 این عکس فقط با دوربین جلوی گوشی و همین لحظه گرفته می‌شود؛ موقعیت مکانی شما بررسی می‌شود و باید داخل محدوده‌ی قانونی همین معدن باشید.
+    </div>
+
+    <input id="identityCameraInput" type="file" accept="image/*" capture="user" style="display:none" onchange="captureIdentityPhoto(this)">
+    <button class="btn-sm" style="background:#00695c;color:#fff;margin-top:10px" onclick="document.getElementById('identityCameraInput').value='';document.getElementById('identityCameraInput').click()">🤳 گرفتن عکس از خودم</button>
+    <div id="identityPreview" style="margin-top:10px;display:flex;justify-content:center"></div>
+
+    <div class="login-err" id="identityGateErr"></div>
+    <button class="btn btn-save" id="identitySubmitBtn" style="width:100%;margin-top:14px" onclick="submitIdentityCapture()">📤 ارسال برای تایید</button>
+    <div style="margin-top:14px;font-size:12px;color:#607d8b"><a href="#" onclick="doLogout();return false" style="color:#c62828;font-weight:700">خروج از حساب</a></div>
+  </div>
+</div>
+
+<div id="identityPendingGate" class="gate-screen" style="display:none">
+  <div class="gate-box">
+    <div class="gate-logo">⏳</div>
+    <h2>در انتظار تایید احراز هویت</h2>
+    <p id="identityPendingMsg">عکس احراز هویت شما ارسال شد و در انتظار بررسی و تایید مدیر سامانه است. پس از تایید، دسترسی شما فعال می‌شود.</p>
+    <button class="btn btn-save" style="width:100%" onclick="onLogin()">🔄 بررسی مجدد وضعیت</button>
+    <button class="btn" style="width:100%;background:#eee;color:#333;margin-top:8px" onclick="doLogout()">خروج از حساب</button>
+  </div>
+</div>
+
+<div id="notAllowedGate" class="gate-screen" style="display:none">
+  <div class="gate-box">
+    <div class="gate-logo">🚫</div>
+    <h2>دسترسی مجاز نیست</h2>
+
+    <p>این اپلیکیشن فقط برای کاربران با نقش «مسئول فنی» است. برای مدیریت کامل از نسخه مرورگری سامانه استفاده کنید.</p>
+    <button class="btn" style="width:100%;background:#eee;color:#333" onclick="doLogout()">خروج از حساب</button>
+  </div>
+</div>
+
+<div id="techOfficerShell">
+  <div class="topbar">
+    <div class="topbar-title">🦺 پنل مسئول فنی</div>
+    <div class="topbar-right">
+      <span class="topbar-user" id="techOfficerEmail"></span>
+      <button class="logout-btn" onclick="doLogout()">خروج</button>
+    </div>
+  </div>
+
+  <div id="biometricBanner" style="display:none;background:#e8f5e9;border-radius:10px;padding:10px 14px;margin:12px 0;font-size:12px;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+    <span>👆 برای ورود سریع‌تر دفعات بعد، اثر انگشت را فعال کنید</span>
+    <button class="btn-sm" style="background:#00695c;color:#fff" onclick="enableBiometric()">فعال‌سازی</button>
+  </div>
+
+  <div id="monthlyReminderBanner" style="display:none;background:#fff8e1;border-radius:10px;padding:10px 14px;margin:12px 0;font-size:12px;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;color:#8d6e00">
+    <span id="monthlyReminderText"></span>
+    <button class="btn-sm" style="background:#00695c;color:#fff" onclick="onLogin()">📸 گرفتن عکس ماهانه</button>
+  </div>
+
+  <div id="techOfficerMines"></div>
+
+  <div class="panel-card">
+    <h3>👤 مشخصات مسئول فنی (روی عکس‌ها درج می‌شود)</h3>
+    <div id="torSpecialtyBadge" style="display:none;background:#e0f2f1;color:#00695c;border-radius:8px;padding:6px 10px;font-size:11.5px;margin-bottom:8px;font-weight:700"></div>
+    <label>نام و نام خانوادگی</label>
+    <input id="torFullName" type="text">
+    <label>شماره عضویت نظام مهندسی</label>
+    <input id="torMembershipNo" type="text">
+    <button class="btn-sm" style="margin-top:10px;background:#e3f2fd;color:#1565c0" onclick="saveTechOfficerProfile()">💾 ذخیره مشخصات</button>
+    <span id="torProfileStatus" style="font-size:11px;margin-right:8px"></span>
+  </div>
+
+  <div class="panel-card">
+    <h3>📤 آپلود گزارش ماهانه</h3>
+    <div style="font-size:11.5px;color:#607d8b;margin-bottom:8px">گزارش و عکس‌ها مستقیماً برای مسئولین اداره ارسال می‌شود.</div>
+
+    <label>معدن</label>
+    <select id="torMine" onchange="renderEquipmentChecklist()"></select>
+    <button type="button" class="btn-sm" style="margin-top:8px;background:#e8f5e9;color:#1b5e20;width:100%" onclick="openStakeout()">🎯 پیاده کردن نقاط پروانه (استیک‌اوت GPS)</button>
+
+    <label>دوره گزارش (مثلاً مرداد ۱۴۰۵)</label>
+    <input id="torPeriod" type="text" placeholder="دوره گزارش">
+
+    <label>فایل گزارش ماهانه (PDF/Word/عکس)</label>
+    <input id="torReportFile" type="file" accept=".pdf,.doc,.docx,image/*">
+
+    <div style="margin-top:14px;padding:10px;background:#fff8e1;border-radius:8px;font-size:11px;color:#8d6e00">
+      📷 همه‌ی عکس‌ها فقط با دوربین همین لحظه گرفته می‌شوند (نه گالری) و مختصات GPS + مشخصات معدن و مسئول فنی روی خود عکس درج می‌شود.
+    </div>
+
+    <label>عکس‌های سینه‌کار</label>
+    <input id="torFaceCameraInput" type="file" accept="image/*" capture="environment" style="display:none" onchange="captureTechPhoto(this,'face')">
+    <button class="btn-sm" style="background:#00695c;color:#fff;margin-top:4px" onclick="document.getElementById('torFaceCameraInput').value='';document.getElementById('torFaceCameraInput').click()">📷 گرفتن عکس سینه‌کار</button>
+    <div id="torFaceThumbs" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
+
+    <label style="margin-top:14px;display:block">ماشین‌آلات ثبت‌شده‌ی این معدن (از فرم درخواست سوخت)</label>
+    <div id="torEquipList" style="margin-top:6px"></div>
+
+    <label style="margin-top:14px;display:block">عکس سایر ماشین‌آلات (خارج از لیست بالا)</label>
+    <input id="torEquipCameraInput" type="file" accept="image/*" capture="environment" style="display:none" onchange="captureTechPhoto(this,'equip')">
+    <button class="btn-sm" style="background:#00695c;color:#fff;margin-top:4px" onclick="document.getElementById('torEquipCameraInput').value='';document.getElementById('torEquipCameraInput').click()">📷 گرفتن عکس ماشین‌آلات دیگر</button>
+    <div id="torEquipThumbs" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
+
+    <label>توضیحات</label>
+    <textarea id="torNote" rows="3" placeholder="توضیحات تکمیلی..."></textarea>
+    <button class="btn-sm" style="background:#f3e5f5;color:#6a1b9a;margin-top:4px" onclick="polishNarrativeWithAI('torNote')">✨ رسمی‌نویسی با هوش مصنوعی</button>
+
+    <button class="btn btn-save" id="torSubmitBtn" style="width:100%;margin-top:14px" onclick="submitTechReport()">📤 ارسال گزارش</button>
+    <div id="torStatus" style="margin-top:10px;font-size:12.5px"></div>
+  </div>
+
+  <div class="panel-card">
+    <h3>🗂️ گزارش‌های ارسالی قبلی</h3>
+    <div id="techOfficerHistory"><div style="text-align:center;color:#90a4ae;font-size:12px;padding:12px">در حال بارگذاری...</div></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── همان پروژه Supabase برنامه اصلی ──
+const SUPA_URL = 'https://khhurfxqxkuphksglgqi.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtoaHVyZnhxeGt1cGhrc2dsZ3FpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3MDUwNTksImV4cCI6MjA5ODI4MTA1OX0.q3b_JNkltZ3I_2qU8fGBT_enjCzN6eFshQNo11TyIPQ';
+
+// ── محافظت از فرم ثبت‌نام در برابر بات/اسپم (Cloudflare Turnstile) — باید با نسخه مرورگری هماهنگ بماند ──
+const TURNSTILE_SITE_KEY = ''; // تا وقتی خالی است، این ویژگی نادیده گرفته می‌شود
+let turnstileWidgetId = null;
+function renderSignupCaptcha() {
+  const box = document.getElementById('signupCaptcha');
+  if(!box || !TURNSTILE_SITE_KEY || !window.turnstile) { if(box) box.innerHTML=''; return; }
+  box.innerHTML = '';
+  turnstileWidgetId = window.turnstile.render(box, { sitekey: TURNSTILE_SITE_KEY });
+}
+function getCaptchaToken() {
+  if(!TURNSTILE_SITE_KEY || !window.turnstile || turnstileWidgetId === null) return undefined;
+  return window.turnstile.getResponse(turnstileWidgetId) || undefined;
+}
+function resetCaptcha() {
+  if(TURNSTILE_SITE_KEY && window.turnstile && turnstileWidgetId !== null) window.turnstile.reset(turnstileWidgetId);
+}
+const { createClient } = supabase;
+const sb = createClient(SUPA_URL, SUPA_KEY);
+sb.auth.onAuthStateChange((event) => {
+  if(event === 'PASSWORD_RECOVERY') { showResetPassGate(); }
+});
+
+// ============================================================================
+// صف آفلاین — چون این اپ در سایت معدن با اینترنت ضعیف/قطع استفاده می‌شود، گزارش
+// دوره‌ای و حادثه هرگز نباید فقط به‌خاطر نبود آنتن از دست برود. اگر ارسال ناموفق شود
+// (یا اصلاً آنلاین نباشیم)، آیتم با تمام عکس‌ها (Blob) در IndexedDB ذخیره می‌شود و
+// به‌محض اتصال دوباره (رویداد 'online' یا باز شدن مجدد اپ)، خودکار تلاش برای ارسال
+// انجام می‌شود. کاربر هیچ‌وقت "خطا در اینترنت، دوباره امتحان کنید" نمی‌بیند —
+// همیشه پیام "ذخیره شد، به‌محض اتصال ارسال می‌شود" را می‌بیند.
+// ============================================================================
+const OFFLINE_DB_NAME = 'tech-officer-offline-v1';
+const OFFLINE_STORE = 'pending-submissions';
+
+function openOfflineDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(OFFLINE_DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      req.result.createObjectStore(OFFLINE_STORE, { keyPath: 'id' });
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+// item = { id, type: 'techReport'|'incident', payload, queuedAt }
+async function queueOfflineSubmission(item) {
+  const db = await openOfflineDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(OFFLINE_STORE, 'readwrite');
+    tx.objectStore(OFFLINE_STORE).put(item);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function getQueuedSubmissions() {
+  const db = await openOfflineDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(OFFLINE_STORE, 'readonly');
+    const req = tx.objectStore(OFFLINE_STORE).getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function deleteQueuedSubmission(id) {
+  const db = await openOfflineDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(OFFLINE_STORE, 'readwrite');
+    tx.objectStore(OFFLINE_STORE).delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+function updateOfflineBadge() {
+  getQueuedSubmissions().then(items => {
+    let badge = document.getElementById('offlineQueueBadge');
+    if(!badge) {
+      badge = document.createElement('div');
+      badge.id = 'offlineQueueBadge';
+      badge.style.cssText = 'position:fixed;top:8px;left:8px;z-index:1200;background:#f57f17;color:#fff;'+
+        'font-size:11px;font-weight:700;padding:6px 10px;border-radius:20px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.25);display:none';
+      badge.onclick = () => trySyncQueuedItems(true);
+      document.body.appendChild(badge);
+    }
+    if(items.length > 0) {
+      badge.style.display = 'block';
+      badge.textContent = '📤 ' + items.length + ' مورد در انتظار ارسال — لمس کنید';
+    } else {
+      badge.style.display = 'none';
+    }
+  }).catch(()=>{});
+}
+
+let _syncInProgress = false;
+async function trySyncQueuedItems(manual) {
+  if(_syncInProgress) return;
+  if(!navigator.onLine) { if(manual) showToast('⚠️ هنوز اینترنت وصل نیست'); return; }
+  _syncInProgress = true;
+  try {
+    const items = await getQueuedSubmissions();
+    if(!items.length) { if(manual) showToast('چیزی در صف نیست'); _syncInProgress=false; return; }
+    if(manual) showToast('⏳ در حال ارسال ' + items.length + ' مورد ذخیره‌شده...');
+    let okCount = 0;
+    for(const item of items) {
+      try {
+        if(item.type === 'techReport') await sendTechReportPayload(item.payload);
+        else if(item.type === 'incident') await sendIncidentPayload(item.payload);
+        else if(item.type === 'identityVerification') await sendIdentityVerificationPayload(item.payload);
+        await deleteQueuedSubmission(item.id);
+        okCount++;
+      } catch(e) {
+        // این یکی هنوز ناموفق بود — در صف می‌ماند، بار بعد دوباره تلاش می‌شود
+        console.warn('offline sync item failed, will retry later', e);
+      }
+    }
+    updateOfflineBadge();
+    if(okCount > 0) showToast('✅ ' + okCount + ' مورد ذخیره‌شده با موفقیت ارسال شد');
+  } finally {
+    _syncInProgress = false;
+  }
+}
+window.addEventListener('online', () => trySyncQueuedItems(false));
+document.addEventListener('DOMContentLoaded', () => { updateOfflineBadge(); trySyncQueuedItems(false); });
+
+function esc(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.opacity = '1';
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(()=>{ t.style.opacity = '0'; }, 3000);
+}
+// ── رسمی‌نویسی متن با هوش مصنوعی (هماهنگ با پنل ادمین) ─────────────
+// فقط جمله‌بندی/نگارش را رسمی می‌کند؛ هیچ واقعیتی اضافه یا حذف نمی‌شود.
+// نتیجه در یک پیش‌نمایش نشان داده می‌شود و مسئول فنی خودش تایید می‌کند.
+let aiPolishTargetId = null;
+async function polishNarrativeWithAI(targetId) {
+  const ta = document.getElementById(targetId);
+  const text = (ta.value || '').trim();
+  if(!text) { showToast('⚠️ ابتدا متن را بنویسید'); return; }
+  if(!navigator.onLine) { showToast('⚠️ برای این کار به اینترنت نیاز است'); return; }
+  aiPolishTargetId = targetId;
+  const btn = event && event.target;
+  const originalLabel = btn ? btn.textContent : '';
+  if(btn) { btn.disabled = true; btn.textContent = '⏳ در حال ویرایش...'; }
+  try {
+    const {data: sessionData} = await sb.auth.getSession();
+    const jwt = sessionData && sessionData.session ? sessionData.session.access_token : SUPA_KEY;
+    const res = await fetch(SUPA_URL + '/functions/v1/polish-report-text', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + jwt},
+      body: JSON.stringify({text})
+    });
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok || !data.polished) { showToast('⚠️ ' + (data.error || 'ویرایش ناموفق بود')); }
+    else {
+      document.getElementById('aiPolishResultBox').value = data.polished;
+      document.getElementById('aiPolishModal').style.display = 'flex';
+    }
+  } catch(e) {
+    showToast('⚠️ اتصال به سرویس هوش مصنوعی برقرار نشد');
+  }
+  if(btn) { btn.disabled = false; btn.textContent = originalLabel; }
+}
+function acceptAiPolish() {
+  if(aiPolishTargetId) document.getElementById(aiPolishTargetId).value = document.getElementById('aiPolishResultBox').value;
+  closeAiPolishModal();
+  showToast('✅ متن جایگزین شد');
+}
+function closeAiPolishModal() { document.getElementById('aiPolishModal').style.display = 'none'; aiPolishTargetId = null; }
+
+// ============================================================================
+// ابزار پیاده کردن نقاط پروانه (استیک‌اوت GPS)
+// نقاط گوشه‌ی محدوده (طول_A/عرض_A ... تا طول_Z/عرض_Z، به همان قرارداد نسخه‌ی اصلی
+// سامانه) را روی نقشه نشان می‌دهد، موقعیت زنده‌ی خود فرد را دنبال می‌کند و فاصله تا
+// نقطه‌ی هدف را به‌صورت دو مؤلفه‌ی شمال-جنوب/شرق-غرب (متر) نشان می‌دهد — این روش بدون
+// نیاز به قطب‌نمای گوشی (که روی خیلی گوشی‌ها نامعتبر/بی‌مجوز است) کار می‌کند.
+// ============================================================================
+
+function getStakeoutMineCorners(m) {
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+  const points = [];
+  letters.forEach(l => {
+    const lonStr = m['طول_'+l], latStr = m['عرض_'+l];
+    if(!lonStr || !latStr) return;
+    const lon = dmsToDec(lonStr), lat = dmsToDec(latStr);
+    if(lon != null && lat != null) points.push({label: l, lat, lon});
+  });
+  return points;
+}
+
+// آیا نقطه‌ی داده‌شده داخل چندضلعی محدوده‌ی پروانه است؟ (الگوریتم ray-casting استاندارد)
+// اگر کمتر از ۳ گوشه ثبت شده باشد (محدوده تعریف نشده)، null برمی‌گرداند یعنی «نامشخص»
+function isPointInsideBoundary(lat, lon, corners) {
+  if(!corners || corners.length < 3) return null;
+  let inside = false;
+  for(let i=0, j=corners.length-1; i<corners.length; j=i++) {
+    const yi = corners[i].lat, xi = corners[i].lon;
+    const yj = corners[j].lat, xj = corners[j].lon;
+    const intersect = ((yi > lat) !== (yj > lat)) &&
+      (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi);
+    if(intersect) inside = !inside;
+  }
+  return inside;
+}
+
+// اگر عکس بیرون از محدوده‌ی ثبت‌شده‌ی پروانه گرفته شده، فوراً (نه فقط در بازبینی بعدی ادمین) هشدار بده
+function warnIfOutsideBoundary(coords, mine) {
+  const corners = getStakeoutMineCorners(mine);
+  const inside = isPointInsideBoundary(coords.latitude, coords.longitude, corners);
+  if(inside === false) {
+    showToast('⚠️ این عکس بیرون از محدوده‌ی ثبت‌شده‌ی پروانه‌ی این معدن گرفته شده — موقعیت را بررسی کنید');
+  }
+}
+
+let _leafletLoading = null;
+// اول کپی محلی (کنار همین index.html، در همین پوشه‌ی اپ) را امتحان می‌کند — اگر آپلود کرده
+// باشید، نقشه دیگر هیچ‌وقت به اینترنت/CDN نیاز ندارد. اگر نبود، آینه‌های CDN را امتحان می‌کند.
+const LEAFLET_JS_MIRRORS = [
+  './leaflet.js', // کپی محلی — راهنما در پایین
+  'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js',
+  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
+];
+const LEAFLET_CSS_MIRRORS = [
+  './leaflet.css',
+  'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css',
+  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
+];
+// راهنما برای کارکردن کامل بدون اینترنت خارجی:
+// از دستگاهی با دسترسی، این دو فایل را دانلود کنید:
+//   https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js  →  اسم: leaflet.js
+//   https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css →  اسم: leaflet.css
+// و در همان پوشه‌ای که این index.html و sw.js و manifest.json هستند آپلود کنید.
+function loadScriptOnce(src, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src;
+    const timer = setTimeout(()=>{ s.remove(); reject(new Error('timeout')); }, timeoutMs);
+    s.onload = () => { clearTimeout(timer); resolve(); };
+    s.onerror = () => { clearTimeout(timer); s.remove(); reject(new Error('load-error')); };
+    document.head.appendChild(s);
+  });
+}
+function loadCssWithFallback(urls) {
+  return new Promise((resolve) => {
+    let i = 0;
+    function tryNext() {
+      if(i >= urls.length) { resolve(); return; } // بدون CSS هم نقشه کار می‌کند، فقط بی‌استایل
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = urls[i];
+      link.onload = () => resolve();
+      link.onerror = () => { link.remove(); i++; tryNext(); };
+      document.head.appendChild(link);
+    }
+    tryNext();
+  });
+}
+function ensureLeaflet() {
+  if(window.L) return Promise.resolve();
+  if(_leafletLoading) return _leafletLoading;
+  _leafletLoading = (async () => {
+    loadCssWithFallback(LEAFLET_CSS_MIRRORS); // موازی، منتظرش نمی‌مانیم
+    for(const url of LEAFLET_JS_MIRRORS) {
+      try { await loadScriptOnce(url, 8000); if(window.L) return; }
+      catch(e) { /* آینه‌ی بعدی را امتحان کن */ }
+    }
+    throw new Error('بارگذاری نقشه از هیچ‌کدام از منابع ممکن نشد — اینترنت/فیلترینگ را بررسی کنید یا leaflet.js را کنار index.html آپلود کنید');
+  })();
+  return _leafletLoading;
+}
+
+let stakeoutMap = null, stakeoutMarkers = [], stakeoutUserMarker = null, stakeoutAccCircle = null;
+let stakeoutWatchId = null, stakeoutPoints = [], stakeoutTargetIdx = 0, stakeoutLastPos = null;
+let stakeoutMode = 'manual'; // 'manual' یا 'auto'
+let stakeoutVisited = new Set();
+let _stakeoutAdvanceTimer = null;
+const STAKEOUT_TOLERANCE_M = 3; // در این فاصله یا کمتر: «به نقطه رسیدید»
+
+function setStakeoutMode(mode) {
+  stakeoutMode = mode;
+  document.getElementById('stakeoutModeManualBtn').classList.toggle('active', mode==='manual');
+  document.getElementById('stakeoutModeAutoBtn').classList.toggle('active', mode==='auto');
+  if(mode === 'auto') {
+    // شروع تور از اولین نقطه‌ی بازدیدنشده
+    stakeoutVisited.clear();
+    stakeoutTargetIdx = 0;
+    renderStakeoutChips();
+    showToast('🔄 حالت خودکار فعال شد — به‌ترتیب نقطه‌به‌نقطه راهنمایی می‌شوید');
+  } else {
+    if(_stakeoutAdvanceTimer) { clearTimeout(_stakeoutAdvanceTimer); _stakeoutAdvanceTimer = null; }
+  }
+  if(stakeoutLastPos) updateStakeoutGuidance(stakeoutLastPos);
+}
+
+async function openStakeout() {
+  const mineName = document.getElementById('torMine').value;
+  if(!mineName) { showToast('⚠️ ابتدا معدن را انتخاب کنید'); return; }
+  const mine = techOfficerMinesCache.find(m => m['نام_معدن'] === mineName);
+  if(!mine) { showToast('⚠️ اطلاعات این معدن یافت نشد'); return; }
+
+  const corners = getStakeoutMineCorners(mine);
+  stakeoutPoints = corners.slice();
+  if(!stakeoutPoints.length) { showToast('⚠️ این معدن هیچ مختصات گوشه‌ی محدوده‌ای ثبت‌شده ندارد (بخش «آپلود اکسل مختصات چهار گوشه محدوده» در سامانه اصلی)'); return; }
+
+  document.getElementById('stakeoutTitle').textContent = '🎯 پیاده کردن نقاط — ' + mineName;
+  document.getElementById('stakeoutView').style.display = 'flex';
+  document.getElementById('stakeoutStatus').textContent = 'در حال دریافت موقعیت GPS...';
+  document.getElementById('stakeoutDistBox').style.display = 'none';
+  document.getElementById('stakeoutDirs').style.display = 'none';
+  stakeoutTargetIdx = 0;
+  stakeoutVisited = new Set();
+  stakeoutLastPos = null;
+  if(_stakeoutAdvanceTimer) { clearTimeout(_stakeoutAdvanceTimer); _stakeoutAdvanceTimer = null; }
+  setStakeoutMode('manual');
+  renderStakeoutChips();
+
+  try {
+    await ensureLeaflet();
+  } catch(e) {
+    document.getElementById('stakeoutStatus').textContent = '⚠️ ' + e.message;
+    return;
+  }
+
+  if(stakeoutMap) { stakeoutMap.remove(); stakeoutMap = null; }
+  stakeoutMap = L.map('stakeoutMap', {zoomControl:true, attributionControl:false}).setView([stakeoutPoints[0].lat, stakeoutPoints[0].lon], 17);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19}).addTo(stakeoutMap);
+
+  stakeoutMarkers.forEach(mk => mk.remove());
+  stakeoutMarkers = [];
+  if(stakeoutPoints.length >= 3) {
+    L.polygon(stakeoutPoints.map(p=>[p.lat,p.lon]), {color:'#ffc107', weight:3, fillColor:'#ffc107', fillOpacity:0.08, dashArray:'6,4'}).addTo(stakeoutMap);
+  }
+  stakeoutPoints.forEach((p, i) => {
+    const mk = L.marker([p.lat, p.lon], {icon: L.divIcon({
+      className:'', html:'<div style="background:#1a3a5c;color:#fff;border-radius:50%;width:26px;height:26px;display:flex;'+
+        'align-items:center;justify-content:center;font-weight:900;font-size:12px;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)">'+esc(p.label)+'</div>',
+      iconSize:[26,26], iconAnchor:[13,13]
+    })}).addTo(stakeoutMap);
+    mk.on('click', () => onStakeoutChipTap(i));
+    stakeoutMarkers.push(mk);
+  });
+
+  if(!('geolocation' in navigator)) {
+    document.getElementById('stakeoutStatus').textContent = '⚠️ این دستگاه از GPS پشتیبانی نمی‌کند';
+    return;
+  }
+  if(stakeoutWatchId != null) navigator.geolocation.clearWatch(stakeoutWatchId);
+  stakeoutWatchId = navigator.geolocation.watchPosition(onStakeoutPosition, onStakeoutPosError,
+    {enableHighAccuracy:true, maximumAge:1000, timeout:20000});
+}
+
+function renderStakeoutChips() {
+  const box = document.getElementById('stakeoutChips');
+  box.innerHTML = stakeoutPoints.map((p,i) =>
+    '<div class="stakeout-chip'+(i===stakeoutTargetIdx?' active':'')+(stakeoutVisited.has(i)?' visited':'')+'" onclick="onStakeoutChipTap('+i+')">📍 '+esc(p.label)+'</div>'
+  ).join('');
+}
+
+// اگر کاربر در حالت خودکار دستی روی یک چیپ بزند، یعنی می‌خواهد خودش کنترل کند —
+// به‌طور خودکار به حالت دستی سوییچ می‌کنیم تا با تور خودکار تداخل نکند
+function onStakeoutChipTap(i) {
+  if(stakeoutMode === 'auto') {
+    stakeoutMode = 'manual';
+    document.getElementById('stakeoutModeManualBtn').classList.add('active');
+    document.getElementById('stakeoutModeAutoBtn').classList.remove('active');
+    if(_stakeoutAdvanceTimer) { clearTimeout(_stakeoutAdvanceTimer); _stakeoutAdvanceTimer = null; }
+  }
+  selectStakeoutTarget(i);
+}
+
+function selectStakeoutTarget(i) {
+  stakeoutTargetIdx = i;
+  renderStakeoutChips();
+  if(stakeoutMap) stakeoutMap.panTo([stakeoutPoints[i].lat, stakeoutPoints[i].lon]);
+  if(stakeoutLastPos) updateStakeoutGuidance(stakeoutLastPos);
+}
+
+function onStakeoutPosError(err) {
+  const box = document.getElementById('stakeoutStatus');
+  if(err.code === err.PERMISSION_DENIED) box.textContent = '⚠️ دسترسی GPS رد شد — از تنظیمات مرورگر/گوشی اجازه دهید';
+  else if(err.code === err.POSITION_UNAVAILABLE) box.textContent = '⚠️ موقعیت GPS در دسترس نیست — به فضای باز بروید';
+  else box.textContent = '⚠️ دریافت GPS با تأخیر مواجه شد، در حال تلاش مجدد...';
+}
+
+function onStakeoutPosition(pos) {
+  stakeoutLastPos = pos;
+  const {latitude, longitude, accuracy} = pos.coords;
+  document.getElementById('stakeoutStatus').textContent = '';
+
+  if(!stakeoutUserMarker) {
+    stakeoutUserMarker = L.marker([latitude, longitude], {icon: L.divIcon({
+      className:'', html:'<div style="background:#1976d2;border-radius:50%;width:18px;height:18px;border:3px solid #fff;box-shadow:0 0 0 3px rgba(25,118,210,.35)"></div>',
+      iconSize:[18,18], iconAnchor:[9,9]
+    })}).addTo(stakeoutMap);
+    stakeoutAccCircle = L.circle([latitude, longitude], {radius: accuracy, color:'#1976d2', weight:1, fillOpacity:0.08}).addTo(stakeoutMap);
+    stakeoutMap.setView([latitude, longitude], 18);
+  } else {
+    stakeoutUserMarker.setLatLng([latitude, longitude]);
+    stakeoutAccCircle.setLatLng([latitude, longitude]); stakeoutAccCircle.setRadius(accuracy);
+  }
+  updateStakeoutGuidance(pos);
+}
+
+// تجزیه‌ی بردار فاصله به دو مؤلفه‌ی شمال-جنوب و شرق-غرب (متر) — دقیق‌تر و قابل‌اعتمادتر
+// از استفاده از قطب‌نمای گوشی برای راهنمایی حرکت در چهار جهت
+function updateStakeoutGuidance(pos) {
+  const target = stakeoutPoints[stakeoutTargetIdx];
+  if(!target) return;
+  const {latitude, longitude, accuracy} = pos.coords;
+  const northM = (target.lat - latitude) * 111320;
+  const eastM  = (target.lon - longitude) * 111320 * Math.cos(latitude * Math.PI/180);
+  const distance = Math.sqrt(northM*northM + eastM*eastM);
+
+  document.getElementById('stakeoutDistBox').style.display = 'block';
+  document.getElementById('stakeoutDirs').style.display = 'flex';
+  document.getElementById('stakeoutTargetLabel').textContent = '📍 ' + target.label;
+  document.getElementById('stakeoutDistNum').textContent = distance.toFixed(1);
+  document.getElementById('stakeoutAcc').textContent = 'دقت GPS: ± ' + Math.round(accuracy) + ' متر';
+
+  const nsBox = document.getElementById('stakeoutDirNS');
+  const ewBox = document.getElementById('stakeoutDirEW');
+  const distBox = document.getElementById('stakeoutDistBox');
+  nsBox.innerHTML = (northM >= 0 ? '<b>⬆️ شمال</b>' : '<b>⬇️ جنوب</b>') + Math.abs(northM).toFixed(1) + ' متر';
+  ewBox.innerHTML = (eastM >= 0 ? '<b>➡️ شرق</b>' : '<b>⬅️ غرب</b>') + Math.abs(eastM).toFixed(1) + ' متر';
+
+  const reached = distance <= STAKEOUT_TOLERANCE_M;
+  distBox.classList.toggle('stakeout-reached', reached);
+  nsBox.classList.toggle('stakeout-reached', reached);
+  ewBox.classList.toggle('stakeout-reached', reached);
+  if(reached) {
+    document.getElementById('stakeoutTargetLabel').textContent = '✅ به نقطه «' + target.label + '» رسیدید';
+
+    if(stakeoutMode === 'auto' && !stakeoutVisited.has(stakeoutTargetIdx)) {
+      stakeoutVisited.add(stakeoutTargetIdx);
+      renderStakeoutChips();
+      if(stakeoutVisited.size >= stakeoutPoints.length) {
+        showToast('🎉 تور تمام نقاط با موفقیت به پایان رسید');
+      } else if(!_stakeoutAdvanceTimer) {
+        const nextIdx = findNextUnvisitedStakeoutIdx();
+        _stakeoutAdvanceTimer = setTimeout(() => {
+          _stakeoutAdvanceTimer = null;
+          if(stakeoutMode !== 'auto') return; // کاربر در همین حین به حالت دستی سوییچ کرده
+          if(nextIdx == null) return;
+          stakeoutTargetIdx = nextIdx;
+          renderStakeoutChips();
+          if(stakeoutMap) stakeoutMap.panTo([stakeoutPoints[nextIdx].lat, stakeoutPoints[nextIdx].lon]);
+          showToast('➡️ به سمت نقطه‌ی بعدی: ' + stakeoutPoints[nextIdx].label);
+          if(stakeoutLastPos) updateStakeoutGuidance(stakeoutLastPos);
+        }, 1800);
+      }
+    }
+  }
+}
+
+// نقطه‌ی بعدی بازدیدنشده را به‌ترتیب (با چرخش به ابتدای لیست) پیدا می‌کند
+function findNextUnvisitedStakeoutIdx() {
+  const n = stakeoutPoints.length;
+  for(let step = 1; step <= n; step++) {
+    const idx = (stakeoutTargetIdx + step) % n;
+    if(!stakeoutVisited.has(idx)) return idx;
+  }
+  return null;
+}
+
+function closeStakeout() {
+  document.getElementById('stakeoutView').style.display = 'none';
+  if(stakeoutWatchId != null) { navigator.geolocation.clearWatch(stakeoutWatchId); stakeoutWatchId = null; }
+  if(_stakeoutAdvanceTimer) { clearTimeout(_stakeoutAdvanceTimer); _stakeoutAdvanceTimer = null; }
+  if(stakeoutMap) { stakeoutMap.remove(); stakeoutMap = null; }
+  stakeoutUserMarker = null; stakeoutAccCircle = null; stakeoutLastPos = null;
+}
+
+function hideAllGates() {
+  document.getElementById('authGate').style.display = 'none';
+  document.getElementById('registerGate').style.display = 'none';
+  document.getElementById('registerDoneGate').style.display = 'none';
+  document.getElementById('biometricGate').style.display = 'none';
+  document.getElementById('pendingGate').style.display = 'none';
+  document.getElementById('notAllowedGate').style.display = 'none';
+  document.getElementById('identityGate').style.display = 'none';
+  document.getElementById('identityPendingGate').style.display = 'none';
+  document.getElementById('techOfficerShell').style.display = 'none';
+  document.getElementById('forgotGate').style.display = 'none';
+  document.getElementById('resetPassGate').style.display = 'none';
+}
+function showLoginGate() { hideAllGates(); document.getElementById('authGate').style.display = 'flex'; }
+function showRegisterGate() { hideAllGates(); document.getElementById('registerGate').style.display = 'flex'; renderSignupCaptcha(); }
+function showForgotGate() {
+  hideAllGates();
+  document.getElementById('forgotErr').textContent = '';
+  document.getElementById('forgotSent').style.display = 'none';
+  document.getElementById('forgotSendBtn').style.display = 'block';
+  document.getElementById('forgotGate').style.display = 'flex';
+}
+async function doForgotPassword() {
+  const errEl = document.getElementById('forgotErr');
+  errEl.textContent = '';
+  let identifier = document.getElementById('forgotEmail').value.trim();
+  if(!identifier) { errEl.textContent = 'ایمیل خود را وارد کنید'; return; }
+  let email = identifier;
+  if(!identifier.includes('@')) {
+    const {data: resolved} = await sb.rpc('resolve_login_email', {identifier});
+    if(!resolved) { errEl.textContent = 'حسابی با این شماره عضویت پیدا نشد'; return; }
+    email = resolved;
+  }
+  const btn = document.getElementById('forgotSendBtn');
+  btn.disabled = true; btn.textContent = '⏳ در حال ارسال...';
+  const {error} = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + window.location.pathname });
+  btn.disabled = false; btn.textContent = 'ارسال لینک بازیابی';
+  if(error) { errEl.textContent = 'خطا در ارسال: ' + error.message; return; }
+  document.getElementById('forgotSent').style.display = 'block';
+  btn.style.display = 'none';
+}
+function showResetPassGate() {
+  hideAllGates();
+  document.getElementById('resetPassErr').textContent = '';
+  document.getElementById('resetPass1').value = '';
+  document.getElementById('resetPass2').value = '';
+  document.getElementById('resetPassGate').style.display = 'flex';
+}
+async function doResetPassword() {
+  const errEl = document.getElementById('resetPassErr');
+  errEl.textContent = '';
+  const p1 = document.getElementById('resetPass1').value;
+  const p2 = document.getElementById('resetPass2').value;
+  if(!p1 || p1.length < 6) { errEl.textContent = 'رمز عبور باید حداقل ۶ کاراکتر باشد'; return; }
+  if(p1 !== p2) { errEl.textContent = 'تکرار رمز عبور با رمز عبور یکسان نیست'; return; }
+  const {error} = await sb.auth.updateUser({ password: p1 });
+  if(error) { errEl.textContent = 'خطا در تغییر رمز عبور: ' + error.message; return; }
+  await sb.auth.signOut();
+  hideAllGates();
+  showLoginGate();
+  document.getElementById('gateErr').textContent = '';
+}
+
+async function doGateLogin() {
+  let identifier = document.getElementById('gateEmail').value.trim();
+  const pass = document.getElementById('gatePass').value;
+  const errEl = document.getElementById('gateErr');
+  errEl.textContent = '';
+  if(!identifier || !pass) { errEl.textContent = 'ایمیل/شماره عضویت و رمز را وارد کنید'; return; }
+
+  let email = identifier;
+  if(!identifier.includes('@')) {
+    const {data: resolved} = await sb.rpc('resolve_login_email', {identifier});
+    if(!resolved) { errEl.textContent = 'ایمیل یا رمز اشتباه است'; return; }
+    email = resolved;
+  }
+
+  const {error} = await sb.auth.signInWithPassword({email, password:pass});
+  if(error) { errEl.textContent = 'ایمیل یا رمز اشتباه است'; return; }
+  await onLogin();
+}
+async function doLogout() { await sb.auth.signOut(); location.reload(); }
+
+function toggleRegMessengerHint() {
+  const m = document.getElementById('regMessenger').value;
+  const hints = {
+    telegram: 'آیدی چت تلگرام', bale: 'شماره موبایل یا آیدی چت بله', eitaa: 'آیدی چت/کانال ایتا',
+    rubika: 'شناسه چت روبیکا', whatsapp: 'شماره موبایل واتساپ (با کد کشور)',
+  };
+  document.getElementById('regMessengerIdLabel').textContent = hints[m] || 'شناسه چت';
+}
+
+// نگاشت تخصص مسئول فنی به بخش صحیح — باید با نسخه‌ی مرورگری هماهنگ بماند
+function deptForSpecialty(spec) {
+  return spec === 'اکتشاف' ? 'اکتشاف' : (spec === 'فرآوری' ? 'فرآوری' : 'معدن');
+}
+
+async function doGateRegister() {
+  const errEl = document.getElementById('regErr');
+  errEl.textContent = '';
+  const full_name = document.getElementById('regFullName').value.trim();
+  const national_code = document.getElementById('regNationalCode').value.trim();
+  const phone = document.getElementById('regPhone').value.trim();
+  const email = document.getElementById('regEmail').value.trim();
+  const pass = document.getElementById('regPass').value;
+  const pass2 = document.getElementById('regPass2').value;
+  const tech_officer_specialty = document.getElementById('regSpecialty').value;
+  const membership_no = document.getElementById('regMembershipNo').value.trim();
+  const license_no = document.getElementById('regLicenseNo').value.trim();
+  const requested_mine_name = document.getElementById('regMineName').value.trim();
+  const contract_no = document.getElementById('regContractNo').value.trim();
+  const preferred_messenger = document.getElementById('regMessenger').value;
+  const messenger_chat_id = document.getElementById('regMessengerChatId').value.trim();
+
+  if(!full_name || !national_code || !phone || !email || !pass) { errEl.textContent = 'اطلاعات هویتی، ایمیل و رمز عبور را کامل کنید'; return; }
+  if(pass.length < 6) { errEl.textContent = 'رمز عبور باید حداقل ۶ کاراکتر باشد'; return; }
+  if(pass !== pass2) { errEl.textContent = 'تکرار رمز عبور با رمز عبور یکسان نیست'; return; }
+  if(!membership_no || !license_no || !requested_mine_name || !contract_no || !messenger_chat_id) { errEl.textContent = 'اطلاعات نظام مهندسی، معدن و شناسه پیام‌رسان را کامل کنید'; return; }
+  if(TURNSTILE_SITE_KEY && !getCaptchaToken()) { errEl.textContent = 'لطفاً تیک «من ربات نیستم» را تکمیل کنید'; return; }
+
+  const {data: signUpData, error: signUpErr} = await sb.auth.signUp({
+    email, password: pass,
+    options: { data: { full_name, phone, national_code, membership_no, license_no, requested_mine_name, contract_no, tech_officer_specialty, preferred_messenger, messenger_chat_id }, captchaToken: getCaptchaToken() }
+  });
+  if(signUpErr) { errEl.textContent = 'خطا در ثبت‌نام: ' + signUpErr.message; resetCaptcha(); return; }
+
+  if(!signUpData.session) {
+    // تایید ایمیل فعال است: به‌محض اولین ورود (بعد از تایید ایمیل)، درخواست به‌طور خودکار با همین اطلاعات ثبت می‌شود
+    hideAllGates();
+    document.getElementById('registerDoneGate').style.display = 'flex';
+    return;
+  }
+
+  const {error: insErr} = await sb.from('user_roles').upsert([{
+    email, role: 'pending', department: deptForSpecialty(tech_officer_specialty), full_name, phone,
+    national_code, membership_no, license_no, requested_mine_name, contract_no, tech_officer_specialty, preferred_messenger, messenger_chat_id
+  }], {onConflict:'email', ignoreDuplicates:true});
+  if(insErr) { errEl.textContent = 'حساب ساخته شد ولی ثبت اطلاعات با خطا مواجه شد: ' + insErr.message; return; }
+
+  await sb.auth.signOut();
+  hideAllGates();
+  document.getElementById('registerDoneGate').style.display = 'flex';
+}
+
+let myAssignedMines = [];
+let myMembershipNo = '', myNationalCode = '';
+async function ensureMyRoleRow(user) {
+  const email = (user.email||'').toLowerCase();
+  if(!email) return;
+  const meta = user.user_metadata || {};
+  try {
+    await sb.from('user_roles').upsert(
+      [{ email, role: 'pending', department: deptForSpecialty(meta.tech_officer_specialty), full_name: meta.full_name || email, phone: meta.phone || '',
+         national_code: meta.national_code || null, membership_no: meta.membership_no || null,
+         license_no: meta.license_no || null, requested_mine_name: meta.requested_mine_name || null,
+         contract_no: meta.contract_no || null, tech_officer_specialty: meta.tech_officer_specialty || null, preferred_messenger: meta.preferred_messenger || null,
+         messenger_chat_id: meta.messenger_chat_id || null }],
+      { onConflict: 'email', ignoreDuplicates: true }
+    );
+  } catch(e) { console.warn('ensureMyRoleRow failed', e); }
+}
+
+const SPECIALTY_META = {
+  'استخراج': {dept:'معدن',   table:'mine_records',        nameField:'نام_معدن'},
+  'اکتشاف':  {dept:'اکتشاف', table:'exploration_records', nameField:'نام_متقاضی'},
+  'فرآوری':  {dept:'فرآوری', table:'processing_records',  nameField:'نام_واحد'},
+};
+function specialtyMeta(spec) { return SPECIALTY_META[spec] || SPECIALTY_META['استخراج']; }
+
+// یک‌بار محدوده معادن اختصاص‌یافته را واکشی می‌کند — هم برای پنل و هم برای بررسی احراز هویت/ورود بی‌صدا استفاده می‌شود
+async function fetchAssignedMines(specialty, assignedMines) {
+  const meta = specialtyMeta(specialty || 'استخراج');
+  const {data, error} = await sb.from(meta.table).select('*');
+  if(error || !data) return [];
+  return data.map(r => Object.assign({}, r.record, {_rowId:r.id, _nameField:meta.nameField}))
+    .filter(m => (assignedMines||[]).includes(m[meta.nameField]));
+}
+
+const MONTHLY_IDENTITY_MS = 30*24*60*60*1000;
+// وضعیت احراز هویت را بررسی می‌کند؛ اگر نیاز به عکس/تایید باشد گیت مربوطه را نمایش می‌دهد و false برمی‌گرداند
+async function runIdentityGate(email, mines, row) {
+  if(row.identity_status === 'pending') {
+    hideAllGates();
+    document.getElementById('identityPendingMsg').textContent = 'عکس احراز هویت شما ارسال شد و در انتظار بررسی و تایید مدیر سامانه است. پس از تایید، دسترسی شما فعال می‌شود.';
+    document.getElementById('identityPendingGate').style.display = 'flex';
+    return false;
+  }
+  if(row.identity_status !== 'approved') {
+    let reason = '';
+    if(row.identity_status === 'rejected') {
+      const {data: rrows} = await sb.from('identity_verifications').select('reject_reason')
+        .eq('email', email).eq('kind','initial').eq('status','rejected').order('created_at', {ascending:false}).limit(1);
+      reason = (rrows && rrows[0] && rrows[0].reject_reason) || '';
+    }
+    showIdentityCaptureGate(email, mines, 'initial', reason);
+    return false;
+  }
+  const last = row.identity_verified_at ? new Date(row.identity_verified_at).getTime() : 0;
+  if(Date.now() - last > MONTHLY_IDENTITY_MS) {
+    let monthlyReason = '';
+    const {data: mrows} = await sb.from('identity_verifications').select('reject_reason,status')
+      .eq('email', email).eq('kind','monthly').order('created_at', {ascending:false}).limit(1);
+    if(mrows && mrows[0] && mrows[0].status === 'rejected') monthlyReason = mrows[0].reject_reason || '';
+    showIdentityCaptureGate(email, mines, 'monthly', monthlyReason);
+    return false;
+  }
+  return true;
+}
+
+async function onLogin() {
+  const {data:{user}} = await sb.auth.getUser();
+  if(!user) return;
+  await ensureMyRoleRow(user);
+  const {data} = await sb.from('user_roles')
+    .select('role, assigned_mines, tech_officer_specialty, identity_status, identity_verified_at, trusted_device_id')
+    .eq('email', user.email).limit(1);
+  const row = (data && data[0]) || {role:'pending', assigned_mines:[]};
+  hideAllGates();
+  if(row.role === 'pending') { document.getElementById('pendingGate').style.display = 'flex'; return; }
+  if(row.role !== 'tech_officer') { document.getElementById('notAllowedGate').style.display = 'flex'; return; }
+  myAssignedMines = row.assigned_mines || [];
+  const mines = await fetchAssignedMines(row.tech_officer_specialty, myAssignedMines);
+  const ok = await runIdentityGate(user.email, mines, row);
+  if(!ok) return;
+  await showTechOfficerPanel(user.email, mines, row.identity_verified_at);
+}
+
+const MONTHLY_REMINDER_WINDOW_MS = 5*24*60*60*1000; // ۵ روز قبل از سررسید، هشدار نمایش داده می‌شود
+function renderMonthlyReminderBanner(identityVerifiedAt) {
+  const box = document.getElementById('monthlyReminderBanner');
+  if(!identityVerifiedAt) { box.style.display = 'none'; return; }
+  const dueAt = new Date(identityVerifiedAt).getTime() + MONTHLY_IDENTITY_MS;
+  const remainMs = dueAt - Date.now();
+  if(remainMs > 0 && remainMs <= MONTHLY_REMINDER_WINDOW_MS) {
+    const daysLeft = Math.max(1, Math.ceil(remainMs / (24*60*60*1000)));
+    document.getElementById('monthlyReminderText').textContent =
+      '⏰ '+daysLeft+' روز تا سررسید تمدید ماهانه احراز هویت مانده — هر وقت داخل محدوده معدن بودید، عکس را ثبت کنید تا اپ قفل نشود.';
+    box.style.display = 'flex';
+  } else {
+    box.style.display = 'none';
+  }
+}
+
+// ── پنل مسئول فنی (همان منطق نسخه اصلی) ──
+let techOfficerMinesCache = [];
+let myTechOfficerDept = 'معدن';
+async function showTechOfficerPanel(email, mines, identityVerifiedAt) {
+  document.getElementById('techOfficerEmail').textContent = email;
+  document.getElementById('techOfficerShell').style.display = 'block';
+  renderBiometricBanner(email);
+  renderMonthlyReminderBanner(identityVerifiedAt);
+
+  const {data: roleRows} = await sb.from('user_roles').select('full_name, membership_no, national_code, tech_officer_specialty').eq('email', email).limit(1);
+  const myRow = (roleRows && roleRows[0]) || {};
+  document.getElementById('torFullName').value = myRow.full_name || '';
+  document.getElementById('torMembershipNo').value = myRow.membership_no || '';
+  myMembershipNo = myRow.membership_no || '';
+  myNationalCode = myRow.national_code || '';
+  const mySpecialty = myRow.tech_officer_specialty || 'استخراج';
+  const specBadge = document.getElementById('torSpecialtyBadge');
+  if(specBadge) {
+    const specIcons = {'استخراج':'⛏️','اکتشاف':'🔍','فرآوری':'⚗️'};
+    if(myRow.tech_officer_specialty) { specBadge.style.display = 'block'; specBadge.textContent = (specIcons[myRow.tech_officer_specialty]||'🦺') + ' تخصص: ' + myRow.tech_officer_specialty; }
+    else specBadge.style.display = 'none';
+  }
+
+  const meta = specialtyMeta(mySpecialty);
+  myTechOfficerDept = meta.dept;
+  const myMines = mines || await fetchAssignedMines(mySpecialty, myAssignedMines);
+  techOfficerMinesCache = myMines;
+  renderTechOfficerMines(myMines);
+  const sel = document.getElementById('torMine');
+  sel.innerHTML = myMines.length
+    ? myMines.map(m => '<option value="'+esc(m[meta.nameField])+'">'+esc(m[meta.nameField])+'</option>').join('')
+    : '<option value="">— موردی اختصاص نیافته —</option>';
+  renderEquipmentChecklist();
+  loadTechOfficerHistory(myMines.map(m => m[meta.nameField]));
+}
+
+async function saveTechOfficerProfile() {
+  const full_name = document.getElementById('torFullName').value.trim();
+  const membership_no = document.getElementById('torMembershipNo').value.trim();
+  const statusEl = document.getElementById('torProfileStatus');
+  const {data:{user}} = await sb.auth.getUser();
+  if(!user) return;
+  const {error} = await sb.from('user_roles').update({full_name, membership_no}).eq('email', user.email);
+  statusEl.textContent = error ? '⚠️ خطا در ذخیره' : '✅ ذخیره شد';
+  statusEl.style.color = error ? '#c62828' : '#2e7d32';
+  setTimeout(()=>{ statusEl.textContent=''; }, 3000);
+}
+
+// آدرس‌های پیش‌فرض سامانه‌های دولتی — اگر ادمین هنوز مقداری در جدول app_links ثبت نکرده باشد،
+// همین آدرس‌ها به‌کار می‌روند تا مسئول فنی با صفحه‌ی خالی مواجه نشود
+const APP_LINK_FALLBACKS = {
+  sanam: 'https://ime.org.ir',
+  cadastre_tech: 'http://mcs.mimt.gov.ir/',
+  cadastre_operator: 'http://cadastre.mimt.gov.ir/default.aspx',
+  fuel_system: 'https://newtejaratasan.niopdc.ir',
+};
+function appLinkHint(key, membership, national) {
+  const hints = {
+    sanam: 'نام‌کاربری: کد عضویت ('+membership+') — رمز: کد ملی ('+national+')',
+    cadastre_tech: 'نام‌کاربری: شماره عضویت ('+membership+')',
+    cadastre_operator: 'برای بهره‌بردار/دارنده پروانه',
+    fuel_system: 'درخواست سهمیه گازوئیل معدن',
+  };
+  return hints[key] || '';
+}
+
+async function renderTechOfficerMines(list) {
+  const box = document.getElementById('techOfficerMines');
+  if(!list.length) {
+    box.innerHTML = '<div style="background:#fff3e0;color:#e65100;border-radius:10px;padding:14px;font-size:13px">هنوز هیچ موردی به شما اختصاص داده نشده — با مدیر سامانه تماس بگیرید.</div>';
+    return;
+  }
+  const cardsHtml = list.map((m,i) => {
+    const nf = m._nameField || 'نام_معدن';
+    const subLine = nf === 'نام_معدن'
+      ? 'دارنده: '+esc(m['نام_دارنده']||'-')+' | ماده معدنی: '+esc(m['نام_ماده']||'-')+'<br>'+
+        'شماره پروانه: '+esc(m['شماره_پروانه']||'-')+' | تاریخ پروانه: '+esc(m['تاریخ_پروانه']||'-')+'<br>'+
+        'مساحت: '+esc(m['مساحت']||'-')+' هکتار | ذخیره قطعی: '+esc(m['ذخیره_قطعی']||'-')+' '+esc(m['واحد']||'')
+      : nf === 'نام_متقاضی'
+        ? 'شماره پروانه اکتشاف: '+esc(m['شماره_پروانه_اکتشاف']||'-')
+        : 'محصول نهایی: '+esc(m['محصول_نهایی']||'-');
+    return '<div class="mine-card">'+
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'+
+    '<div style="font-weight:700;color:#1a3a5c">'+esc(m[nf]||'')+'</div>'+
+    '<button class="btn-sm" style="background:#ffebee;color:#c62828;flex-shrink:0" onclick="openIncidentModal('+i+')">🚨 اعلام حادثه</button>'+
+    '</div>'+
+    '<div style="font-size:11.5px;color:#607d8b;margin-top:4px;line-height:1.9">'+subLine+
+    '</div>'+
+    '</div>';
+  }).join('');
+  box.innerHTML = cardsHtml + await renderTechOfficerLinks();
+}
+
+async function renderTechOfficerLinks() {
+  let data = null;
+  try { const res = await sb.from('app_links').select('*'); data = res.data; } catch(e) { /* از پیش‌فرض استفاده می‌شود */ }
+  const links = (data && data.length) ? data : Object.keys(APP_LINK_FALLBACKS).map(k=>({key:k, url:APP_LINK_FALLBACKS[k]}));
+  const usable = links.map(l => ({...l, url: l.url || APP_LINK_FALLBACKS[l.key] || ''})).filter(l => l.url);
+  if(!usable.length) return '';
+  const icons = {sanam:'📋', cadastre_tech:'🗺️', cadastre_operator:'🗺️', fuel_system:'⛽'};
+  const labels = {sanam:'سامانه سنم (گزارش ماهانه نظام مهندسی)', cadastre_tech:'سامانه کاداستر — ورود مسئول فنی', cadastre_operator:'سامانه کاداستر — ورود بهره‌بردار', fuel_system:'سامانه سوخت (سدف)'};
+  const membership = esc(myMembershipNo || '—');
+  const national = esc(myNationalCode || '—');
+  const row = (l) => {
+    const hint = appLinkHint(l.key, membership, national);
+    return '<div style="display:flex;justify-content:space-between;align-items:center;background:#f8f9fa;border-radius:8px;padding:8px 10px;margin-bottom:6px">'+
+    '<div><div style="font-weight:700;font-size:12px;color:#1a3a5c">'+esc(l.label||labels[l.key]||l.key)+'</div>'+(hint?'<div style="font-size:10.5px;color:#90a4ae;margin-top:2px">'+hint+'</div>':'')+'</div>'+
+    '<a href="'+esc(l.url)+'" target="_blank" style="background:#00695c;color:#fff;border-radius:6px;padding:6px 12px;font-size:11.5px;text-decoration:none;white-space:nowrap">'+(icons[l.key]||'🔗')+' ورود ↗</a>'+
+    '</div>';
+  };
+  return '<div class="mine-card">'+
+    '<div style="font-weight:700;color:#1a3a5c;font-size:13px;margin-bottom:8px">🔑 دسترسی سریع به سامانه‌های دولتی</div>'+
+    usable.map(row).join('')+
+    '<div style="font-size:10px;color:#90a4ae;margin-top:6px">⚠️ این‌ها سامانه‌های رسمی خارج از این اپ‌اند؛ آمار باید جداگانه و طبق مهلت قانونی (معمولاً تا دهم هر ماه) در آن‌ها هم ثبت شود.</div>'+
+    '</div>';
+}
+
+let torFaceCaptures = [];
+let torEquipCaptures = [];
+
+// ── اعلام حادثه ──
+let incidentMineName = null;
+let incidentPhotos = []; // [{file}]
+
+function openIncidentModal(idx) {
+  const mine = techOfficerMinesCache[idx] || {};
+  const mineName = mine[mine._nameField || 'نام_معدن'] || '';
+  incidentMineName = mineName;
+  incidentPhotos = [];
+  document.getElementById('incidentMineNameBox').textContent = '⛏️ ' + mineName;
+  document.getElementById('incMineType').value = 'ریزش';
+  document.getElementById('incOccurredAt').value = new Date(Date.now() - new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);
+  document.getElementById('incLocation').value = '';
+  document.getElementById('incInjured').value = 0;
+  document.getElementById('incFatal').value = 0;
+  document.getElementById('incDescription').value = '';
+  document.getElementById('incActions').value = '';
+  document.getElementById('incPhotoInput').value = '';
+  document.getElementById('incPhotoThumbs').innerHTML = '';
+  document.getElementById('incidentErr').textContent = '';
+  document.getElementById('incidentModal').style.display = 'flex';
+}
+function closeIncidentModal() { document.getElementById('incidentModal').style.display = 'none'; incidentMineName = null; }
+
+function onIncidentPhotosSelected(event) {
+  const files = Array.from(event.target.files || []);
+  files.forEach(f => incidentPhotos.push({file: f}));
+  const box = document.getElementById('incPhotoThumbs');
+  box.innerHTML = incidentPhotos.map((p,i) =>
+    '<div style="position:relative"><img src="'+URL.createObjectURL(p.file)+'" style="width:64px;height:64px;object-fit:cover;border-radius:8px">'+
+    '<button onclick="removeIncidentPhoto('+i+')" style="position:absolute;top:-4px;right:-4px;background:#c62828;color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer">×</button></div>'
+  ).join('');
+}
+function removeIncidentPhoto(i) { incidentPhotos.splice(i,1); onIncidentPhotosSelected({target:{files:[]}}); }
+
+async function uploadIncidentFile(file, mineName) {
+  const safeName = Date.now()+'_'+Math.random().toString(36).slice(2,8)+'_'+file.name.replace(/[^\w.\-]/g,'_');
+  const path = encodeURIComponent(mineName)+'/'+safeName;
+  const {error} = await sb.storage.from('incident-photos').upload(path, file, {upsert:false, contentType: file.type||'image/jpeg'});
+  if(error) throw new Error('آپلود عکس ناموفق بود: '+error.message);
+  const {data} = sb.storage.from('incident-photos').getPublicUrl(path);
+  return data.publicUrl;
+}
+
+// آیا خطا احتمالاً به‌خاطر قطعی اینترنت است (نه یک خطای واقعی سرور/دسترسی)؟
+function isLikelyNetworkError(err) {
+  if(!navigator.onLine) return true;
+  if(!err) return false;
+  const msg = ((err && err.message) || String(err)).toLowerCase();
+  return ['failed to fetch','networkerror','network request failed','load failed',
+          'network connection was lost','err_internet_disconnected','err_network','err_connection']
+    .some(s => msg.includes(s));
+}
+
+// منطق واقعی ارسال حادثه — هم مسیر آنلاین مستقیم و هم مسیر sync بعدی از صف آفلاین از این استفاده می‌کنند.
+// ورودی: { mineName, incidentType, occurredAt, locationDetail, injuredCount, fatalityCount, description,
+//          immediateActions, submittedBy, photoBlobs: [Blob,...] }
+async function sendIncidentPayload(p) {
+  const photoUrls = [];
+  for(const blob of p.photoBlobs) photoUrls.push(await uploadIncidentFile(blob, p.mineName));
+
+  const {data: sessionData} = await sb.auth.getSession();
+  const jwt = sessionData && sessionData.session ? sessionData.session.access_token : SUPA_KEY;
+
+  const {data: insData, error: incErr} = await sb.from('incident_reports').insert([{
+    mine_name: p.mineName, incident_type: p.incidentType, occurred_at: p.occurredAt || null,
+    location_detail: p.locationDetail, injured_count: p.injuredCount, fatality_count: p.fatalityCount,
+    description: p.description, immediate_actions: p.immediateActions, submitted_by: p.submittedBy,
+    file_urls: {photos: photoUrls}, department: myTechOfficerDept
+  }]).select('id').single();
+  if(incErr) throw new Error('ثبت حادثه در سامانه ناموفق بود: ' + incErr.message);
+
+  const relayRes = await fetch(SUPA_URL + '/functions/v1/notify-relay', {
+    method:'POST',
+    headers: {'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+jwt},
+    body: JSON.stringify({
+      action: 'incidentReport', mineName: p.mineName, incidentType: p.incidentType, occurredAt: p.occurredAt,
+      locationDetail: p.locationDetail, injuredCount: p.injuredCount, fatalityCount: p.fatalityCount,
+      description: p.description, immediateActions: p.immediateActions, submittedBy: p.submittedBy,
+      fileUrls: {photos: photoUrls}
+    })
+  });
+  const relayData = await relayRes.json().catch(()=>({}));
+  if(!relayRes.ok) {
+    if(insData) await sb.from('incident_reports').update({notify_failed:true, notify_error: JSON.stringify(relayData.error||relayRes.status)}).eq('id', insData.id);
+    throw new Error('حادثه ثبت شد ولی ارسال به تلگرام/روبیکا ناموفق بود — ادمین از طریق پنل مطلع می‌شود، نیازی به ارسال دوباره نیست: ' + (relayData.error||relayRes.status));
+  }
+}
+
+async function submitIncident() {
+  if(!incidentMineName) return;
+  const mineName = incidentMineName;
+  const errEl = document.getElementById('incidentErr');
+  errEl.textContent = '';
+  const description = document.getElementById('incDescription').value.trim();
+  if(!description) { errEl.textContent = 'شرح حادثه را وارد کنید'; return; }
+
+  const {data:{user}} = await sb.auth.getUser();
+  const payload = {
+    mineName,
+    incidentType: document.getElementById('incMineType').value,
+    occurredAt: document.getElementById('incOccurredAt').value,
+    locationDetail: document.getElementById('incLocation').value.trim(),
+    injuredCount: parseInt(document.getElementById('incInjured').value)||0,
+    fatalityCount: parseInt(document.getElementById('incFatal').value)||0,
+    description,
+    immediateActions: document.getElementById('incActions').value.trim(),
+    submittedBy: user ? user.email : '',
+    photoBlobs: incidentPhotos.map(p => p.file)
+  };
+
+  const btn = document.getElementById('incidentSubmitBtn');
+  btn.disabled = true; btn.textContent = '⏳ در حال ارسال...';
+  try {
+    if(!navigator.onLine) throw new Error('offline');
+    await sendIncidentPayload(payload);
+    showToast('✅ حادثه ثبت و به مسئولین اطلاع داده شد');
+    closeIncidentModal();
+  } catch(err) {
+    if(isLikelyNetworkError(err)) {
+      // بدون اینترنت هستیم — حادثه هرگز نباید گم شود: در صف آفلاین ذخیره می‌شود
+      await queueOfflineSubmission({ id: 'inc_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),
+        type: 'incident', payload, queuedAt: Date.now() });
+      updateOfflineBadge();
+      showToast('📴 اینترنت وصل نیست — حادثه ذخیره شد و به‌محض اتصال خودکار ارسال می‌شود');
+      closeIncidentModal();
+    } else {
+      errEl.textContent = err.message;
+    }
+  }
+  btn.disabled = false; btn.textContent = '🚨 ارسال فوری';
+}
+
+function getGeoLocation() {
+  return new Promise((resolve, reject) => {
+    if(!navigator.geolocation) { reject(new Error('مرورگر شما از موقعیت‌مکانی پشتیبانی نمی‌کند')); return; }
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve(pos.coords),
+      err => reject(new Error('برای ثبت عکس باید GPS/لوکیشن گوشی فعال باشد و دسترسی موقعیت‌مکانی را تایید کنید ('+err.message+')')),
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  });
+}
+
+async function watermarkPhoto(file, coords, mine) {
+  const img = await new Promise((resolve, reject) => {
+    const im = new Image();
+    im.onload = () => resolve(im);
+    im.onerror = reject;
+    im.src = URL.createObjectURL(file);
+  });
+  const canvas = document.createElement('canvas');
+  canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+
+  const fullName = document.getElementById('torFullName').value.trim() || '-';
+  const membershipNo = document.getElementById('torMembershipNo').value.trim() || '-';
+  const now = new Date();
+  const lines = [
+    '⛏️ ' + (mine['نام_معدن']||'-'),
+    '📜 پروانه: ' + (mine['شماره_پروانه']||'-') + '   تاریخ: ' + (mine['تاریخ_پروانه']||'-'),
+    '🗺️ کاداستر: ' + (mine['کد_کاداستر']||'-'),
+    '📍 ' + coords.latitude.toFixed(6) + ', ' + coords.longitude.toFixed(6) + '  (دقت ~' + Math.round(coords.accuracy) + 'م)',
+    '👤 ' + fullName + '   عضویت نظام مهندسی: ' + membershipNo,
+    '🕒 ' + now.toLocaleString('fa-IR'),
+  ];
+
+  const fontSize = Math.max(16, Math.round(canvas.width / 42));
+  const lineH = Math.round(fontSize * 1.5);
+  const boxH = lineH * lines.length + 16;
+  ctx.fillStyle = 'rgba(0,0,0,0.62)';
+  ctx.fillRect(0, canvas.height - boxH, canvas.width, boxH);
+  ctx.fillStyle = '#fff';
+  ctx.font = fontSize + 'px Tahoma, sans-serif';
+  ctx.textBaseline = 'top';
+  ctx.direction = 'rtl';
+  lines.forEach((line, i) => {
+    ctx.fillText(line, canvas.width - 12, canvas.height - boxH + 8 + i*lineH, canvas.width - 24);
+  });
+
+  return new Promise(resolve => canvas.toBlob(b => resolve(b), 'image/jpeg', 0.88));
+}
+
+// ── تشخیص محدوده قانونی معدن (همان مختصات چهارگوش ثبت‌شده در پرونده معدن) برای احراز هویت/ورود بی‌صدا ──
+function dmsToDec(str) {
+  if(!str) return null;
+  const s = String(str).trim();
+  const m = s.match(/(-?\d+(?:\.\d+)?)\D+(\d+(?:\.\d+)?)\D+(\d+(?:\.\d+)?)/);
+  if(!m) { const n = parseFloat(s); return isNaN(n) ? null : n; }
+  const d = parseFloat(m[1]), mm = parseFloat(m[2]), ss = parseFloat(m[3]);
+  const sign = d < 0 ? -1 : 1;
+  return sign * (Math.abs(d) + mm/60 + ss/3600);
+}
+function getMineCorners(m) {
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+  const points = [];
+  letters.forEach(l => {
+    const lonStr = m['طول_'+l], latStr = m['عرض_'+l];
+    if(!lonStr || !latStr) return;
+    const lon = dmsToDec(lonStr), lat = dmsToDec(latStr);
+    if(lon != null && lat != null) points.push([lat, lon]);
+  });
+  return points;
+}
+function pointInPolygon(lat, lon, corners) {
+  let inside = false;
+  for(let i=0, j=corners.length-1; i<corners.length; j=i++) {
+    const yi = corners[i][0], xi = corners[i][1];
+    const yj = corners[j][0], xj = corners[j][1];
+    const intersect = ((yi > lat) !== (yj > lat)) && (lon < (xj - xi) * (lat - yi) / (yj - yi + 1e-12) + xi);
+    if(intersect) inside = !inside;
+  }
+  return inside;
+}
+function haversineMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371000, toRad = d => d*Math.PI/180;
+  const dLat = toRad(lat2-lat1), dLon = toRad(lon2-lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(Math.min(1, a)));
+}
+const BOUNDARY_FALLBACK_RADIUS_M = 300; // اگر چهارگوش محدوده ثبت نشده باشد، فاصله مجاز از مرکز معدن
+function isInsideMineBoundary(coords, mine) {
+  if(!coords || !mine) return false;
+  const corners = getMineCorners(mine);
+  if(corners.length >= 3) return pointInPolygon(coords.latitude, coords.longitude, corners);
+  if(mine['_lat'] != null && mine['_lon'] != null) {
+    return haversineMeters(coords.latitude, coords.longitude, mine['_lat'], mine['_lon']) <= BOUNDARY_FALLBACK_RADIUS_M;
+  }
+  return false;
+}
+function getOrCreateDeviceId() {
+  let id = localStorage.getItem('tor_device_id');
+  if(!id) {
+    id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('dev_'+Date.now()+'_'+Math.random().toString(36).slice(2));
+    localStorage.setItem('tor_device_id', id);
+  }
+  return id;
+}
+
+// ── گیت احراز هویت با عکس داخل محدوده معدن (اولیه + تمدید ماهانه اجباری) ──
+let identityGateCtx = null;
+let identityCapturedBlob = null, identityCapturedCoords = null;
+function showIdentityCaptureGate(email, mines, kind, reason) {
+  hideAllGates();
+  identityGateCtx = { email, mines, kind };
+  identityCapturedBlob = null; identityCapturedCoords = null;
+  document.getElementById('identityGate').style.display = 'flex';
+  document.getElementById('identityGateTitle').textContent = kind === 'monthly' ? '📸 احراز هویت ماهانه (اجباری)' : '📸 احراز هویت مسئول فنی';
+  document.getElementById('identityGateDesc').textContent = kind === 'monthly'
+    ? 'طبق سیاست سامانه، هر ماه یک‌بار باید داخل محدوده معدن یک عکس از خودتان بگیرید تا حضورتان تایید شود. تا زمان تایید این عکس توسط مدیر سامانه، دسترسی محدود می‌ماند.'
+    : 'برای دسترسی به سامانه، ابتدا باید داخل محدوده قانونی معدنی که مسئول فنی آن هستید یک عکس از خودتان بگیرید. این عکس برای مدیر سامانه ارسال می‌شود و پس از تایید، دسترسی شما فعال می‌شود.';
+  const sel = document.getElementById('identityMineSelect');
+  sel.innerHTML = (mines && mines.length)
+    ? mines.map(m => '<option value="'+esc(m[m._nameField||'نام_معدن'])+'">'+esc(m[m._nameField||'نام_معدن'])+'</option>').join('')
+    : '<option value="">— معدنی برای شما ثبت نشده —</option>';
+  document.getElementById('identityPreview').innerHTML = '';
+  document.getElementById('identityGateErr').textContent = reason ? '❌ عکس قبلی رد شد: ' + reason : '';
+}
+
+async function captureIdentityPhoto(inputEl) {
+  const file = inputEl.files[0];
+  if(!file) return;
+  const errEl = document.getElementById('identityGateErr');
+  errEl.textContent = '';
+  if(file.lastModified && (Date.now() - file.lastModified) > 3*60*1000) {
+    errEl.textContent = '⚠️ لطفاً همین الان با دوربین یک عکس جدید بگیرید؛ انتخاب عکس قدیمی یا ذخیره‌شده از گالری مجاز نیست.';
+    inputEl.value=''; return;
+  }
+  const mineName = document.getElementById('identityMineSelect').value;
+  const mine = ((identityGateCtx && identityGateCtx.mines) || []).find(m => m[m._nameField||'نام_معدن'] === mineName);
+  if(!mine) { errEl.textContent = 'ابتدا معدن را انتخاب کنید'; inputEl.value=''; return; }
+  showToast('⏳ در حال دریافت موقعیت مکانی...');
+  try {
+    const coords = await getGeoLocation();
+    if(!isInsideMineBoundary(coords, mine)) {
+      errEl.textContent = '⚠️ شما داخل محدوده قانونی معدن «'+mineName+'» نیستید. لطفاً داخل محدوده معدن این عکس را بگیرید.';
+      inputEl.value=''; return;
+    }
+    identityCapturedBlob = await watermarkIdentityPhoto(file, coords, mine);
+    identityCapturedCoords = coords;
+    document.getElementById('identityPreview').innerHTML =
+      '<img src="'+URL.createObjectURL(identityCapturedBlob)+'" style="width:130px;height:130px;object-fit:cover;border-radius:12px;border:1px solid #cfd8dc">';
+    showToast('✅ عکس داخل محدوده معدن ثبت شد');
+  } catch(err) {
+    errEl.textContent = err.message;
+  }
+  inputEl.value = '';
+}
+
+async function watermarkIdentityPhoto(file, coords, mine) {
+  const img = await new Promise((resolve, reject) => {
+    const im = new Image();
+    im.onload = () => resolve(im);
+    im.onerror = reject;
+    im.src = URL.createObjectURL(file);
+  });
+  const canvas = document.createElement('canvas');
+  canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+  const now = new Date();
+  const lines = [
+    '🦺 احراز هویت مسئول فنی — ' + (mine[mine._nameField||'نام_معدن']||'-'),
+    '📍 ' + coords.latitude.toFixed(6) + ', ' + coords.longitude.toFixed(6) + '  (دقت ~' + Math.round(coords.accuracy) + 'م)',
+    '🕒 ' + now.toLocaleString('fa-IR'),
+  ];
+  const fontSize = Math.max(16, Math.round(canvas.width / 42));
+  const lineH = Math.round(fontSize * 1.5);
+  const boxH = lineH * lines.length + 16;
+  ctx.fillStyle = 'rgba(0,0,0,0.62)';
+  ctx.fillRect(0, canvas.height - boxH, canvas.width, boxH);
+  ctx.fillStyle = '#fff';
+  ctx.font = fontSize + 'px Tahoma, sans-serif';
+  ctx.textBaseline = 'top';
+  ctx.direction = 'rtl';
+  lines.forEach((line, i) => { ctx.fillText(line, canvas.width - 12, canvas.height - boxH + 8 + i*lineH, canvas.width - 24); });
+  return new Promise(resolve => canvas.toBlob(b => resolve(b), 'image/jpeg', 0.88));
+}
+
+// آپلود عکس + ثبت در سامانه — هم مسیر آنلاین مستقیم و هم sync بعدی از صف آفلاین از این استفاده می‌کنند.
+// توجه: باکت identity-photos خصوصی است؛ فقط مسیر (path) ذخیره می‌شود، نه لینک عمومی؛ نمایش آن در پنل ادمین با لینک موقت (signed URL) انجام می‌شود.
+async function sendIdentityVerificationPayload(p) {
+  const path = p.email.toLowerCase()+'/'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.jpg';
+  const {error: upErr} = await sb.storage.from('identity-photos').upload(path, p.blob, {upsert:false, contentType:'image/jpeg'});
+  if(upErr) throw new Error('آپلود عکس ناموفق بود: '+upErr.message);
+  const {error: rpcErr} = await sb.rpc('submit_identity_verification', {
+    mine_name_in: p.mineName, kind_in: p.kind, photo_url_in: path,
+    lat_in: p.lat, lon_in: p.lon, inside_boundary_in: true, device_id_in: p.deviceId
+  });
+  if(rpcErr) throw new Error(rpcErr.message);
+}
+
+async function submitIdentityCapture() {
+  const errEl = document.getElementById('identityGateErr');
+  errEl.textContent = '';
+  if(!identityCapturedBlob || !identityCapturedCoords) { errEl.textContent = 'ابتدا عکس را داخل محدوده معدن بگیرید'; return; }
+  const mineName = document.getElementById('identityMineSelect').value;
+  if(!mineName) { errEl.textContent = 'معدن را انتخاب کنید'; return; }
+  const btn = document.getElementById('identitySubmitBtn');
+  btn.disabled = true; btn.textContent = '⏳ در حال ارسال...';
+  const payload = {
+    email: identityGateCtx.email, mineName, kind: identityGateCtx.kind,
+    blob: identityCapturedBlob, lat: identityCapturedCoords.latitude, lon: identityCapturedCoords.longitude,
+    deviceId: getOrCreateDeviceId()
+  };
+  try {
+    if(!navigator.onLine) throw new Error('offline');
+    await sendIdentityVerificationPayload(payload);
+    identityCapturedBlob = null; identityCapturedCoords = null;
+    hideAllGates();
+    document.getElementById('identityPendingMsg').textContent = 'عکس احراز هویت شما ارسال شد و در انتظار بررسی و تایید مدیر سامانه است. پس از تایید، دسترسی شما فعال می‌شود.';
+    document.getElementById('identityPendingGate').style.display = 'flex';
+    showToast('✅ عکس ارسال شد — در انتظار تایید مدیر سامانه');
+  } catch(err) {
+    if(isLikelyNetworkError(err)) {
+      await queueOfflineSubmission({ id: 'idv_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),
+        type: 'identityVerification', payload, queuedAt: Date.now() });
+      updateOfflineBadge();
+      identityCapturedBlob = null; identityCapturedCoords = null;
+      hideAllGates();
+      document.getElementById('identityPendingMsg').textContent =
+        '📴 اینترنت وصل نیست — عکس داخل گوشی ذخیره شد و به‌محض اتصال، خودکار برای مدیر سامانه ارسال می‌شود. لازم نیست دوباره عکس بگیرید.';
+      document.getElementById('identityPendingGate').style.display = 'flex';
+    } else {
+      errEl.textContent = err.message;
+    }
+  }
+  btn.disabled = false; btn.textContent = '📤 ارسال برای تایید';
+}
+
+// ── ورود بی‌صدا (بدون رمز/اثرانگشت) وقتی گوشیِ مورد اعتماد داخل محدوده معدن است ──
+async function trySilentDeviceEntry(email) {
+  try {
+    const {data: rows} = await sb.from('user_roles')
+      .select('role, trusted_device_id, identity_status, tech_officer_specialty, assigned_mines')
+      .eq('email', email).limit(1);
+    const row = (rows && rows[0]) || {};
+    if(row.role !== 'tech_officer' || row.identity_status !== 'approved' || !row.trusted_device_id) return false;
+    if(row.trusted_device_id !== getOrCreateDeviceId()) return false;
+    const mines = await fetchAssignedMines(row.tech_officer_specialty, row.assigned_mines || []);
+    if(!mines.length) return false;
+    const coords = await getGeoLocation();
+    return mines.some(m => isInsideMineBoundary(coords, m));
+  } catch(e) {
+    return false;
+  }
+}
+
+let torEquipItemCaptures = {}; // key: "field__index" -> {overview:[{blob,previewUrl}], serial:[{blob,previewUrl}]}
+let torEquipWorkingList = []; // [{key, field, name, model, type, count}] — قابل‌ویرایش، قبل از ذخیره
+let torEquipWorkingMine = null; // نام معدنی که torEquipWorkingList مربوط به آن است
+let torEquipEditingKey = null; // کلید ردیفی که الان در حال ویرایش است
+const EQUIP_FIELD_KEYS = [
+  {field:'تجهیزات_نفت_گاز', label:'نفت‌گاز'},
+  {field:'تجهیزات_گاز_مایع', label:'گاز مایع'},
+  {field:'تجهیزات_نفت_سفید', label:'نفت سفید'},
+];
+
+function getMineEquipmentList(mine) {
+  const list = [];
+  EQUIP_FIELD_KEYS.forEach(({field, label}) => {
+    const rows = mine[field];
+    if(Array.isArray(rows)) {
+      rows.forEach((row, i) => {
+        const name = row['نام'] || row['نام ماشین'] || row['نام تجهیز'] || '';
+        if(!name && !row['مدل'] && !row['نوع']) return;
+        list.push({ key: field+'__'+i, field, name, model: row['مدل']||'', type: row['نوع']||label, count: row['تعداد']||'' });
+      });
+    }
+  });
+  return list;
+}
+
+function buildEquipWorkingList() {
+  const mineName = document.getElementById('torMine').value;
+  const mine = techOfficerMinesCache.find(m => m['نام_معدن'] === mineName);
+  torEquipWorkingList = mine ? getMineEquipmentList(mine) : [];
+  torEquipWorkingMine = mineName;
+  torEquipEditingKey = null;
+}
+
+function addTechEquipRow() {
+  const tempKey = 'new_' + Date.now();
+  torEquipWorkingList.push({ key: tempKey, field: 'تجهیزات_نفت_گاز', name: '', model: '', type: 'نفت‌گاز', count: '', isNew: true });
+  torEquipEditingKey = tempKey;
+  renderEquipmentChecklist();
+}
+function editTechEquipRow(key) { torEquipEditingKey = key; renderEquipmentChecklist(); }
+function removeTechEquipRowLocal(key) {
+  if(!confirm('این دستگاه از لیست حذف شود؟')) return;
+  torEquipWorkingList = torEquipWorkingList.filter(r => r.key !== key);
+  renderEquipmentChecklist();
+}
+function updateTechEquipField(key, prop, value) {
+  const row = torEquipWorkingList.find(r => r.key === key);
+  if(!row) return;
+  row[prop] = value;
+  if(prop === 'type') row.field = value==='گاز مایع' ? 'تجهیزات_گاز_مایع' : (value==='نفت سفید' ? 'تجهیزات_نفت_سفید' : 'تجهیزات_نفت_گاز');
+}
+
+async function saveTechEquipmentChanges() {
+  const mineName = document.getElementById('torMine').value;
+  if(!mineName) { showToast('⚠️ ابتدا معدن را انتخاب کنید'); return; }
+  const btn = document.getElementById('torEquipSaveBtn');
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳ در حال ذخیره...';
+  try {
+    const byField = {};
+    EQUIP_FIELD_KEYS.forEach(({field}) => byField[field] = []);
+    torEquipWorkingList.forEach(r => {
+      if(!r.name && !r.model && !r.count) return;
+      byField[r.field].push({ 'نام': r.name, 'مدل': r.model, 'نوع': r.type, 'تعداد': r.count });
+    });
+    for(const field of Object.keys(byField)) {
+      const {error} = await sb.rpc('tech_officer_update_equipment', { mine_name_in: mineName, field_in: field, equipment_in: byField[field] });
+      if(error) throw new Error(error.message);
+    }
+    // به‌روزرسانی نسخه‌ی محلی معدن تا لیست و شماره‌گذاری صحیح شود
+    const mine = techOfficerMinesCache.find(m => m['نام_معدن'] === mineName);
+    if(mine) EQUIP_FIELD_KEYS.forEach(({field}) => { mine[field] = byField[field]; });
+    torEquipItemCaptures = {}; // چون شماره‌گذاری ردیف‌ها ممکن است عوض شده باشد
+    showToast('✅ لیست ماشین‌آلات ذخیره شد');
+    buildEquipWorkingList();
+    renderEquipmentChecklist();
+  } catch(e) {
+    showToast('❌ خطا: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = orig;
+  }
+}
+
+function renderEquipmentChecklist() {
+  const box = document.getElementById('torEquipList');
+  if(!box) return;
+  const mineName = document.getElementById('torMine').value;
+  const mine = techOfficerMinesCache.find(m => m['نام_معدن'] === mineName);
+  if(!mine) { box.innerHTML = ''; return; }
+  if(mineName !== torEquipWorkingMine) buildEquipWorkingList();
+
+  const rowsHtml = torEquipWorkingList.map(eq => {
+    const k = eq.key;
+    if(torEquipEditingKey === k) {
+      return '<div style="background:#fff8e1;border-radius:10px;padding:10px;margin-bottom:8px;border:1.5px solid #ffca28">'+
+        '<input placeholder="نام ماشین" value="'+esc(eq.name)+'" oninput="updateTechEquipField(\''+k+'\',\'name\',this.value)" style="width:100%;margin-bottom:6px;border:1px solid #cfd8dc;border-radius:6px;padding:6px;font-size:12px">'+
+        '<div style="display:flex;gap:6px">'+
+          '<input placeholder="مدل" value="'+esc(eq.model)+'" oninput="updateTechEquipField(\''+k+'\',\'model\',this.value)" style="flex:1;border:1px solid #cfd8dc;border-radius:6px;padding:6px;font-size:12px">'+
+          '<input placeholder="تعداد" value="'+esc(eq.count)+'" oninput="updateTechEquipField(\''+k+'\',\'count\',this.value)" style="width:60px;border:1px solid #cfd8dc;border-radius:6px;padding:6px;font-size:12px">'+
+        '</div>'+
+        '<select onchange="updateTechEquipField(\''+k+'\',\'type\',this.value)" style="width:100%;margin-top:6px;border:1px solid #cfd8dc;border-radius:6px;padding:6px;font-size:12px">'+
+          ['نفت‌گاز','گاز مایع','نفت سفید'].map(t=>'<option value="'+t+'" '+(eq.type===t?'selected':'')+'>'+t+'</option>').join('')+
+        '</select>'+
+        '<div style="display:flex;gap:6px;margin-top:6px">'+
+          '<button class="btn-sm" style="background:#00695c;color:#fff;flex:1" onclick="torEquipEditingKey=null;renderEquipmentChecklist()">✔️ تمام</button>'+
+          '<button class="btn-sm" style="background:#ffebee;color:#c62828" onclick="removeTechEquipRowLocal(\''+k+'\')">حذف</button>'+
+        '</div>'+
+      '</div>';
+    }
+    if(!torEquipItemCaptures[k]) torEquipItemCaptures[k] = {overview:[], serial:[]};
+    return '<div style="background:#f8f9fa;border-radius:10px;padding:10px;margin-bottom:8px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start">'+
+        '<div><div style="font-weight:700;font-size:12.5px;color:#1a3a5c">'+esc(eq.name||eq.type)+'</div>'+
+        '<div style="font-size:11px;color:#607d8b;margin-bottom:6px">'+esc(eq.type)+(eq.model?' — مدل '+esc(eq.model):'')+(eq.count?' — تعداد '+esc(eq.count):'')+'</div></div>'+
+        '<button onclick="editTechEquipRow(\''+k+'\')" style="background:none;border:none;font-size:15px;cursor:pointer">✏️</button>'+
+      '</div>'+
+      '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
+        '<input type="file" accept="image/*" capture="environment" style="display:none" id="eqcam_'+k+'_overview" onchange="captureEquipItemPhoto(this,\''+k+'\',\'overview\')">'+
+        '<button class="btn-sm" style="background:#e3f2fd;color:#1565c0" onclick="document.getElementById(\'eqcam_'+k+'_overview\').value=\'\';document.getElementById(\'eqcam_'+k+'_overview\').click()">📷 نمای دور</button>'+
+        '<input type="file" accept="image/*" capture="environment" style="display:none" id="eqcam_'+k+'_serial" onchange="captureEquipItemPhoto(this,\''+k+'\',\'serial\')">'+
+        '<button class="btn-sm" style="background:#fff3e0;color:#e65100" onclick="document.getElementById(\'eqcam_'+k+'_serial\').value=\'\';document.getElementById(\'eqcam_'+k+'_serial\').click()">🔢 شماره سریال</button>'+
+      '</div>'+
+      '<div id="eqthumb_'+k+'_overview" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px"></div>'+
+
+      '<div id="eqthumb_'+k+'_serial" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px"></div>'+
+    '</div>';
+  }).join('');
+
+  box.innerHTML = (torEquipWorkingList.length ? rowsHtml : '<div style="font-size:11.5px;color:#90a4ae;padding:8px 0">هنوز ماشین‌آلاتی برای این معدن ثبت نشده — با دکمه‌ی زیر اضافه کنید.</div>')+
+    '<div style="display:flex;gap:6px;margin-top:6px">'+
+      '<button class="btn-sm" style="background:#e8eaf6;color:#3949ab;flex:1" onclick="addTechEquipRow()">➕ افزودن ماشین جدید</button>'+
+      '<button class="btn-sm" id="torEquipSaveBtn" style="background:#00695c;color:#fff;flex:1" onclick="saveTechEquipmentChanges()">💾 ذخیره لیست</button>'+
+    '</div>';
+}
+
+async function captureEquipItemPhoto(inputEl, key, photoType) {
+  const file = inputEl.files[0];
+  if(!file) return;
+  const mineName = document.getElementById('torMine').value;
+  const mine = techOfficerMinesCache.find(m => m['نام_معدن'] === mineName);
+  if(!mine) { showToast('⚠️ ابتدا معدن را انتخاب کنید'); inputEl.value=''; return; }
+  showToast('⏳ در حال دریافت موقعیت مکانی...');
+  try {
+    const coords = await getGeoLocation();
+    const watermarked = await watermarkPhoto(file, coords, mine);
+    if(!torEquipItemCaptures[key]) torEquipItemCaptures[key] = {overview:[], serial:[]};
+    torEquipItemCaptures[key][photoType].push({ blob: watermarked, previewUrl: URL.createObjectURL(watermarked) });
+    renderEquipItemThumbs(key, photoType);
+  } catch(err) {
+    showToast('⚠️ ' + err.message);
+  }
+  inputEl.value = '';
+}
+
+function renderEquipItemThumbs(key, photoType) {
+  const box = document.getElementById('eqthumb_'+key+'_'+photoType);
+  if(!box) return;
+  const arr = (torEquipItemCaptures[key] && torEquipItemCaptures[key][photoType]) || [];
+  box.innerHTML = arr.map((c,i) =>
+    '<div style="position:relative;width:60px;height:60px">'+
+    '<img src="'+c.previewUrl+'" style="width:100%;height:100%;object-fit:cover;border-radius:6px;border:1px solid #cfd8dc">'+
+    '<button onclick="removeEquipItemPhoto(\''+key+'\',\''+photoType+'\','+i+')" style="position:absolute;top:-5px;left:-5px;background:#e53935;color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer">✕</button>'+
+    '</div>'
+  ).join('');
+}
+function removeEquipItemPhoto(key, photoType, i) {
+  torEquipItemCaptures[key][photoType].splice(i,1);
+  renderEquipItemThumbs(key, photoType);
+}
+
+async function captureTechPhoto(inputEl, category) {
+  const file = inputEl.files[0];
+  if(!file) return;
+  const mineName = document.getElementById('torMine').value;
+  const mine = techOfficerMinesCache.find(m => m['نام_معدن'] === mineName);
+  if(!mine) { showToast('⚠️ ابتدا معدن را از لیست بالا انتخاب کنید'); inputEl.value=''; return; }
+
+  showToast('⏳ در حال دریافت موقعیت مکانی...');
+  try {
+    const coords = await getGeoLocation();
+    const watermarked = await watermarkPhoto(file, coords, mine);
+    const arr = category === 'face' ? torFaceCaptures : torEquipCaptures;
+    arr.push({ blob: watermarked, previewUrl: URL.createObjectURL(watermarked) });
+    renderTechPhotoThumbs(category);
+  } catch(err) {
+    showToast('⚠️ ' + err.message);
+  }
+  inputEl.value = '';
+}
+
+function renderTechPhotoThumbs(category) {
+  const arr = category === 'face' ? torFaceCaptures : torEquipCaptures;
+  const box = document.getElementById(category === 'face' ? 'torFaceThumbs' : 'torEquipThumbs');
+  box.innerHTML = arr.map((c, i) =>
+    '<div style="position:relative;width:80px;height:80px">'+
+    '<img src="'+c.previewUrl+'" style="width:100%;height:100%;object-fit:cover;border-radius:8px;border:1px solid #cfd8dc">'+
+    '<button onclick="removeTechPhoto(\''+category+'\','+i+')" style="position:absolute;top:-6px;left:-6px;background:#e53935;color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;cursor:pointer">✕</button>'+
+    '</div>'
+  ).join('');
+}
+function removeTechPhoto(category, i) {
+  const arr = category === 'face' ? torFaceCaptures : torEquipCaptures;
+  arr.splice(i, 1);
+  renderTechPhotoThumbs(category);
+}
+
+async function uploadTechFile(fileOrBlob, fileName, mineName, period, category) {
+  const safeName = Date.now()+'_'+Math.random().toString(36).slice(2,8)+'_'+fileName.replace(/[^\w.\-]/g,'_');
+  const path = encodeURIComponent(mineName)+'/'+encodeURIComponent(period||'نامشخص')+'/'+category+'/'+safeName;
+  const {error} = await sb.storage.from('tech-reports').upload(path, fileOrBlob, {upsert:false});
+  if(error) throw new Error('آپلود فایل ناموفق بود: '+error.message);
+  const {data} = sb.storage.from('tech-reports').getPublicUrl(path);
+  return data.publicUrl;
+}
+
+// منطق واقعی ارسال گزارش دوره‌ای — هم مسیر آنلاین مستقیم و هم sync بعدی از صف آفلاین از این استفاده می‌کنند.
+// ورودی: { mineName, period, note, submittedBy, reportBlob:{blob,name}|null, faceBlobs:[Blob], equipBlobs:[Blob],
+//          equipmentDetail: [{name,type,model, overviewBlobs:[Blob], serialBlobs:[Blob]}] }
+async function sendTechReportPayload(p) {
+  const fileUrls = { report: [], face: [], equip: [], equipmentDetail: [] };
+  if(p.reportBlob) fileUrls.report.push(await uploadTechFile(p.reportBlob.blob, p.reportBlob.name, p.mineName, p.period, 'report'));
+  for(const blob of p.faceBlobs)  fileUrls.face.push(await uploadTechFile(blob, 'face.jpg', p.mineName, p.period, 'face'));
+  for(const blob of p.equipBlobs) fileUrls.equip.push(await uploadTechFile(blob, 'equip.jpg', p.mineName, p.period, 'equip'));
+  for(const eq of p.equipmentDetail) {
+    const overviewUrls = [];
+    for(const blob of eq.overviewBlobs) overviewUrls.push(await uploadTechFile(blob, 'overview.jpg', p.mineName, p.period, 'equip_'+eq.key));
+    const serialUrls = [];
+    for(const blob of eq.serialBlobs) serialUrls.push(await uploadTechFile(blob, 'serial.jpg', p.mineName, p.period, 'equip_'+eq.key));
+    fileUrls.equipmentDetail.push({ name: eq.name, type: eq.type, model: eq.model, overview: overviewUrls, serial: serialUrls });
+  }
+
+  const {error: insErr} = await sb.from('tech_reports').insert([{
+    mine_name: p.mineName, submitted_by: p.submittedBy, period: p.period, note: p.note, file_urls: fileUrls, department: myTechOfficerDept
+  }]);
+  if(insErr) throw new Error('ثبت گزارش در سامانه ناموفق بود: '+insErr.message);
+
+  const {data: sessionData} = await sb.auth.getSession();
+  const jwt = sessionData && sessionData.session ? sessionData.session.access_token : SUPA_KEY;
+  const relayRes = await fetch(SUPA_URL + '/functions/v1/notify-relay', {
+    method:'POST',
+    headers: {'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+jwt},
+    body: JSON.stringify({ action:'techReport', mineName: p.mineName, period: p.period, note: p.note, fileUrls, submittedBy: p.submittedBy })
+  });
+  const relayData = await relayRes.json().catch(()=>({}));
+  if(!relayRes.ok) throw new Error('ارسال به تلگرام/روبیکا ناموفق بود: ' + (relayData.error||relayRes.status));
+  return relayData;
+}
+
+async function submitTechReport() {
+  const mineName = document.getElementById('torMine').value;
+  const period = document.getElementById('torPeriod').value.trim();
+  const note = document.getElementById('torNote').value.trim();
+  const reportFile = document.getElementById('torReportFile').files[0];
+  const statusBox = document.getElementById('torStatus');
+
+  if(!mineName) { showToast('⚠️ معدن را انتخاب کنید'); return; }
+  if(!period) { showToast('⚠️ دوره گزارش را وارد کنید'); return; }
+  if(!document.getElementById('torFullName').value.trim() || !document.getElementById('torMembershipNo').value.trim()) {
+    showToast('⚠️ ابتدا نام و شماره عضویت نظام مهندسی خود را در بالا وارد و ذخیره کنید'); return;
+  }
+  const hasEquipItemPhotos = Object.values(torEquipItemCaptures).some(c => c.overview.length || c.serial.length);
+  if(!reportFile && !torFaceCaptures.length && !torEquipCaptures.length && !hasEquipItemPhotos) { showToast('⚠️ حداقل یک فایل یا عکس ثبت کنید'); return; }
+
+  const {data:{user}} = await sb.auth.getUser();
+  const equipList = getMineEquipmentList(techOfficerMinesCache.find(m => m['نام_معدن'] === mineName) || {});
+  const equipmentDetail = [];
+  for(const eq of equipList) {
+    const caps = torEquipItemCaptures[eq.key];
+    if(!caps || (!caps.overview.length && !caps.serial.length)) continue;
+    equipmentDetail.push({ key: eq.key, name: eq.name, type: eq.type, model: eq.model,
+      overviewBlobs: caps.overview.map(c=>c.blob), serialBlobs: caps.serial.map(c=>c.blob) });
+  }
+  const payload = {
+    mineName, period, note, submittedBy: user?user.email:'',
+    reportBlob: reportFile ? {blob: reportFile, name: reportFile.name} : null,
+    faceBlobs: torFaceCaptures.map(c=>c.blob),
+    equipBlobs: torEquipCaptures.map(c=>c.blob),
+    equipmentDetail
+  };
+
+  const btn = document.getElementById('torSubmitBtn');
+  btn.disabled = true; btn.textContent = '⏳ در حال آپلود...';
+  statusBox.textContent = '';
+  try {
+    if(!navigator.onLine) throw new Error('offline');
+    const relayData = await sendTechReportPayload(payload);
+    if(relayData && relayData.notified === false) {
+      statusBox.innerHTML = '<span style="color:#e65100">✅ گزارش ذخیره شد. ⚠️ ارسال به تلگرام/روبیکا هنوز توسط مدیر سامانه فعال نشده.</span>';
+    } else {
+      statusBox.innerHTML = '<span style="color:#2e7d32">✅ گزارش با موفقیت ذخیره و برای مسئولین ارسال شد.</span>';
+    }
+    document.getElementById('torPeriod').value='';
+    document.getElementById('torReportFile').value='';
+    document.getElementById('torNote').value='';
+    torFaceCaptures = []; torEquipCaptures = [];
+    torEquipItemCaptures = {};
+    renderTechPhotoThumbs('face'); renderTechPhotoThumbs('equip');
+    renderEquipmentChecklist();
+    loadTechOfficerHistory(techOfficerMinesCache.map(m => m[m._nameField || 'نام_معدن']));
+  } catch(err) {
+    if(isLikelyNetworkError(err)) {
+      await queueOfflineSubmission({ id: 'tor_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),
+        type: 'techReport', payload, queuedAt: Date.now() });
+      updateOfflineBadge();
+      statusBox.innerHTML = '<span style="color:#e65100">📴 اینترنت وصل نیست — گزارش ذخیره شد و به‌محض اتصال خودکار ارسال می‌شود.</span>';
+      document.getElementById('torPeriod').value='';
+      document.getElementById('torReportFile').value='';
+      document.getElementById('torNote').value='';
+      torFaceCaptures = []; torEquipCaptures = [];
+      torEquipItemCaptures = {};
+      renderTechPhotoThumbs('face'); renderTechPhotoThumbs('equip');
+      renderEquipmentChecklist();
+    } else {
+      statusBox.innerHTML = '<span style="color:#c62828">⚠️ '+esc(err.message)+'</span>';
+    }
+  }
+  btn.disabled = false; btn.textContent = '📤 ارسال گزارش';
+}
+
+async function loadTechOfficerHistory(mineNames) {
+  const box = document.getElementById('techOfficerHistory');
+  if(!mineNames || !mineNames.length) { box.innerHTML = ''; return; }
+  const {data, error} = await sb.from('tech_reports').select('*').in('mine_name', mineNames).order('created_at', {ascending:false}).limit(20);
+  if(error) { box.innerHTML = '<div style="color:#c62828;font-size:12px">خطا در بارگذاری تاریخچه</div>'; return; }
+  if(!data || !data.length) { box.innerHTML = '<div style="color:#90a4ae;font-size:12px">هنوز گزارشی ارسال نشده</div>'; return; }
+  box.innerHTML = data.map(r =>
+    '<div style="background:#f8fafd;border-radius:10px;padding:10px 12px;margin-bottom:6px;font-size:12px">'+
+    '<b>'+esc(r.mine_name)+'</b> — '+esc(r.period||'')+' <span style="color:#90a4ae">('+new Date(r.created_at).toLocaleDateString('fa-IR')+')</span>'+
+    (r.note ? '<div style="color:#607d8b;margin-top:4px">'+esc(r.note)+'</div>' : '')+
+    '</div>'
+  ).join('');
+}
+
+// ── ورود با اثر انگشت/Face ID (WebAuthn، به‌عنوان قفل محلی روی نشست ذخیره‌شده) ──
+// نکته: این روش کلید بیومتریک را روی خود گوشی نگه می‌دارد و فقط حضور همان انگشت/چهره‌ی
+// ثبت‌شده روی همان دستگاه را قبل از استفاده از نشست ذخیره‌شده‌ی Supabase بررسی می‌کند.
+function bioSupported() {
+  return !!(window.PublicKeyCredential && navigator.credentials);
+}
+function b64encode(buf) { return btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+function b64decode(str) {
+  str = str.replace(/-/g,'+').replace(/_/g,'/'); while(str.length % 4) str += '=';
+  const bin = atob(str); const buf = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) buf[i] = bin.charCodeAt(i);
+  return buf;
+}
+function bioStorageKey(email) { return 'bio_cred_' + btoa(unescape(encodeURIComponent(email.toLowerCase()))); }
+function getBiometricCred(email) {
+  try { const raw = localStorage.getItem(bioStorageKey(email)); return raw ? JSON.parse(raw) : null; } catch(e) { return null; }
+}
+function setBiometricCred(email, credIdB64) {
+  localStorage.setItem(bioStorageKey(email), JSON.stringify({credId: credIdB64}));
+}
+function removeBiometricCred(email) { localStorage.removeItem(bioStorageKey(email)); }
+
+function renderBiometricBanner(email) {
+  const box = document.getElementById('biometricBanner');
+  if(!bioSupported()) { box.style.display = 'none'; return; }
+  const cred = getBiometricCred(email);
+  if(cred) {
+    box.style.display = 'flex';
+    box.innerHTML = '<span>✅ ورود با اثر انگشت روی این دستگاه فعال است</span>'+
+      '<button class="btn-sm" style="background:#ffebee;color:#c62828" onclick="disableBiometric()">غیرفعال‌سازی</button>';
+  } else {
+    box.style.display = 'flex';
+    box.innerHTML = '<span>👆 برای ورود سریع‌تر دفعات بعد، اثر انگشت را فعال کنید</span>'+
+      '<button class="btn-sm" style="background:#00695c;color:#fff" onclick="enableBiometric()">فعال‌سازی</button>';
+  }
+}
+
+async function enableBiometric() {
+  const {data:{user}} = await sb.auth.getUser();
+  if(!user) return;
+  if(!bioSupported()) { showToast('⚠️ این مرورگر/دستگاه از اثر انگشت پشتیبانی نمی‌کند'); return; }
+  try {
+    const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+    if(!available) { showToast('⚠️ روی این دستگاه سنسور اثر انگشت/Face ID فعال یافت نشد'); return; }
+    const challenge = crypto.getRandomValues(new Uint8Array(32));
+    const userId = crypto.getRandomValues(new Uint8Array(16));
+    const cred = await navigator.credentials.create({
+      publicKey: {
+        challenge,
+        rp: { name: 'مسئول فنی', id: location.hostname },
+        user: { id: userId, name: user.email, displayName: user.email },
+        pubKeyCredParams: [{type:'public-key', alg:-7}, {type:'public-key', alg:-257}],
+        authenticatorSelection: { authenticatorAttachment:'platform', userVerification:'required' },
+        timeout: 60000,
+      }
+    });
+    if(!cred) throw new Error('ثبت اثر انگشت لغو شد');
+    setBiometricCred(user.email, b64encode(cred.rawId));
+    showToast('✅ ورود با اثر انگشت فعال شد');
+    renderBiometricBanner(user.email);
+  } catch(err) {
+    showToast('⚠️ فعال‌سازی اثر انگشت انجام نشد: ' + (err.message||err));
+  }
+}
+
+function disableBiometric() {
+  sb.auth.getUser().then(({data:{user}}) => {
+    if(!user) return;
+    removeBiometricCred(user.email);
+    renderBiometricBanner(user.email);
+    showToast('🔓 ورود با اثر انگشت روی این دستگاه غیرفعال شد');
+  });
+}
+
+async function tryBiometricLogin() {
+  const errEl = document.getElementById('biometricErr');
+  errEl.textContent = '';
+  const {data} = await sb.auth.getSession();
+  const email = data && data.session ? data.session.user.email : null;
+  const cred = email ? getBiometricCred(email) : null;
+  if(!email || !cred) { fallbackToPasswordLogin(); return; }
+  try {
+    const challenge = crypto.getRandomValues(new Uint8Array(32));
+    const assertion = await navigator.credentials.get({
+      publicKey: {
+        challenge,
+        allowCredentials: [{ id: b64decode(cred.credId), type:'public-key' }],
+        userVerification: 'required',
+        timeout: 60000,
+      }
+    });
+    if(!assertion) throw new Error('تایید اثر انگشت لغو شد');
+    await onLogin();
+  } catch(err) {
+    errEl.textContent = 'تایید اثر انگشت ناموفق بود: ' + (err.message||err);
+  }
+}
+
+function fallbackToPasswordLogin() {
+  sb.auth.signOut().then(() => { hideAllGates(); showLoginGate(); });
+}
+
+// ── راه‌اندازی ──
+// اگر همین گوشی قبلاً مورد تایید مدیر سامانه قرار گرفته («گوشی مورد اعتماد») و کاربر همین الان داخل محدوده
+// یکی از معادن خودش است، مرحله ورود (رمز/اثرانگشت) کاملاً حذف می‌شود و اپلیکیشن مستقیم باز می‌شود.
+// خارج از محدوده معدن یا روی گوشی دیگر، ورود عادی (رمز یا اثرانگشت) همچنان لازم است.
+sb.auth.getSession().then(async ({data}) => {
+  if(!data.session) return;
+  if(window.location.hash.includes('type=recovery')) return;
+  const email = data.session.user.email;
+  const silentOk = await trySilentDeviceEntry(email);
+  if(silentOk) { onLogin(); return; }
+  const cred = bioSupported() ? getBiometricCred(email) : null;
+  if(cred) {
+    hideAllGates();
+    document.getElementById('biometricGateEmail').textContent = email;
+    document.getElementById('biometricGate').style.display = 'flex';
+  } else {
+    showLoginGate();
+  }
+});
+if('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then((reg) => {
+      // اگر ورکر جدیدی نصب و منتظر مانده (یعنی نسخه‌ی جدید اپ در دسترس است)، به کاربر اطلاع بده
+      function notifyIfWaiting() {
+        if(reg.waiting) showUpdateBanner(reg.waiting);
+      }
+      notifyIfWaiting();
+      reg.addEventListener('updatefound', () => {
+        const installing = reg.installing;
+        if(!installing) return;
+        installing.addEventListener('statechange', () => {
+          if(installing.state === 'installed' && navigator.serviceWorker.controller) {
+            showUpdateBanner(installing);
+          }
+        });
+      });
+    }).catch(()=>{});
+
+    // وقتی ورکر جدید کنترل صفحه را به دست می‌گیرد (بعد از تایید کاربر)، یک‌بار رفرش کن
+    let _reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if(_reloaded) return;
+      _reloaded = true;
+      window.location.reload();
+    });
+  });
+}
+function showUpdateBanner(waitingWorker) {
+  if(document.getElementById('updateBanner')) return;
+  const bar = document.createElement('div');
+  bar.id = 'updateBanner';
+  bar.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:1300;background:#1a3a5c;color:#fff;'+
+    'font-size:13px;font-weight:700;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px';
+  bar.innerHTML = '<span>🔄 نسخه‌ی جدید اپ آماده است</span>'+
+    '<button style="background:#ffc107;color:#3a2c00;border:none;border-radius:6px;padding:6px 12px;font-weight:700;cursor:pointer">بروزرسانی</button>';
+  bar.querySelector('button').onclick = () => { waitingWorker.postMessage('SKIP_WAITING'); bar.remove(); };
+  document.body.appendChild(bar);
+}
+
+</script>
+</body>
+</html>
