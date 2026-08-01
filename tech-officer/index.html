@@ -1062,11 +1062,14 @@ async function doGateRegister() {
     return;
   }
 
-  const {error: insErr} = await sb.from('user_roles').upsert([{
+  const {data: insertedRow, error: insErr} = await sb.from('user_roles').upsert([{
     email, role: 'pending', department: deptForSpecialty(tech_officer_specialty), full_name, phone,
     national_code, membership_no, license_no, requested_mine_name, contract_no, tech_officer_specialty, preferred_messenger, messenger_chat_id
-  }], {onConflict:'email', ignoreDuplicates:true});
+  }], {onConflict:'email', ignoreDuplicates:true}).select();
   if(insErr) { errEl.textContent = 'حساب ساخته شد ولی ثبت اطلاعات با خطا مواجه شد: ' + insErr.message; return; }
+  if(insertedRow && insertedRow.length) {
+    await notifyNewRegistration({ fullName: full_name, email, phone, requestedMineName: requested_mine_name, membershipNo: membership_no, licenseNo: license_no });
+  }
 
   await sb.auth.signOut();
   hideAllGates();
@@ -1075,19 +1078,37 @@ async function doGateRegister() {
 
 let myAssignedMines = [];
 let myMembershipNo = '', myNationalCode = '';
+// اطلاع‌رسانی به سوپرادمین‌ها/ادمین‌ها (تلگرام/روبیکا) که یک مسئول فنی جدید ثبت‌نام کرده و منتظر تایید است.
+// عمداً نتیجه/خطای این تابع مانع از ادامه‌ی روند ثبت‌نام کاربر نمی‌شود (best-effort).
+async function notifyNewRegistration(payloadFields) {
+  try {
+    const {data:{session}} = await sb.auth.getSession();
+    if(!session) return;
+    await fetch(SUPA_URL + '/functions/v1/notify-relay', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json', 'Authorization':'Bearer '+session.access_token},
+      body: JSON.stringify({ action: 'newRegistration', ...payloadFields })
+    });
+  } catch(e) { console.warn('notifyNewRegistration failed', e); }
+}
 async function ensureMyRoleRow(user) {
   const email = (user.email||'').toLowerCase();
   if(!email) return;
   const meta = user.user_metadata || {};
   try {
-    await sb.from('user_roles').upsert(
+    const {data: inserted} = await sb.from('user_roles').upsert(
       [{ email, role: 'pending', department: deptForSpecialty(meta.tech_officer_specialty), full_name: meta.full_name || email, phone: meta.phone || '',
          national_code: meta.national_code || null, membership_no: meta.membership_no || null,
          license_no: meta.license_no || null, requested_mine_name: meta.requested_mine_name || null,
          contract_no: meta.contract_no || null, tech_officer_specialty: meta.tech_officer_specialty || null, preferred_messenger: meta.preferred_messenger || null,
          messenger_chat_id: meta.messenger_chat_id || null }],
       { onConflict: 'email', ignoreDuplicates: true }
-    );
+    ).select();
+    // inserted.length > 0 یعنی ردیف واقعاً تازه ساخته شد (نه اینکه از قبل بوده و رد شده) — فقط همین حالت اطلاع‌رسانی می‌شود
+    if(inserted && inserted.length) {
+      await notifyNewRegistration({ fullName: meta.full_name || '', email, phone: meta.phone || '',
+        requestedMineName: meta.requested_mine_name || '', membershipNo: meta.membership_no || '', licenseNo: meta.license_no || '' });
+    }
   } catch(e) { console.warn('ensureMyRoleRow failed', e); }
 }
 
