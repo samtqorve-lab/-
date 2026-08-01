@@ -897,6 +897,10 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
     <h3 id="newRecordTitle">➕ افزودن رکورد جدید</h3>
     <label id="newRecordLabel">نام معدن</label>
     <input id="newRecordName" type="text" placeholder="نام را وارد کنید" onkeydown="if(event.key==='Enter')confirmNewRecord()">
+    <label style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:12.5px;color:#455a64;cursor:pointer">
+      <input type="checkbox" id="newRecordAddCorners" style="width:auto" checked>
+      همین الان مختصات گوشه‌های محدوده (نقاط پروانه) را هم وارد کنم
+    </label>
     <div class="modal-btns">
       <button class="btn btn-save" onclick="confirmNewRecord()">افزودن</button>
       <button class="btn btn-cancel" onclick="closeNewRecordModal()">انصراف</button>
@@ -7705,6 +7709,10 @@ function openNewRecordModal() {
   document.getElementById('newRecordTitle').textContent = titles[currentDept] || '➕ افزودن واحد جدید';
   document.getElementById('newRecordLabel').textContent = labels[currentDept] || 'نام واحد';
   document.getElementById('newRecordName').value = '';
+  const boundaryDept = (currentDept === 'معدن' || currentDept === 'اکتشاف' || currentDept === 'فرآوری');
+  const cornersRow = document.getElementById('newRecordAddCorners').closest('label');
+  cornersRow.style.display = boundaryDept ? 'flex' : 'none';
+  document.getElementById('newRecordAddCorners').checked = true;
   document.getElementById('newRecordModal').classList.add('open');
   setTimeout(()=>document.getElementById('newRecordName').focus(), 100);
 }
@@ -7718,6 +7726,7 @@ async function confirmNewRecord() {
     showToast('⚠️ رکوردی با این نام از قبل وجود دارد');
     return;
   }
+  const addCornersNow = document.getElementById('newRecordAddCorners').checked;
   const defaultCat = {'معدن':'غیره', 'اکتشاف':'در حال اکتشاف', 'فرآوری':'فعال'}[currentDept] || 'فعال';
   const rec = {};
   rec[dupField] = name;
@@ -7737,6 +7746,14 @@ async function confirmNewRecord() {
   document.getElementById('statsGrid').style.display = 'none';
   showMine(newIdx);
   enterEdit();
+  // اگر کاربر خواسته همین الان مختصات گوشه‌های محدوده را وارد کند، مستقیم همان ابزار مدیریت
+  // گوشه‌ها (مدخل دستی lat/lon) را باز می‌کنیم — همان چیزی که برای رکوردهای موجود هم استفاده می‌شود.
+  // ورود از طریق فایل اکسل هم همیشه از تب «📥 ورود اطلاعات → مختصات چهارگوش» ممکن است،
+  // چون آن ابزار با شماره پروانه/نام معدن تطبیق می‌دهد و برای رکورد تازه‌ساخته هم کار می‌کند.
+  const boundaryDept = (currentDept === 'معدن' || currentDept === 'اکتشاف' || currentDept === 'فرآوری');
+  if(addCornersNow && boundaryDept) {
+    openCornersEditModal(newIdx);
+  }
 }
 
 document.getElementById('newRecordModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeNewRecordModal();});
