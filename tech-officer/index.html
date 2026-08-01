@@ -105,17 +105,17 @@ textarea{resize:vertical}
     <div class="gate-logo">🔑</div>
     <h2>بازیابی رمز عبور</h2>
     <div id="forgotStep1">
-      <p>ایمیل خود را وارد کنید؛ یک کد ۶ رقمی برایتان ارسال می‌شود. (اگر با شماره عضویت ثبت‌نام کرده‌اید، همان ایمیلی که هنگام ثبت‌نام وارد کردید را بنویسید)</p>
+      <p>ایمیل خود را وارد کنید؛ یک کد برایتان ارسال می‌شود. (اگر با شماره عضویت ثبت‌نام کرده‌اید، همان ایمیلی که هنگام ثبت‌نام وارد کردید را بنویسید)</p>
       <label>ایمیل</label>
       <input id="forgotEmail" type="email" dir="ltr" autocomplete="username" onkeydown="if(event.key==='Enter')doForgotPassword()">
       <div class="login-err" id="forgotErr"></div>
       <button class="btn btn-save" id="forgotSendBtn" style="width:100%;margin-top:16px" onclick="doForgotPassword()">ارسال کد بازیابی</button>
     </div>
     <div id="forgotStep2" style="display:none">
-      <p style="color:#2e7d32">✅ یک کد ۶ رقمی به ایمیل شما ارسال شد (صندوق ورودی و پوشه اسپم را بررسی کنید). آن را همراه با رمز عبور جدید وارد کنید.</p>
+      <p style="color:#2e7d32">✅ یک کد به ایمیل شما ارسال شد (صندوق ورودی و پوشه اسپم را بررسی کنید). آن را همراه با رمز عبور جدید وارد کنید.</p>
       <div id="resetCodeRow">
-        <label>کد ۶ رقمی</label>
-        <input id="resetCode" type="text" inputmode="numeric" maxlength="6" dir="ltr" placeholder="------" style="letter-spacing:4px;text-align:center;font-size:20px">
+        <label>کد ارسال‌شده به ایمیل</label>
+        <input id="resetCode" type="text" inputmode="numeric" maxlength="8" dir="ltr" placeholder="--------" style="letter-spacing:4px;text-align:center;font-size:20px">
       </div>
       <label>رمز عبور جدید</label>
       <input id="resetPass1" type="password" dir="ltr" autocomplete="new-password">
@@ -195,9 +195,9 @@ textarea{resize:vertical}
   <div class="gate-box">
     <div class="gate-logo">📧</div>
     <h2>تایید ایمیل</h2>
-    <p>یک کد ۶ رقمی به ایمیل شما ارسال شد (صندوق ورودی و پوشه اسپم را بررسی کنید). آن را وارد کنید تا ثبت‌نام شما نهایی و برای مدیر سامانه ارسال شود.</p>
-    <label>کد ۶ رقمی</label>
-    <input id="confirmSignupCode" type="text" inputmode="numeric" maxlength="6" dir="ltr" placeholder="------" style="letter-spacing:4px;text-align:center;font-size:20px" onkeydown="if(event.key==='Enter')doConfirmSignup()">
+    <p>یک کد به ایمیل شما ارسال شد (صندوق ورودی و پوشه اسپم را بررسی کنید). آن را وارد کنید تا ثبت‌نام شما نهایی و برای مدیر سامانه ارسال شود.</p>
+    <label>کد ارسال‌شده به ایمیل</label>
+    <input id="confirmSignupCode" type="text" inputmode="numeric" maxlength="8" dir="ltr" placeholder="--------" style="letter-spacing:4px;text-align:center;font-size:20px" onkeydown="if(event.key==='Enter')doConfirmSignup()">
     <div class="login-err" id="confirmSignupErr"></div>
     <button class="btn btn-save" style="width:100%;margin-top:16px" onclick="doConfirmSignup()">تایید و تکمیل ثبت‌نام</button>
     <div style="margin-top:10px;font-size:12px;text-align:center"><a href="#" onclick="resendSignupCode();return false" style="color:#607d8b">ارسال دوباره‌ی کد</a></div>
@@ -991,7 +991,7 @@ async function doResetPasswordWithCode() {
   const code = document.getElementById('resetCode').value.trim();
   const p1 = document.getElementById('resetPass1').value;
   const p2 = document.getElementById('resetPass2').value;
-  if(!recoverySessionActive && (!code || code.length < 6)) { errEl.textContent = 'کد ۶ رقمی ارسال‌شده به ایمیل را کامل وارد کنید'; return; }
+  if(!recoverySessionActive && (!code || code.length < 4)) { errEl.textContent = 'کد ارسال‌شده به ایمیل را کامل وارد کنید'; return; }
   if(!p1 || p1.length < 6) { errEl.textContent = 'رمز عبور باید حداقل ۶ کاراکتر باشد'; return; }
   if(p1 !== p2) { errEl.textContent = 'تکرار رمز عبور با رمز عبور یکسان نیست'; return; }
   if(!recoverySessionActive) {
@@ -1135,7 +1135,7 @@ async function doConfirmSignup() {
   const errEl = document.getElementById('confirmSignupErr');
   errEl.textContent = '';
   const code = document.getElementById('confirmSignupCode').value.trim();
-  if(!code || code.length < 6) { errEl.textContent = 'کد ۶ رقمی ارسال‌شده به ایمیل را کامل وارد کنید'; return; }
+  if(!code || code.length < 4) { errEl.textContent = 'کد ارسال‌شده به ایمیل را کامل وارد کنید'; return; }
   const {error: verifyErr} = await sb.auth.verifyOtp({ email: pendingSignupEmail, token: code, type: 'signup' });
   if(verifyErr) { errEl.textContent = 'کد نادرست یا منقضی‌شده است — دوباره تلاش کنید یا کد جدید بگیرید'; return; }
   const {data:{user}} = await sb.auth.getUser();
