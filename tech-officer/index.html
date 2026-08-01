@@ -104,27 +104,28 @@ textarea{resize:vertical}
   <div class="gate-box">
     <div class="gate-logo">🔑</div>
     <h2>بازیابی رمز عبور</h2>
-    <p>ایمیل خود را وارد کنید؛ لینک بازیابی رمز عبور برایتان ارسال می‌شود. (اگر با شماره عضویت ثبت‌نام کرده‌اید، همان ایمیلی که هنگام ثبت‌نام وارد کردید را بنویسید)</p>
-    <label>ایمیل</label>
-    <input id="forgotEmail" type="email" dir="ltr" autocomplete="username" onkeydown="if(event.key==='Enter')doForgotPassword()">
-    <div class="login-err" id="forgotErr"></div>
-    <div id="forgotSent" style="display:none;color:#2e7d32;font-size:12.5px;margin-top:8px;line-height:1.8">✅ اگر این ایمیل در سامانه ثبت باشد، لینک بازیابی رمز عبور برایش ارسال شد. صندوق ورودی (و پوشه اسپم) را بررسی کنید.</div>
-    <button class="btn btn-save" id="forgotSendBtn" style="width:100%;margin-top:16px" onclick="doForgotPassword()">ارسال لینک بازیابی</button>
+    <div id="forgotStep1">
+      <p>ایمیل خود را وارد کنید؛ یک کد ۶ رقمی برایتان ارسال می‌شود. (اگر با شماره عضویت ثبت‌نام کرده‌اید، همان ایمیلی که هنگام ثبت‌نام وارد کردید را بنویسید)</p>
+      <label>ایمیل</label>
+      <input id="forgotEmail" type="email" dir="ltr" autocomplete="username" onkeydown="if(event.key==='Enter')doForgotPassword()">
+      <div class="login-err" id="forgotErr"></div>
+      <button class="btn btn-save" id="forgotSendBtn" style="width:100%;margin-top:16px" onclick="doForgotPassword()">ارسال کد بازیابی</button>
+    </div>
+    <div id="forgotStep2" style="display:none">
+      <p style="color:#2e7d32">✅ یک کد ۶ رقمی به ایمیل شما ارسال شد (صندوق ورودی و پوشه اسپم را بررسی کنید). آن را همراه با رمز عبور جدید وارد کنید.</p>
+      <div id="resetCodeRow">
+        <label>کد ۶ رقمی</label>
+        <input id="resetCode" type="text" inputmode="numeric" maxlength="6" dir="ltr" placeholder="------" style="letter-spacing:4px;text-align:center;font-size:20px">
+      </div>
+      <label>رمز عبور جدید</label>
+      <input id="resetPass1" type="password" dir="ltr" autocomplete="new-password">
+      <label>تکرار رمز عبور جدید</label>
+      <input id="resetPass2" type="password" dir="ltr" autocomplete="new-password">
+      <div class="login-err" id="resetPassErr"></div>
+      <button class="btn btn-save" style="width:100%;margin-top:16px" onclick="doResetPasswordWithCode()">ذخیره رمز عبور جدید</button>
+      <div style="margin-top:10px;font-size:12px;text-align:center"><a href="#" onclick="doForgotPassword();return false" style="color:#607d8b">کد جدید ارسال شود</a></div>
+    </div>
     <div style="margin-top:14px;font-size:12px"><a href="#" onclick="showLoginGate();return false" style="color:#00695c;font-weight:700">بازگشت به ورود</a></div>
-  </div>
-</div>
-
-<div id="resetPassGate" class="gate-screen" style="display:none">
-  <div class="gate-box">
-    <div class="gate-logo">🔑</div>
-    <h2>تعیین رمز عبور جدید</h2>
-    <p>یک رمز عبور جدید برای حساب خود تعیین کنید.</p>
-    <label>رمز عبور جدید</label>
-    <input id="resetPass1" type="password" dir="ltr" autocomplete="new-password">
-    <label>تکرار رمز عبور جدید</label>
-    <input id="resetPass2" type="password" dir="ltr" autocomplete="new-password">
-    <div class="login-err" id="resetPassErr"></div>
-    <button class="btn btn-save" style="width:100%;margin-top:16px" onclick="doResetPassword()">ذخیره رمز عبور جدید</button>
   </div>
 </div>
 
@@ -428,6 +429,8 @@ const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 // ── محافظت از فرم ثبت‌نام در برابر بات/اسپم (Cloudflare Turnstile) — باید با نسخه مرورگری هماهنگ بماند ──
 const TURNSTILE_SITE_KEY = ''; // تا وقتی خالی است، این ویژگی نادیده گرفته می‌شود
 let turnstileWidgetId = null;
+let forgotEmailResolved = ''; // ایمیل نهایی که کد بازیابی برایش ارسال شده (برای verifyOtp لازم است)
+let recoverySessionActive = false; // true فقط در مسیر نادر/جایگزین که لینک قدیمی ایمیل هنوز کار کرده باشد
 function renderSignupCaptcha() {
   const box = document.getElementById('signupCaptcha');
   if(!box || !TURNSTILE_SITE_KEY || !window.turnstile) { if(box) box.innerHTML=''; return; }
@@ -444,7 +447,20 @@ function resetCaptcha() {
 const { createClient } = supabase;
 const sb = createClient(SUPA_URL, SUPA_KEY);
 sb.auth.onAuthStateChange((event) => {
-  if(event === 'PASSWORD_RECOVERY') { showResetPassGate(); }
+  // مسیر جایگزین/نادر: اگر با وجود همه‌چیز، لینک قدیمی ایمیل هنوز کار کرد و کاربر یک نشست
+  // بازیابی معتبر گرفت، دیگر نیازی به کد ۶ رقمی نیست — مستقیم فرم رمز جدید را نشان می‌دهیم.
+  if(event === 'PASSWORD_RECOVERY') {
+    recoverySessionActive = true;
+    hideAllGates();
+    document.getElementById('forgotErr').textContent = '';
+    document.getElementById('resetPassErr').textContent = '';
+    document.getElementById('resetPass1').value = '';
+    document.getElementById('resetPass2').value = '';
+    document.getElementById('forgotStep1').style.display = 'none';
+    document.getElementById('forgotStep2').style.display = 'block';
+    document.getElementById('resetCodeRow').style.display = 'none';
+    document.getElementById('forgotGate').style.display = 'flex';
+  }
 });
 
 // ============================================================================
@@ -910,17 +926,25 @@ function hideAllGates() {
   document.getElementById('identityPendingGate').style.display = 'none';
   document.getElementById('techOfficerShell').style.display = 'none';
   document.getElementById('forgotGate').style.display = 'none';
-  document.getElementById('resetPassGate').style.display = 'none';
 }
 function showLoginGate() { hideAllGates(); document.getElementById('authGate').style.display = 'flex'; }
 function showRegisterGate() { hideAllGates(); document.getElementById('registerGate').style.display = 'flex'; renderSignupCaptcha(); }
 function showForgotGate() {
   hideAllGates();
+  recoverySessionActive = false;
   document.getElementById('forgotErr').textContent = '';
-  document.getElementById('forgotSent').style.display = 'none';
-  document.getElementById('forgotSendBtn').style.display = 'block';
+  document.getElementById('resetPassErr').textContent = '';
+  document.getElementById('forgotStep1').style.display = 'block';
+  document.getElementById('forgotStep2').style.display = 'none';
+  document.getElementById('resetCodeRow').style.display = 'block';
+  document.getElementById('forgotSendBtn').disabled = false;
+  document.getElementById('forgotSendBtn').textContent = 'ارسال کد بازیابی';
   document.getElementById('forgotGate').style.display = 'flex';
 }
+// توجه: عمداً از لینک ایمیل (magic link) استفاده نمی‌کنیم، چون اسکنر امنیتی خودکار جیمیل/آوت‌لوک
+// همان لحظه‌ی رسیدن ایمیل روی لینک کلیک می‌کند و توکن یک‌بارمصرف را مصرف می‌کند — نتیجه‌اش برای
+// کاربر واقعی خطای «لینک منقضی شده» بود. به‌جایش یک کد ۶ رقمی (OTP) ارسال می‌شود که کاربر
+// دستی وارد می‌کند؛ این کد از داخل ایمیل توسط اسکنرها مصرف نمی‌شود.
 async function doForgotPassword() {
   const errEl = document.getElementById('forgotErr');
   errEl.textContent = '';
@@ -932,34 +956,40 @@ async function doForgotPassword() {
     if(!resolved) { errEl.textContent = 'حسابی با این شماره عضویت پیدا نشد'; return; }
     email = resolved;
   }
+  forgotEmailResolved = email;
   const btn = document.getElementById('forgotSendBtn');
   btn.disabled = true; btn.textContent = '⏳ در حال ارسال...';
-  const {error} = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + window.location.pathname });
-  btn.disabled = false; btn.textContent = 'ارسال لینک بازیابی';
+  const {error} = await sb.auth.resetPasswordForEmail(email);
+  btn.disabled = false; btn.textContent = 'ارسال کد بازیابی';
   if(error) { errEl.textContent = 'خطا در ارسال: ' + error.message; return; }
-  document.getElementById('forgotSent').style.display = 'block';
-  btn.style.display = 'none';
-}
-function showResetPassGate() {
-  hideAllGates();
   document.getElementById('resetPassErr').textContent = '';
+  document.getElementById('resetCode').value = '';
   document.getElementById('resetPass1').value = '';
   document.getElementById('resetPass2').value = '';
-  document.getElementById('resetPassGate').style.display = 'flex';
+  document.getElementById('forgotStep1').style.display = 'none';
+  document.getElementById('forgotStep2').style.display = 'block';
+  document.getElementById('resetCode').focus();
 }
-async function doResetPassword() {
+async function doResetPasswordWithCode() {
   const errEl = document.getElementById('resetPassErr');
   errEl.textContent = '';
+  const code = document.getElementById('resetCode').value.trim();
   const p1 = document.getElementById('resetPass1').value;
   const p2 = document.getElementById('resetPass2').value;
+  if(!recoverySessionActive && (!code || code.length < 6)) { errEl.textContent = 'کد ۶ رقمی ارسال‌شده به ایمیل را کامل وارد کنید'; return; }
   if(!p1 || p1.length < 6) { errEl.textContent = 'رمز عبور باید حداقل ۶ کاراکتر باشد'; return; }
   if(p1 !== p2) { errEl.textContent = 'تکرار رمز عبور با رمز عبور یکسان نیست'; return; }
-  const {error} = await sb.auth.updateUser({ password: p1 });
-  if(error) { errEl.textContent = 'خطا در تغییر رمز عبور: ' + error.message; return; }
+  if(!recoverySessionActive) {
+    const {error: verifyErr} = await sb.auth.verifyOtp({ email: forgotEmailResolved, token: code, type: 'recovery' });
+    if(verifyErr) { errEl.textContent = 'کد نادرست یا منقضی‌شده است — دوباره تلاش کنید یا کد جدید بگیرید'; return; }
+  }
+  const {error: updErr} = await sb.auth.updateUser({ password: p1 });
+  if(updErr) { errEl.textContent = 'خطا در تغییر رمز عبور: ' + updErr.message; return; }
+  recoverySessionActive = false;
   await sb.auth.signOut();
   hideAllGates();
   showLoginGate();
-  document.getElementById('gateErr').textContent = '';
+  document.getElementById('gateErr').textContent = '✅ رمز عبور با موفقیت تغییر کرد — با رمز جدید وارد شوید';
 }
 
 async function doGateLogin() {
