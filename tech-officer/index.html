@@ -191,6 +191,19 @@ textarea{resize:vertical}
   </div>
 </div>
 
+<div id="confirmSignupGate" class="gate-screen" style="display:none">
+  <div class="gate-box">
+    <div class="gate-logo">📧</div>
+    <h2>تایید ایمیل</h2>
+    <p>یک کد ۶ رقمی به ایمیل شما ارسال شد (صندوق ورودی و پوشه اسپم را بررسی کنید). آن را وارد کنید تا ثبت‌نام شما نهایی و برای مدیر سامانه ارسال شود.</p>
+    <label>کد ۶ رقمی</label>
+    <input id="confirmSignupCode" type="text" inputmode="numeric" maxlength="6" dir="ltr" placeholder="------" style="letter-spacing:4px;text-align:center;font-size:20px" onkeydown="if(event.key==='Enter')doConfirmSignup()">
+    <div class="login-err" id="confirmSignupErr"></div>
+    <button class="btn btn-save" style="width:100%;margin-top:16px" onclick="doConfirmSignup()">تایید و تکمیل ثبت‌نام</button>
+    <div style="margin-top:10px;font-size:12px;text-align:center"><a href="#" onclick="resendSignupCode();return false" style="color:#607d8b">ارسال دوباره‌ی کد</a></div>
+  </div>
+</div>
+
 <div class="gate-screen" id="incidentModal" style="display:none;z-index:1000">
   <div class="gate-box" style="max-width:440px;max-height:88vh;overflow-y:auto;text-align:right">
     <h2 style="color:#c62828">🚨 اعلام حادثه در معدن</h2>
@@ -431,6 +444,7 @@ const TURNSTILE_SITE_KEY = ''; // تا وقتی خالی است، این ویژ�
 let turnstileWidgetId = null;
 let forgotEmailResolved = ''; // ایمیل نهایی که کد بازیابی برایش ارسال شده (برای verifyOtp لازم است)
 let recoverySessionActive = false; // true فقط در مسیر نادر/جایگزین که لینک قدیمی ایمیل هنوز کار کرده باشد
+let pendingSignupEmail = ''; // ایمیلی که منتظر تایید کد ثبت‌نام آن هستیم
 function renderSignupCaptcha() {
   const box = document.getElementById('signupCaptcha');
   if(!box || !TURNSTILE_SITE_KEY || !window.turnstile) { if(box) box.innerHTML=''; return; }
@@ -926,6 +940,7 @@ function hideAllGates() {
   document.getElementById('identityPendingGate').style.display = 'none';
   document.getElementById('techOfficerShell').style.display = 'none';
   document.getElementById('forgotGate').style.display = 'none';
+  document.getElementById('confirmSignupGate').style.display = 'none';
 }
 function showLoginGate() { hideAllGates(); document.getElementById('authGate').style.display = 'flex'; }
 function showRegisterGate() { hideAllGates(); document.getElementById('registerGate').style.display = 'flex'; renderSignupCaptcha(); }
@@ -1056,9 +1071,13 @@ async function doGateRegister() {
   if(signUpErr) { errEl.textContent = 'خطا در ثبت‌نام: ' + signUpErr.message; resetCaptcha(); return; }
 
   if(!signUpData.session) {
-    // تایید ایمیل فعال است: به‌محض اولین ورود (بعد از تایید ایمیل)، درخواست به‌طور خودکار با همین اطلاعات ثبت می‌شود
+    // تایید ایمیل فعال است: به‌جای صبر برای کلیک لینک (که اسکنر امنیتی ایمیل ممکن است زودتر مصرفش کند)،
+    // یک کد ۶ رقمی برای کاربر می‌فرستیم و همینجا از او می‌خواهیم وارد کند.
+    pendingSignupEmail = email;
     hideAllGates();
-    document.getElementById('registerDoneGate').style.display = 'flex';
+    document.getElementById('confirmSignupErr').textContent = '';
+    document.getElementById('confirmSignupCode').value = '';
+    document.getElementById('confirmSignupGate').style.display = 'flex';
     return;
   }
 
@@ -1110,6 +1129,29 @@ async function ensureMyRoleRow(user) {
         requestedMineName: meta.requested_mine_name || '', membershipNo: meta.membership_no || '', licenseNo: meta.license_no || '' });
     }
   } catch(e) { console.warn('ensureMyRoleRow failed', e); }
+}
+// تایید کد ۶ رقمی ارسال‌شده هنگام ثبت‌نام — جایگزین کلیک روی لینک ایمیل (که مستعد مصرف‌شدن توسط اسکنر ایمیل بود)
+async function doConfirmSignup() {
+  const errEl = document.getElementById('confirmSignupErr');
+  errEl.textContent = '';
+  const code = document.getElementById('confirmSignupCode').value.trim();
+  if(!code || code.length < 6) { errEl.textContent = 'کد ۶ رقمی ارسال‌شده به ایمیل را کامل وارد کنید'; return; }
+  const {error: verifyErr} = await sb.auth.verifyOtp({ email: pendingSignupEmail, token: code, type: 'signup' });
+  if(verifyErr) { errEl.textContent = 'کد نادرست یا منقضی‌شده است — دوباره تلاش کنید یا کد جدید بگیرید'; return; }
+  const {data:{user}} = await sb.auth.getUser();
+  if(user) await ensureMyRoleRow(user); // همان تابعی که ردیف pending را می‌سازد و به سوپرادمین اطلاع می‌دهد
+  await sb.auth.signOut();
+  pendingSignupEmail = '';
+  hideAllGates();
+  document.getElementById('registerDoneGate').style.display = 'flex';
+}
+async function resendSignupCode() {
+  if(!pendingSignupEmail) return;
+  try {
+    const {error} = await sb.auth.resend({ type: 'signup', email: pendingSignupEmail });
+    if(error) { document.getElementById('confirmSignupErr').textContent = 'خطا در ارسال دوباره: ' + error.message; return; }
+    showToast('✅ کد جدید ارسال شد');
+  } catch(e) { document.getElementById('confirmSignupErr').textContent = 'خطا در ارسال دوباره'; }
 }
 
 const SPECIALTY_META = {
