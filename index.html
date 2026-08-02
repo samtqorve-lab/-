@@ -5507,12 +5507,12 @@ const FUEL_EQUIP_COLS = {
 };
 function equipKeyForType(type) { return 'تجهیزات_' + (type==='نفت‌گاز'?'نفت_گاز':type==='گاز مایع'?'گاز_مایع':'نفت_سفید'); }
 
-async function importApprovedTechEquipment() {
-  if(fpMineIdx == null || !mines[fpMineIdx]) { showToast('⚠️ ابتدا یک معدن را برای چاپ انتخاب کنید'); return; }
+async function importApprovedTechEquipment(silent) {
+  if(fpMineIdx == null || !mines[fpMineIdx]) { if(!silent) showToast('⚠️ ابتدا یک معدن را برای چاپ انتخاب کنید'); return; }
   const mineName = mines[fpMineIdx]['نام_معدن'];
   const {data, error} = await sb.from('mine_equipment').select('*').eq('mine_name', mineName).eq('status','approved');
-  if(error) { showToast('⚠️ خطا در دریافت ماشین‌آلات تایید‌شده'); return; }
-  if(!data || !data.length) { showToast('ماشین‌آلات تایید‌شده‌ای برای این معدن ثبت نشده'); return; }
+  if(error) { if(!silent) showToast('⚠️ خطا در دریافت ماشین‌آلات تایید‌شده'); return; }
+  if(!data || !data.length) { if(!silent) showToast('ماشین‌آلات تایید‌شده‌ای برای این معدن ثبت نشده'); return; }
 
   const type = document.getElementById('fpFuelType').value;
   const existingNames = new Set(fpEquipRows.map(r => r['نام']).filter(Boolean));
@@ -5527,8 +5527,9 @@ async function importApprovedTechEquipment() {
     else fpEquipRows.push(row);
     added++;
   });
-  renderEquipRows();
-  showToast(added ? '✅ '+added+' ماشین‌آلات تایید‌شده اضافه شد' : 'همه‌ی ماشین‌آلات تایید‌شده از قبل در لیست بودند');
+  if(added) renderEquipRows();
+  if(!silent) showToast(added ? '✅ '+added+' ماشین‌آلات تایید‌شده اضافه شد' : 'همه‌ی ماشین‌آلات تایید‌شده از قبل در لیست بودند');
+  else if(added) showToast('✅ '+added+' ماشین‌آلات تایید‌شده مسئول فنی خودکار اضافه شد');
 }
 
 async function importEquipmentArchive() {
@@ -7191,6 +7192,10 @@ function closeFuelPrintModal() { document.getElementById('fuelPrintModal').class
 
 function onFuelTypeChange() { loadEquipForCurrentType(); }
 
+// لیست پیش‌فرض ذخیره‌شده‌ی معدن را می‌خواند و سپس به‌طور خودکار ماشین‌آلاتی که مسئول فنی
+// عکسشان را فرستاده و تایید شده (دستی یا خودکار داخل محدوده) را هم به جدول اضافه می‌کند —
+// دیگر نیازی به کلیک دستی روی «وارد کردن ماشین‌آلات تایید‌شده» نیست، ولی دکمه همچنان برای
+// بروزرسانی دستی (مثلاً بعد از تایید تازه‌ی ادمین) در دسترس می‌ماند.
 function loadEquipForCurrentType() {
   const m = mines[fpMineIdx];
   const type = document.getElementById('fpFuelType').value;
@@ -7198,6 +7203,7 @@ function loadEquipForCurrentType() {
   const saved = (m && Array.isArray(m[key])) ? m[key] : [];
   fpEquipRows = saved.length ? JSON.parse(JSON.stringify(saved)) : [{}];
   renderEquipRows();
+  importApprovedTechEquipment(true);
 }
 
 function renderEquipRows() {
