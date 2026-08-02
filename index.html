@@ -3122,6 +3122,14 @@ function renderTechReportsAdmin() {
       ? '<div style="margin-top:4px"><b style="font-size:11px;color:#607d8b">'+label+':</b> '+
         arr.map((u,i)=>'<a href="'+esc(u)+'" target="_blank" style="font-size:11px;margin-right:8px;color:#1565c0">لینک '+(i+1)+'</a>').join('')+
         '</div>' : '';
+    const equipDetailGroup = (detail) => (detail && detail.length)
+      ? '<div style="margin-top:6px"><b style="font-size:11px;color:#607d8b">📷 عکس ماشین‌آلات (چک‌لیست):</b>'+
+        detail.map(eq => {
+          const ov = (eq.overview||[]).map((u,i)=>'<a href="'+esc(u)+'" target="_blank" style="font-size:11px;margin-left:8px;color:#1565c0">نمای دور '+(i+1)+'</a>').join('');
+          const sr = (eq.serial||[]).map((u,i)=>'<a href="'+esc(u)+'" target="_blank" style="font-size:11px;margin-left:8px;color:#1565c0">سریال '+(i+1)+'</a>').join('');
+          return '<div style="margin-top:2px;font-size:11px">🚜 '+esc(eq.name||eq.type||'-')+(eq.model?' — مدل '+esc(eq.model):'')+': '+ov+sr+'</div>';
+        }).join('')+
+        '</div>' : '';
     return '<div style="background:#fff;border-radius:10px;padding:12px 14px;margin-bottom:8px;font-size:12px;border-right:4px solid #00695c">'+
       '<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px">'+
         '<b style="color:#1a3a5c">'+esc(r.mine_name)+'</b>'+
@@ -3130,8 +3138,9 @@ function renderTechReportsAdmin() {
       '<div style="color:#607d8b;margin-top:2px">دوره: '+esc(r.period||'—')+' | ارسال‌کننده: '+esc(r.submitted_by||'—')+'</div>'+
       (r.note ? '<div style="margin-top:4px">'+esc(r.note)+'</div>' : '')+
       linkGroup('فایل گزارش', fu.report)+
-      linkGroup('عکس چهره', fu.face)+
-      linkGroup('عکس تجهیزات', fu.equip)+
+      linkGroup('عکس سینه‌کار', fu.face)+
+      linkGroup('عکس سایر ماشین‌آلات', fu.equip)+
+      equipDetailGroup(fu.equipmentDetail)+
     '</div>';
   }).join('');
 }
