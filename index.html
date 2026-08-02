@@ -213,6 +213,10 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
 .modal-btns{display:flex;gap:9px;margin-top:18px}
 
 .export-bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+.list-filters{display:flex;gap:14px;flex-wrap:wrap;align-items:center;background:rgba(255,255,255,.08);border-radius:10px;padding:10px 14px;margin-bottom:12px}
+.list-filters select{width:auto;min-width:140px;padding:7px 10px;font-size:12.5px;border-radius:7px}
+.list-filter-chk{display:flex;align-items:center;gap:5px;color:#fff;font-size:12.5px;cursor:pointer;margin:0}
+.list-filter-chk input{width:auto}
 .btn-export{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);padding:9px 15px;border-radius:9px;cursor:pointer;font-family:Tahoma;font-size:12px;font-weight:700}
 
 .loading{text-align:center;color:rgba(255,255,255,.7);padding:36px;font-size:13px}
@@ -523,10 +527,17 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
         <button class="btn-export" id="healthCheckBtn" style="display:none" onclick="runHealthCheck()">🩺 بررسی سلامت داده</button>
         <button class="btn-export" id="techImportBtn" style="display:none;background:#00695c;color:#fff" onclick="openTechImportModal()">🦺 وارد کردن اطلاعات مسئول فنی</button>
         <button class="btn-export" id="backupsBtn" style="display:none" onclick="openBackupsModal()">🕐 نسخه‌های پشتیبان</button>
+        <button class="btn-export" id="expiryDigestBtn" style="display:none;background:#e65100" onclick="sendExpiryDigest()">🔔 ارسال هشدار انقضا</button>
         <span style="color:rgba(255,255,255,.6);font-size:12px" id="totalLbl"></span>
       </div>
       <div id="licenseWarnBox"></div>
       <div id="healthCheckBox"></div>
+      <div class="list-filters" id="listFilters">
+        <select id="listFilterCategory" onchange="renderList()"><option value="">همه دسته‌ها</option></select>
+        <label class="list-filter-chk"><input type="checkbox" id="listFilterExpiring" onchange="renderList()"> فقط نزدیک به انقضا/منقضی</label>
+        <label class="list-filter-chk"><input type="checkbox" id="listFilterNoCoords" onchange="renderList()"> فقط بدون مختصات</label>
+        <span id="listFilterCount" style="font-size:11.5px;color:#90a4ae"></span>
+      </div>
       <div id="mineList"><div class="loading">در حال بارگذاری...</div></div>
     </div>
 
@@ -1290,6 +1301,16 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
   </div>
 </div>
 
+<div class="modal-overlay" id="equipPhotosModal">
+  <div class="modal" style="max-width:420px">
+    <h3>📷 عکس‌های دستگاه</h3>
+    <div id="equipPhotosBody"></div>
+    <div class="modal-btns">
+      <button class="btn btn-cancel" onclick="closeEquipPhotosModal()">بستن</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="loginModal">
   <div class="modal">
     <h3>🔐 ورود مدیر</h3>
@@ -1909,6 +1930,7 @@ async function proceedToDept(dept) {
     document.getElementById('healthCheckBtn').style.display = isAdmin() ? 'inline-block' : 'none';
     document.getElementById('techImportBtn').style.display = (isAdmin() && mineOnly) ? 'inline-block' : 'none';
     document.getElementById('backupsBtn').style.display = isAdmin() ? 'inline-block' : 'none';
+    document.getElementById('expiryDigestBtn').style.display = (isAdmin() && boundaryDept) ? 'inline-block' : 'none';
     document.getElementById('healthCheckBox').innerHTML = '';
 
     await loadData('');
@@ -4144,6 +4166,9 @@ function showMine(idx) {
       : '<button class="btn btn-edit" onclick="enterEdit()">✏️ ویرایش</button>'+
         '<button class="btn btn-add" onclick="openModal()">➕ فیلد جدید</button>';
   }
+  if(isSuper()) {
+    actions += '<button class="btn" style="background:#c62828;color:#fff" onclick="deleteMineRecord('+idx+')">🗑 حذف رکورد</button>';
+  }
   const actionsHTML = actions ? '<div class="card-actions">'+actions+(lastEdit?'<span class="sync-info">'+lastEdit+'</span>':'')+'</div>' : '';
 
   document.getElementById('resultCard').innerHTML=
@@ -4178,6 +4203,35 @@ async function renderSupplyChainLinks(mine, idx) {
 }
 
 function enterEdit() { if(!isAdmin()) return; editMode=true; showMine(currentIdx); }
+
+// حذف کامل یک رکورد (فقط سوپرادمین) — قبل از حذف یک بک‌آپ خودکار گرفته می‌شود و کاربر باید
+// نام دقیق رکورد را تایپ کند تا حذف تصادفی رخ ندهد. این عملیات غیرقابل بازگشت است (به‌جز از طریق بک‌آپ).
+async function deleteMineRecord(idx) {
+  if(!isSuper()) { showToast('⚠️ فقط سوپرادمین می‌تواند رکورد را حذف کند'); return; }
+  const m = mines[idx];
+  if(!m) return;
+  const name = (m[nameField()] || '').trim();
+  const typed = prompt('⚠️ این عملیات غیرقابل بازگشت است.\nبرای تایید حذف، نام دقیق رکورد زیر را تایپ کنید:\n\n«'+name+'»');
+  if(typed === null) return; // انصراف کاربر
+  if(typed.trim() !== name) { showToast('⚠️ نام واردشده مطابقت نداشت — چیزی حذف نشد'); return; }
+  const {data:{user}} = await sb.auth.getUser();
+  await maybeBackupSnapshot(user ? user.email : ''); // یک نسخه پشتیبان درست قبل از حذف
+  const table = DEPT_TABLES[currentDept];
+  if(m._rowId) {
+    const {error} = await sb.from(table).delete().eq('id', m._rowId);
+    if(error) { showToast('⚠️ خطا در حذف از سرور: ' + error.message); return; }
+  }
+  mines.splice(idx, 1);
+  updateCounts();
+  showToast('✅ رکورد «'+name+'» حذف شد');
+  switchTab('search');
+  currentIdx = -1;
+  editMode = false;
+  inp.value = '';
+  document.getElementById('resultCard').style.display = 'none';
+  document.getElementById('clearBtn').style.display = 'none';
+  document.getElementById('statsGrid').style.display = 'block';
+}
 function cancelEdit() { editMode=false; showMine(currentIdx); }
 
 async function saveEdits() {
@@ -4441,7 +4495,24 @@ async function confirmAddField() {
 }
 
 function renderList() {
-  document.getElementById('mineList').innerHTML=mines.map((m,i)=>{
+  // پر کردن گزینه‌های دسته به‌صورت پویا از مقادیر موجود در داده‌های همین بخش (معدن/اکتشاف/فرآوری/صنعت)
+  const catSelect = document.getElementById('listFilterCategory');
+  const cats = [...new Set(mines.map(m=>m['دسته']).filter(Boolean))];
+  const prevCat = catSelect.value;
+  catSelect.innerHTML = '<option value="">همه دسته‌ها</option>' + cats.map(c=>'<option value="'+esc(c)+'"'+(c===prevCat?' selected':'')+'>'+esc(c)+'</option>').join('');
+
+  const catFilter = catSelect.value;
+  const onlyExpiring = document.getElementById('listFilterExpiring').checked;
+  const onlyNoCoords = document.getElementById('listFilterNoCoords').checked;
+
+  let rows = mines.map((m,i)=>({m,i}));
+  if(catFilter) rows = rows.filter(r => r.m['دسته'] === catFilter);
+  if(onlyExpiring) rows = rows.filter(r => { const info = licenseExpiryInfo(r.m); return info && info.monthsLeft <= 3; });
+  if(onlyNoCoords) rows = rows.filter(r => !(r.m._lat && r.m._lon));
+
+  document.getElementById('listFilterCount').textContent = (catFilter||onlyExpiring||onlyNoCoords) ? (rows.length+' از '+mines.length+' مورد') : '';
+
+  document.getElementById('mineList').innerHTML = rows.length ? rows.map(({m,i})=>{
     const c=catColors[m['دسته']]||(catColors['غیره']||{bg:'#eceff1',badge:'#546e7a',border:'#90a4ae'});
     const subLine = currentDept==='معدن'
       ? (m['نام_ماده']||'')+' \u00a0|\u00a0 پروانه: '+(m['شماره_پروانه']||'')
@@ -4451,7 +4522,7 @@ function renderList() {
       '<div class="mine-row-sub">'+subLine+'</div></div>'+
       '<div style="display:flex;align-items:center;gap:8px"><span class="list-badge" style="background:'+c.badge+'">'+(m['دسته']||'')+'</span>'+
       '<span style="color:#90a4ae;font-size:16px">›</span></div></div>';
-  }).join('');
+  }).join('') : '<div class="fuel-none">با این فیلترها موردی یافت نشد</div>';
 }
 
 function goToMine(idx) {
@@ -7049,6 +7120,52 @@ async function deleteVolumeSurvey(idx, si) {
 }
 
 
+let fpEquipPhotoCache = []; // آخرین عکس‌های نما/شماره سریال هر دستگاه که مسئول فنی از طریق اپ فرستاده (از جدول tech_reports)
+
+// عکس‌های نما و شماره سریال هر دستگاه، از گزارش‌های ماهانه‌ای که مسئول فنی برای این معدن فرستاده، جمع می‌کند
+// (جدیدترین گزارش‌ها اول؛ برای هر نام دستگاه، اولین/جدیدترین موردی که عکس دارد نگه داشته می‌شود).
+async function loadFpEquipPhotos(mineName) {
+  fpEquipPhotoCache = [];
+  if(!mineName) return;
+  const {data, error} = await sb.from('tech_reports').select('file_urls, period, created_at')
+    .eq('mine_name', mineName).order('created_at', {ascending:false}).limit(20);
+  if(error || !data) return;
+  const seen = new Set();
+  for(const rep of data) {
+    const detail = (rep.file_urls && rep.file_urls.equipmentDetail) || [];
+    for(const eq of detail) {
+      if(!eq.name || (!eq.overview?.length && !eq.serial?.length)) continue;
+      const norm = normalizeSearchText(eq.name);
+      if(seen.has(norm)) continue; // فقط جدیدترین عکس هر دستگاه نگه داشته می‌شود
+      seen.add(norm);
+      fpEquipPhotoCache.push({ name: eq.name, overview: eq.overview||[], serial: eq.serial||[], period: rep.period });
+    }
+  }
+}
+
+function findFpEquipPhotos(name) {
+  if(!name) return null;
+  const norm = normalizeSearchText(name);
+  return fpEquipPhotoCache.find(e => normalizeSearchText(e.name) === norm || normalizeSearchText(e.name).includes(norm) || norm.includes(normalizeSearchText(e.name))) || null;
+}
+
+function viewEquipPhotos(name) {
+  const rec = findFpEquipPhotos(name);
+  if(!rec) { showToast('⚠️ عکسی برای این دستگاه یافت نشد'); return; }
+  const box = document.getElementById('equipPhotosBody');
+  box.innerHTML = '<div style="font-size:12.5px;color:#607d8b;margin-bottom:10px">دستگاه: <b>'+esc(rec.name)+'</b> — دوره گزارش: '+esc(rec.period||'-')+'</div>'+
+    '<div style="display:flex;gap:16px;flex-wrap:wrap">'+
+      '<div><div style="font-size:12px;color:#455a64;margin-bottom:6px">📷 نمای کامل / دور دستگاه</div>'+
+        (rec.overview.length ? rec.overview.map(u=>'<img src="'+esc(u)+'" onclick="window.open(\''+esc(u)+'\',\'_blank\')" style="width:140px;height:140px;object-fit:cover;border-radius:8px;cursor:pointer;margin-left:6px;margin-bottom:6px">').join('') : '<div style="color:#90a4ae;font-size:12px">عکسی ثبت نشده</div>')+
+      '</div>'+
+      '<div><div style="font-size:12px;color:#455a64;margin-bottom:6px">🔢 عکس شماره سریال</div>'+
+        (rec.serial.length ? rec.serial.map(u=>'<img src="'+esc(u)+'" onclick="window.open(\''+esc(u)+'\',\'_blank\')" style="width:140px;height:140px;object-fit:cover;border-radius:8px;cursor:pointer;margin-left:6px;margin-bottom:6px">').join('') : '<div style="color:#90a4ae;font-size:12px">عکسی ثبت نشده</div>')+
+      '</div>'+
+    '</div>';
+  document.getElementById('equipPhotosModal').classList.add('open');
+}
+function closeEquipPhotosModal() { document.getElementById('equipPhotosModal').classList.remove('open'); }
+
 function openFuelPrintModal(idx) {
   fpMineIdx = idx;
   const m = mines[idx];
@@ -7085,7 +7202,7 @@ function openFuelPrintModal(idx) {
     document.getElementById('fpWasteLbl').textContent = 'ضایعات/دورریز این دوره';
   }
   document.getElementById('fpFuelType').value = 'نفت‌گاز';
-  loadEquipForCurrentType();
+  loadFpEquipPhotos(m['نام_معدن']).then(loadEquipForCurrentType);
   document.getElementById('fuelPrintModal').classList.add('open');
   attachAllJalaliPickers(document.getElementById('fuelPrintModal'));
 }
@@ -7106,11 +7223,13 @@ function loadEquipForCurrentType() {
 function renderEquipRows() {
   const type = document.getElementById('fpFuelType').value;
   const cols = FUEL_EQUIP_COLS[type];
-  document.getElementById('fpEquipRows').innerHTML = fpEquipRows.map((row,i)=>
-    '<div class="fp-equip-row">'+
+  document.getElementById('fpEquipRows').innerHTML = fpEquipRows.map((row,i)=>{
+    const hasPhotos = findFpEquipPhotos(row['نام']);
+    return '<div class="fp-equip-row">'+
     cols.map(([k,l])=>'<input placeholder="'+l+'" data-row="'+i+'" data-key="'+k+'" value="'+String(row[k]||'').replace(/"/g,'&quot;')+'" onchange="updateEquipCell(this)">').join('')+
-    '<button class="fp-equip-del" onclick="removeEquipRow('+i+')" title="حذف ردیف">🗑</button></div>'
-  ).join('');
+    (hasPhotos ? '<button class="fp-equip-del" style="color:#1565c0" title="مشاهده عکس نما و شماره سریال" onclick="viewEquipPhotos(\''+String(row['نام']||'').replace(/'/g,"\\'")+'\')">📷</button>' : '')+
+    '<button class="fp-equip-del" onclick="removeEquipRow('+i+')" title="حذف ردیف">🗑</button></div>';
+  }).join('');
 }
 
 function updateEquipCell(el) {
@@ -7439,7 +7558,33 @@ function renderLicenseWarnings() {
     '</div>';
 }
 
-// ── بررسی سلامت داده ────────────────────────────────────────
+// ارسال دستی هشدار انقضای پروانه به تلگرام/روبیکای سوپرادمین‌ها — همان محاسبه‌ای که renderLicenseWarnings
+// و داشبورد استفاده می‌کنند (licenseExpiryInfo)، فقط این بار به‌جای نمایش در صفحه، پیام فرستاده می‌شود.
+async function sendExpiryDigest() {
+  const btn = document.getElementById('expiryDigestBtn');
+  const items = [];
+  mines.forEach(m => {
+    const info = licenseExpiryInfo(m);
+    if(info && info.monthsLeft <= 3) items.push({ name: m[nameField()]||'', expired: info.expired, monthsLeft: info.monthsLeft });
+  });
+  items.sort((a,b) => a.monthsLeft - b.monthsLeft);
+  if(!items.length) { showToast('✅ در حال حاضر هیچ پروانه‌ای نزدیک به انقضا نیست'); return; }
+  if(!confirm('هشدار انقضای '+items.length+' پروانه به تلگرام/روبیکای سوپرادمین‌ها ارسال شود؟')) return;
+  btn.disabled = true; btn.textContent = '⏳ در حال ارسال...';
+  try {
+    const {data:{session}} = await sb.auth.getSession();
+    const res = await fetch(SUPA_URL + '/functions/v1/notify-relay', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json', 'Authorization':'Bearer '+session.access_token},
+      body: JSON.stringify({ action: 'licenseExpiryDigest', items })
+    });
+    const j = await res.json();
+    showToast(j.notified ? '✅ هشدار ارسال شد' : '⚠️ ارسال ناموفق — گیرنده‌ای با تلگرام/روبیکای تنظیم‌شده یافت نشد');
+  } catch(e) {
+    showToast('⚠️ خطا در ارسال هشدار');
+  }
+  btn.disabled = false; btn.textContent = '🔔 ارسال هشدار انقضا';
+}
 function runHealthCheck() {
   const requiredKeysByDept = {
     'معدن':    [['نام_معدن','نام معدن'],['شماره_پروانه','شماره پروانه'],['نام_دارنده','نام دارنده'],['_lat','مختصات']],
@@ -7771,6 +7916,7 @@ document.getElementById('techImportModal').addEventListener('click',e=>{if(e.tar
 document.getElementById('userAccessModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeUserAccessModal();});
 document.getElementById('volumeViewModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeVolumeViewModal();});
 document.getElementById('fuelPrintModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeFuelPrintModal();});
+document.getElementById('equipPhotosModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeEquipPhotosModal();});
 document.getElementById('loginModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeLoginModal();});
 
 (async()=>{
