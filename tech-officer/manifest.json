@@ -3,7 +3,7 @@
   "name": "مسئول فنی — اداره صنعت، معدن و تجارت قروه",
   "short_name": "مسئول فنی",
   "description": "آپلود گزارش ماهانه و عکس‌های سینه‌کار/ماشین‌آلات معدن با موقعیت مکانی و مشخصات مسئول فنی",
-  "start_url": "/tech-officer/index.html",
+  "start_url": "/tech-officer/",
   "scope": "/tech-officer/",
   "display": "standalone",
   "orientation": "portrait",
