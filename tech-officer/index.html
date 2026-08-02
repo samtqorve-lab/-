@@ -2083,10 +2083,37 @@ async function captureEquipItemPhoto(inputEl, key, photoType) {
     if(!torEquipItemCaptures[key]) torEquipItemCaptures[key] = {overview:[], serial:[]};
     torEquipItemCaptures[key][photoType].push({ blob: watermarked, previewUrl: URL.createObjectURL(watermarked) });
     renderEquipItemThumbs(key, photoType);
+    // عکس «نمای دور» علاوه بر ضمیمه‌شدن به گزارش دوره‌ای، همین الان برای تایید مدیر سامانه
+    // در جدول mine_equipment هم ثبت می‌شود — همان جدولی که تب «ماشین‌آلات» ادمین و دکمه‌ی
+    // «دریافت ماشین‌آلات تایید‌شده» در چاپ سوخت از آن می‌خوانند. قبل از این تغییر هیچ کدی این
+    // جدول را پر نمی‌کرد، برای همین عکس‌های ماشین‌آلات هیچ‌وقت آنجا ظاهر نمی‌شدند.
+    if(photoType === 'overview') {
+      try {
+        await submitEquipmentForApproval(key, mine, coords, watermarked);
+        showToast('✅ عکس ماشین برای تایید مدیر سامانه ارسال شد');
+      } catch(subErr) {
+        console.warn('mine_equipment insert failed', subErr);
+        showToast('⚠️ عکس ذخیره شد ولی ارسال برای تایید ماشین‌آلات ناموفق بود: ' + subErr.message);
+      }
+    }
   } catch(err) {
     showToast('⚠️ ' + err.message);
   }
   inputEl.value = '';
+}
+
+async function submitEquipmentForApproval(key, mine, coords, watermarkedBlob) {
+  const eq = torEquipWorkingList.find(r => r.key === key);
+  const {data:{user}} = await sb.auth.getUser();
+  const photoUrl = await uploadTechFile(watermarkedBlob, 'equip_'+key+'.jpg', mine['نام_معدن'], 'equipment', 'equip_submit');
+  const insideBoundary = isInsideMineBoundary(coords, mine);
+  const {error} = await sb.from('mine_equipment').insert([{
+    mine_name: mine['نام_معدن'], submitted_by: user ? user.email : '',
+    machine_type: (eq && (eq.name || eq.type)) || '', plate_no: (eq && eq.model) || '',
+    photo_url: photoUrl, lat: coords.latitude, lon: coords.longitude,
+    inside_boundary: insideBoundary, department: myTechOfficerDept
+  }]);
+  if(error) throw new Error(error.message);
 }
 
 function renderEquipItemThumbs(key, photoType) {
