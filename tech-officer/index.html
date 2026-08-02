@@ -126,6 +126,24 @@ textarea{resize:vertical;min-height:90px}
   </div>
 </div>
 
+<script>
+// ── ضامن ایمنی مستقل ──
+// این تایمر در یک <script> جدا از اسکریپت اصلی برنامه ثبت می‌شود؛ به همین دلیل حتی اگر
+// اسکریپت اصلی (که به کتابخانه‌ی Supabase از یک CDN خارجی وابسته است) به‌خاطر ضعف اینترنت،
+// فیلترینگ، یا مسدود بودن CDN اصلاً اجرا نشود یا با خطا متوقف شود، بازهم بعد از ۹ ثانیه
+// این تایمر مستقل اجرا و پیام خطای اتصال (به‌جای اسپینر ابدی) نمایش داده می‌شود.
+setTimeout(function(){
+  var splash = document.getElementById('bootSplash');
+  if(splash && splash.style.display !== 'none'){
+    splash.innerHTML = '<div style="text-align:center;color:#fff;padding:20px;max-width:320px;margin:0 auto">'
+      + '<div style="font-size:40px;margin-bottom:10px">📡</div>'
+      + '<div style="font-size:14px;line-height:2">اتصال به سرویس برقرار نشد یا بارگذاری اپلیکیشن با مشکل مواجه شد.<br>لطفاً اتصال اینترنت گوشی (وای‌فای/دیتا) را بررسی کنید و دوباره تلاش کنید.</div>'
+      + '<button onclick="location.reload()" style="margin-top:14px;background:#00695c;color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:13px;cursor:pointer">تلاش دوباره</button>'
+      + '</div>';
+  }
+}, 9000);
+</script>
+
 <div id="authGate" class="gate-screen">
   <div class="gate-box">
     <div class="gate-logo">🦺</div>
