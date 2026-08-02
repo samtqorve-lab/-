@@ -17,20 +17,37 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
+:root{
+  --bg-page:#f0f4f8; --text-main:#222;
+  --card-bg:#fff; --card-border:#e0e0e0;
+  --input-bg:#fff; --input-border:#b0bec5; --input-text:#1a3a5c;
+  --label-text:#455a64; --heading:#1a3a5c;
+  --secondary-text:#55707d; --muted-text:#6b8291;
+  --stakeout-bg:#eceff1; --stakeout-row-bg:#fff; --stakeout-dir-bg:#f5f7fa;
+}
+body.dark-mode{
+  --bg-page:#12181f; --text-main:#dbe4ea;
+  --card-bg:#1c2530; --card-border:#2c3947;
+  --input-bg:#25313d; --input-border:#3b4a59; --input-text:#e2ebf1;
+  --label-text:#a9bccb; --heading:#7fd0c4;
+  --secondary-text:#9fb2bf; --muted-text:#7c92a0;
+  --stakeout-bg:#141c24; --stakeout-row-bg:#1c2530; --stakeout-dir-bg:#232f3a;
+}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html{font-size:16px}
-body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:#f0f4f8;overflow-x:hidden;
-     padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:var(--text-main);background:var(--bg-page);overflow-x:hidden;
+     padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);transition:background .2s,color .2s}
 
 .gate-screen{position:fixed;inset:0;z-index:999;display:flex;align-items:center;justify-content:center;
   background:linear-gradient(135deg,#0d1f33,#1a3a5c 60%,#00695c);padding:20px}
-.gate-box{background:#fff;border-radius:20px;padding:34px 26px;max-width:400px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.gate-box{background:var(--card-bg);border-radius:20px;padding:34px 26px;max-width:400px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.35)}
 .gate-logo{font-size:40px;margin-bottom:10px}
-.gate-box h2{font-size:17px;color:#1a3a5c;margin-bottom:6px}
-.gate-box p{font-size:12.5px;color:#607d8b;margin-bottom:18px;line-height:1.8}
-.gate-box label{display:block;text-align:right;font-size:12px;color:#455a64;margin:10px 0 4px}
-.gate-box input{width:100%;border:1.5px solid #cfd8dc;border-radius:10px;padding:11px 13px;font-size:16px;font-family:Tahoma}
-.login-err{color:#e53935;font-size:12px;text-align:center;margin-top:8px;min-height:18px}
+.gate-box h2{font-size:18px;color:var(--heading);margin-bottom:6px}
+.gate-box p{font-size:13.5px;color:var(--secondary-text);margin-bottom:18px;line-height:1.9}
+.gate-box label{display:block;text-align:right;font-size:13.5px;color:var(--label-text);margin:12px 0 5px}
+.gate-box input{width:100%;border:1.5px solid var(--input-border);border-radius:10px;padding:13px 14px;font-size:16px;font-family:Tahoma;background:var(--input-bg);color:var(--input-text);min-height:46px}
+.login-err{color:#e53935;font-size:13px;text-align:center;margin-top:8px;min-height:18px;line-height:1.6}
+.pwd-toggle-btn{background:none;border:none;color:var(--secondary-text);font-size:11px;cursor:pointer;padding:4px 2px;font-family:Tahoma;display:block;margin-right:auto}
 
 .topbar{background:rgba(0,0,0,.3);backdrop-filter:blur(10px);padding:10px 14px;display:flex;align-items:center;
   justify-content:space-between;position:sticky;top:0;z-index:50;flex-wrap:wrap;gap:8px;
@@ -39,50 +56,75 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
 .topbar-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .topbar-user{color:rgba(255,255,255,.65);font-size:11px}
 .logout-btn{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;font-family:Tahoma}
+.dark-toggle-btn{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:8px;padding:7px 10px;font-size:13px;cursor:pointer;font-family:Tahoma;line-height:1}
 
 #techOfficerShell{max-width:720px;margin:0 auto;padding:16px;display:none;background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);min-height:100vh}
-.panel-card{background:#fff;border-radius:14px;padding:18px;margin-top:16px;box-shadow:0 2px 10px rgba(0,0,0,.06)}
-.panel-card h3{font-size:15px;color:#1a3a5c;margin-bottom:8px}
-label{display:block;font-size:12px;color:#455a64;margin:10px 0 4px}
-input,select,textarea{width:100%;border:1.5px solid #b0bec5;border-radius:8px;padding:10px 12px;font-size:16px;font-family:Tahoma;color:#1a3a5c;outline:none}
-textarea{resize:vertical}
-.btn{padding:10px 16px;border-radius:9px;border:none;cursor:pointer;font-family:Tahoma;font-size:13px;font-weight:700}
+.panel-card{background:var(--card-bg);border-radius:14px;padding:18px;margin-top:16px;box-shadow:0 2px 10px rgba(0,0,0,.06)}
+.panel-card h3{font-size:15px;color:var(--heading);margin-bottom:8px}
+label{display:block;font-size:13.5px;color:var(--label-text);margin:12px 0 5px;line-height:1.5}
+input,select,textarea{width:100%;border:1.5px solid var(--input-border);border-radius:9px;padding:13px 14px;font-size:16px;font-family:Tahoma;color:var(--input-text);background:var(--input-bg);outline:none;min-height:46px}
+textarea{resize:vertical;min-height:90px}
+.btn{padding:14px 18px;border-radius:10px;border:none;cursor:pointer;font-family:Tahoma;font-size:14.5px;font-weight:700;min-height:48px;line-height:1.3}
 .btn-save{background:#00897b;color:#fff}
-.btn-sm{padding:8px 14px;border-radius:7px;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:Tahoma}
-.mine-card{background:#fff;border-radius:12px;padding:14px;margin-bottom:8px;box-shadow:0 2px 8px rgba(0,0,0,.05)}
+.btn-sm{padding:11px 16px;border-radius:8px;border:none;font-size:13px;font-weight:700;cursor:pointer;font-family:Tahoma;min-height:42px}
+/* فاصله‌ی مناسب بین دکمه‌های پشت‌سرهم تا انگشت راحت‌تر روی موبایل تاچ کند */
+.btn+.btn, .btn-sm+.btn-sm{margin-top:9px}
+.mine-card{background:var(--card-bg);border-radius:12px;padding:14px;margin-bottom:8px;box-shadow:0 2px 8px rgba(0,0,0,.05)}
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#323232;color:#fff;padding:11px 20px;
   border-radius:24px;font-size:13px;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.3);opacity:0;transition:opacity .3s;
   pointer-events:none;max-width:90vw;text-align:center}
 
 /* ابزار پیاده کردن نقاط پروانه (استیک‌اوت GPS) */
-.stakeout-view{position:fixed;inset:0;z-index:1100;background:#eceff1;display:none;flex-direction:column}
+.stakeout-view{position:fixed;inset:0;z-index:1100;background:var(--stakeout-bg);display:none;flex-direction:column}
 .stakeout-header{background:#1a3a5c;color:#fff;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
 .stakeout-header h3{font-size:14.5px;margin:0}
 .stakeout-close{background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:50%;width:34px;height:34px;font-size:16px;cursor:pointer}
-.stakeout-mode-row{display:flex;gap:8px;padding:8px 12px;background:#fff;border-bottom:1px solid #e0e0e0}
-.stakeout-mode-btn{flex:1;padding:8px 6px;border-radius:8px;border:2px solid #cfd8dc;background:#fff;color:#607d8b;font-size:12px;font-weight:700;cursor:pointer}
+.stakeout-mode-row{display:flex;gap:8px;padding:8px 12px;background:var(--stakeout-row-bg);border-bottom:1px solid var(--card-border)}
+.stakeout-mode-btn{flex:1;padding:8px 6px;border-radius:8px;border:2px solid var(--input-border);background:var(--stakeout-row-bg);color:var(--secondary-text);font-size:12px;font-weight:700;cursor:pointer}
 .stakeout-mode-btn.active{background:#1a3a5c;color:#fff;border-color:#1a3a5c}
 .stakeout-chip.visited{opacity:.55}
 .stakeout-chip.visited::after{content:' ✓';color:#2e7d32}
-.stakeout-chips{display:flex;gap:6px;overflow-x:auto;padding:10px 12px;background:#fff;flex-shrink:0;border-bottom:1px solid #e0e0e0}
-.stakeout-chip{flex-shrink:0;padding:8px 14px;border-radius:20px;background:#eceff1;color:#1a3a5c;font-size:12.5px;font-weight:700;border:2px solid transparent;cursor:pointer;white-space:nowrap}
+.stakeout-chips{display:flex;gap:6px;overflow-x:auto;padding:10px 12px;background:var(--stakeout-row-bg);flex-shrink:0;border-bottom:1px solid var(--card-border)}
+.stakeout-chip{flex-shrink:0;padding:8px 14px;border-radius:20px;background:var(--stakeout-bg);color:var(--heading);font-size:12.5px;font-weight:700;border:2px solid transparent;cursor:pointer;white-space:nowrap}
 .stakeout-chip.active{background:#1a3a5c;color:#fff;border-color:#ffc107}
 #stakeoutMap{flex:1;min-height:0;position:relative}
 .stakeout-compass{position:absolute;top:12px;left:12px;z-index:500;background:#fff;border-radius:50%;width:44px;height:44px;
   display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3);font-weight:900;color:#c62828;font-size:15px}
-.stakeout-panel{background:#fff;padding:14px 16px 18px;flex-shrink:0;box-shadow:0 -4px 14px rgba(0,0,0,.12)}
-.stakeout-dist{font-size:32px;font-weight:900;color:#1a3a5c;text-align:center}
-.stakeout-dist span{font-size:14px;font-weight:700;color:#607d8b}
+.stakeout-panel{background:var(--stakeout-row-bg);padding:14px 16px 18px;flex-shrink:0;box-shadow:0 -4px 14px rgba(0,0,0,.12)}
+.stakeout-dist{font-size:32px;font-weight:900;color:var(--heading);text-align:center}
+.stakeout-dist span{font-size:14px;font-weight:700;color:var(--secondary-text)}
 .stakeout-dirs{display:flex;gap:10px;margin-top:10px}
-.stakeout-dir{flex:1;background:#f5f7fa;border-radius:10px;padding:10px;text-align:center;font-size:13.5px;font-weight:700;color:#1a3a5c}
+.stakeout-dir{flex:1;background:var(--stakeout-dir-bg);border-radius:10px;padding:10px;text-align:center;font-size:13.5px;font-weight:700;color:var(--heading)}
 .stakeout-dir b{display:block;font-size:19px;margin-bottom:2px}
-.stakeout-acc{text-align:center;font-size:11px;color:#90a4ae;margin-top:8px}
+.stakeout-acc{text-align:center;font-size:11px;color:var(--muted-text);margin-top:8px}
 .stakeout-reached{background:#2e7d32 !important;color:#fff !important}
 .stakeout-reached b{color:#fff !important}
+
+/* راهنمای اولین اجرا (onboarding) */
+.onb-overlay{position:fixed;inset:0;z-index:1500;background:rgba(13,31,51,.92);display:none;align-items:center;justify-content:center;padding:20px}
+.onb-card{background:var(--card-bg);border-radius:18px;padding:26px 22px;max-width:380px;width:100%;text-align:center}
+.onb-icon{font-size:44px;margin-bottom:14px}
+.onb-title{font-size:16px;font-weight:700;color:var(--heading);margin-bottom:8px}
+.onb-text{font-size:13px;color:var(--secondary-text);line-height:1.9;margin-bottom:20px}
+.onb-dots{display:flex;justify-content:center;gap:6px;margin-bottom:16px}
+.onb-dot{width:7px;height:7px;border-radius:50%;background:var(--input-border)}
+.onb-dot.active{background:#00897b}
+.onb-actions{display:flex;gap:8px}
+
+@keyframes spin{to{transform:rotate(360deg)}}
+
 </style>
+
 </head>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 <body>
+
+<div id="bootSplash" class="gate-screen" style="z-index:1400">
+  <div style="text-align:center;color:#fff">
+    <div style="font-size:46px;margin-bottom:14px">🦺</div>
+    <div style="width:34px;height:34px;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;margin:0 auto;animation:spin 0.8s linear infinite"></div>
+  </div>
+</div>
 
 <div id="authGate" class="gate-screen">
   <div class="gate-box">
@@ -93,10 +135,12 @@ textarea{resize:vertical}
     <input id="gateEmail" type="text" dir="ltr" autocomplete="username">
     <label>رمز عبور</label>
     <input id="gatePass" type="password" dir="ltr" autocomplete="current-password">
-    <button class="btn btn-save" style="width:100%;margin-top:16px" onclick="doGateLogin()">ورود</button>
+    <button type="button" class="pwd-toggle-btn" onclick="togglePwd('gatePass',this)">👁 نمایش رمز</button>
+    <button class="btn btn-save" id="gateLoginBtn" style="width:100%;margin-top:16px" onclick="doGateLogin()">ورود</button>
     <div class="login-err" id="gateErr"></div>
-    <div style="margin-top:10px;font-size:12px"><a href="#" onclick="showForgotGate();return false" style="color:#607d8b">رمز عبور را فراموش کرده‌اید؟</a></div>
-    <div style="margin-top:6px;font-size:12px;color:#607d8b">قبلاً ثبت‌نام نکرده‌اید؟ <a href="#" onclick="showRegisterGate();return false" style="color:#00695c;font-weight:700">ثبت‌نام کنید</a></div>
+    <div style="margin-top:10px;font-size:12px"><a href="#" onclick="showForgotGate();return false" style="color:#55707d">رمز عبور را فراموش کرده‌اید؟</a></div>
+    <div style="margin-top:6px;font-size:12px;color:#55707d">قبلاً ثبت‌نام نکرده‌اید؟ <a href="#" onclick="showRegisterGate();return false" style="color:#00695c;font-weight:700">ثبت‌نام کنید</a></div>
+    <div style="margin-top:10px"><a href="#" onclick="toggleDarkMode();return false" style="color:#90a4ae;font-size:11px">🌙 حالت تاریک</a></div>
   </div>
 </div>
 
@@ -115,15 +159,17 @@ textarea{resize:vertical}
       <p style="color:#2e7d32">✅ یک کد به ایمیل شما ارسال شد (صندوق ورودی و پوشه اسپم را بررسی کنید). آن را همراه با رمز عبور جدید وارد کنید.</p>
       <div id="resetCodeRow">
         <label>کد ارسال‌شده به ایمیل</label>
-        <input id="resetCode" type="text" inputmode="numeric" maxlength="8" dir="ltr" placeholder="--------" style="letter-spacing:4px;text-align:center;font-size:20px">
+        <input id="resetCode" type="text" inputmode="numeric" maxlength="8" dir="ltr" placeholder="--------" style="letter-spacing:2px;text-align:center;font-size:19px">
       </div>
       <label>رمز عبور جدید</label>
       <input id="resetPass1" type="password" dir="ltr" autocomplete="new-password">
+      <button type="button" class="pwd-toggle-btn" onclick="togglePwd('resetPass1',this)">👁 نمایش رمز</button>
       <label>تکرار رمز عبور جدید</label>
       <input id="resetPass2" type="password" dir="ltr" autocomplete="new-password">
+      <button type="button" class="pwd-toggle-btn" onclick="togglePwd('resetPass2',this)">👁 نمایش رمز</button>
       <div class="login-err" id="resetPassErr"></div>
       <button class="btn btn-save" style="width:100%;margin-top:16px" onclick="doResetPasswordWithCode()">ذخیره رمز عبور جدید</button>
-      <div style="margin-top:10px;font-size:12px;text-align:center"><a href="#" onclick="doForgotPassword();return false" style="color:#607d8b">کد جدید ارسال شود</a></div>
+      <div style="margin-top:10px;font-size:12px;text-align:center"><a href="#" onclick="doForgotPassword();return false" style="color:#55707d">کد جدید ارسال شود</a></div>
     </div>
     <div style="margin-top:14px;font-size:12px"><a href="#" onclick="showLoginGate();return false" style="color:#00695c;font-weight:700">بازگشت به ورود</a></div>
   </div>
@@ -146,8 +192,10 @@ textarea{resize:vertical}
     <input id="regEmail" type="email" dir="ltr" autocomplete="username">
     <label>رمز عبور</label>
     <input id="regPass" type="password" dir="ltr" autocomplete="new-password">
+    <button type="button" class="pwd-toggle-btn" onclick="togglePwd('regPass',this)">👁 نمایش رمز</button>
     <label>تکرار رمز عبور</label>
     <input id="regPass2" type="password" dir="ltr" autocomplete="new-password">
+    <button type="button" class="pwd-toggle-btn" onclick="togglePwd('regPass2',this)">👁 نمایش رمز</button>
 
     <div style="font-weight:700;color:#1a3a5c;font-size:12.5px;text-align:right;margin-top:14px">🦺 اطلاعات نظام مهندسی و معدن</div>
     <label>نوع تخصص مسئول فنی</label>
@@ -176,9 +224,9 @@ textarea{resize:vertical}
     <input id="regMessengerChatId" type="text" dir="ltr" placeholder="شناسه چت">
 
     <div id="signupCaptcha" style="margin-top:12px"></div>
-    <button class="btn btn-save" style="width:100%;margin-top:16px" onclick="doGateRegister()">ارسال درخواست ثبت‌نام</button>
+    <button class="btn btn-save" id="regSubmitBtn" style="width:100%;margin-top:16px" onclick="doGateRegister()">ارسال درخواست ثبت‌نام</button>
     <div class="login-err" id="regErr"></div>
-    <div style="margin-top:12px;font-size:12px;color:#607d8b">حساب دارید؟ <a href="#" onclick="showLoginGate();return false" style="color:#00695c;font-weight:700">ورود</a></div>
+    <div style="margin-top:12px;font-size:12px;color:#55707d">حساب دارید؟ <a href="#" onclick="showLoginGate();return false" style="color:#00695c;font-weight:700">ورود</a></div>
   </div>
 </div>
 
@@ -197,17 +245,17 @@ textarea{resize:vertical}
     <h2>تایید ایمیل</h2>
     <p>یک کد به ایمیل شما ارسال شد (صندوق ورودی و پوشه اسپم را بررسی کنید). آن را وارد کنید تا ثبت‌نام شما نهایی و برای مدیر سامانه ارسال شود.</p>
     <label>کد ارسال‌شده به ایمیل</label>
-    <input id="confirmSignupCode" type="text" inputmode="numeric" maxlength="8" dir="ltr" placeholder="--------" style="letter-spacing:4px;text-align:center;font-size:20px" onkeydown="if(event.key==='Enter')doConfirmSignup()">
+    <input id="confirmSignupCode" type="text" inputmode="numeric" maxlength="8" dir="ltr" placeholder="--------" style="letter-spacing:2px;text-align:center;font-size:19px" onkeydown="if(event.key==='Enter')doConfirmSignup()">
     <div class="login-err" id="confirmSignupErr"></div>
     <button class="btn btn-save" style="width:100%;margin-top:16px" onclick="doConfirmSignup()">تایید و تکمیل ثبت‌نام</button>
-    <div style="margin-top:10px;font-size:12px;text-align:center"><a href="#" onclick="resendSignupCode();return false" style="color:#607d8b">ارسال دوباره‌ی کد</a></div>
+    <div style="margin-top:10px;font-size:12px;text-align:center"><a href="#" onclick="resendSignupCode();return false" style="color:#55707d">ارسال دوباره‌ی کد</a></div>
   </div>
 </div>
 
 <div class="gate-screen" id="incidentModal" style="display:none;z-index:1000">
   <div class="gate-box" style="max-width:440px;max-height:88vh;overflow-y:auto;text-align:right">
     <h2 style="color:#c62828">🚨 اعلام حادثه در معدن</h2>
-    <div id="incidentMineNameBox" style="font-size:12.5px;color:#607d8b;margin-bottom:10px"></div>
+    <div id="incidentMineNameBox" style="font-size:12.5px;color:#55707d;margin-bottom:10px"></div>
 
     <label>نوع حادثه</label>
     <select id="incMineType">
@@ -252,7 +300,7 @@ textarea{resize:vertical}
 <div class="gate-screen" id="aiPolishModal" style="display:none;z-index:1100">
   <div class="gate-box" style="max-width:440px;max-height:88vh;overflow-y:auto;text-align:right">
     <h2 style="color:#6a1b9a">✨ پیشنهاد رسمی‌نویسی</h2>
-    <div style="font-size:11.5px;color:#607d8b;margin-bottom:10px">فقط جمله‌بندی و نگارش رسمی می‌شود؛ هیچ عدد/تاریخ/ادعای جدیدی اضافه نمی‌شود. متن نهایی با خودتان است.</div>
+    <div style="font-size:11.5px;color:#55707d;margin-bottom:10px">فقط جمله‌بندی و نگارش رسمی می‌شود؛ هیچ عدد/تاریخ/ادعای جدیدی اضافه نمی‌شود. متن نهایی با خودتان است.</div>
     <label>متن پیشنهادی</label>
     <textarea id="aiPolishResultBox" rows="8"></textarea>
     <div style="display:flex;gap:8px;margin-top:14px">
@@ -277,7 +325,7 @@ textarea{resize:vertical}
 
   </div>
   <div class="stakeout-panel">
-    <div id="stakeoutStatus" style="font-size:12.5px;color:#607d8b;text-align:center;margin-bottom:6px">در حال دریافت موقعیت GPS...</div>
+    <div id="stakeoutStatus" style="font-size:12.5px;color:#55707d;text-align:center;margin-bottom:6px">در حال دریافت موقعیت GPS...</div>
     <div class="stakeout-dist" id="stakeoutDistBox" style="display:none">
       <span id="stakeoutTargetLabel"></span><br>
       <span id="stakeoutDistNum"></span> <span>متر فاصله</span>
@@ -297,7 +345,7 @@ textarea{resize:vertical}
     <p id="biometricGateEmail" style="direction:ltr"></p>
     <button class="btn btn-save" style="width:100%;margin-top:10px" onclick="tryBiometricLogin()">👆 تایید با اثر انگشت / Face ID</button>
     <div class="login-err" id="biometricErr"></div>
-    <div style="margin-top:14px;font-size:12px;color:#607d8b">
+    <div style="margin-top:14px;font-size:12px;color:#55707d">
       <a href="#" onclick="fallbackToPasswordLogin();return false" style="color:#00695c;font-weight:700">ورود با ایمیل و رمز عبور</a>
     </div>
   </div>
@@ -331,7 +379,7 @@ textarea{resize:vertical}
 
     <div class="login-err" id="identityGateErr"></div>
     <button class="btn btn-save" id="identitySubmitBtn" style="width:100%;margin-top:14px" onclick="submitIdentityCapture()">📤 ارسال برای تایید</button>
-    <div style="margin-top:14px;font-size:12px;color:#607d8b"><a href="#" onclick="doLogout();return false" style="color:#c62828;font-weight:700">خروج از حساب</a></div>
+    <div style="margin-top:14px;font-size:12px;color:#55707d"><a href="#" onclick="doLogout();return false" style="color:#c62828;font-weight:700">خروج از حساب</a></div>
   </div>
 </div>
 
@@ -359,6 +407,8 @@ textarea{resize:vertical}
   <div class="topbar">
     <div class="topbar-title">🦺 پنل مسئول فنی</div>
     <div class="topbar-right">
+      <button class="dark-toggle-btn" id="darkToggleBtn" onclick="toggleDarkMode()" title="حالت تاریک">🌙</button>
+      <span id="connDot" title="وضعیت اتصال" style="width:9px;height:9px;border-radius:50%;background:#66bb6a;flex-shrink:0"></span>
       <span class="topbar-user" id="techOfficerEmail"></span>
       <button class="logout-btn" onclick="doLogout()">خروج</button>
     </div>
@@ -389,7 +439,7 @@ textarea{resize:vertical}
 
   <div class="panel-card">
     <h3>📤 آپلود گزارش ماهانه</h3>
-    <div style="font-size:11.5px;color:#607d8b;margin-bottom:8px">گزارش و عکس‌ها مستقیماً برای مسئولین اداره ارسال می‌شود.</div>
+    <div style="font-size:11.5px;color:#55707d;margin-bottom:8px">گزارش و عکس‌ها مستقیماً برای مسئولین اداره ارسال می‌شود.</div>
 
     <label>معدن</label>
     <select id="torMine" onchange="renderEquipmentChecklist()"></select>
@@ -428,7 +478,22 @@ textarea{resize:vertical}
 
   <div class="panel-card">
     <h3>🗂️ گزارش‌های ارسالی قبلی</h3>
-    <div id="techOfficerHistory"><div style="text-align:center;color:#90a4ae;font-size:12px;padding:12px">در حال بارگذاری...</div></div>
+    <input id="techHistorySearch" type="text" placeholder="جست‌وجو بر اساس معدن یا دوره..." style="margin-bottom:8px" oninput="renderTechHistoryList()">
+    <div id="techOfficerHistory"><div style="text-align:center;color:#6b8291;font-size:12px;padding:12px">در حال بارگذاری...</div></div>
+  </div>
+</div>
+
+<div id="onbOverlay" class="onb-overlay">
+  <div class="onb-card">
+    <div class="onb-icon" id="onbIcon"></div>
+    <div class="onb-title" id="onbTitle"></div>
+    <div class="onb-text" id="onbText"></div>
+    <div class="onb-dots" id="onbDots"></div>
+    <div class="onb-actions">
+      <button class="btn" id="onbBackBtn" style="flex:1;background:#eee;color:#333" onclick="onbBack()">قبلی</button>
+      <button class="btn btn-save" id="onbNextBtn" style="flex:2" onclick="onbNext()">بعدی</button>
+    </div>
+    <div style="margin-top:12px"><a href="#" onclick="closeOnboarding();return false" style="font-size:11px;color:#90a4ae">رد کردن راهنما</a></div>
   </div>
 </div>
 
@@ -536,7 +601,7 @@ function updateOfflineBadge() {
     if(!badge) {
       badge = document.createElement('div');
       badge.id = 'offlineQueueBadge';
-      badge.style.cssText = 'position:fixed;top:8px;left:8px;z-index:1200;background:#f57f17;color:#fff;'+
+      badge.style.cssText = 'position:fixed;top:calc(8px + env(safe-area-inset-top));left:8px;z-index:1200;background:#f57f17;color:#fff;'+
         'font-size:11px;font-weight:700;padding:6px 10px;border-radius:20px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.25);display:none';
       badge.onclick = () => trySyncQueuedItems(true);
       document.body.appendChild(badge);
@@ -582,6 +647,92 @@ window.addEventListener('online', () => trySyncQueuedItems(false));
 document.addEventListener('DOMContentLoaded', () => { updateOfflineBadge(); trySyncQueuedItems(false); });
 
 function esc(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+// خیلی از کیبوردهای فارسی/عربی روی گوشی رقم ۰۱۲۳... یا ٠١٢٣... تایپ می‌کنند نه 0123 انگلیسی؛
+// این باعث می‌شود کد تایید ایمیل هیچ‌وقت با کد واقعی مطابقت نکند یا کد ملی رد شود. همه‌جا نرمالایز می‌کنیم.
+function toEnDigits(s) {
+  if(s == null) return s;
+  const fa = '۰۱۲۳۴۵۶۷۸۹', ar = '٠١٢٣٤٥٦٧٨٩';
+  return String(s).replace(/[۰-۹٠-٩]/g, ch => {
+    const i = fa.indexOf(ch); if(i > -1) return i;
+    const j = ar.indexOf(ch); if(j > -1) return j;
+    return ch;
+  });
+}
+// حالت تاریک — انتخاب کاربر روی همین گوشی ذخیره می‌شود و دفعات بعد هم اعمال می‌شود
+function applyDarkModeFromStorage() {
+  const on = localStorage.getItem('techOfficerDarkMode') === '1';
+  document.body.classList.toggle('dark-mode', on);
+  const btn = document.getElementById('darkToggleBtn');
+  if(btn) btn.textContent = on ? '☀️' : '🌙';
+}
+function toggleDarkMode() {
+  const isOn = document.body.classList.contains('dark-mode');
+  localStorage.setItem('techOfficerDarkMode', isOn ? '0' : '1');
+  applyDarkModeFromStorage();
+}
+applyDarkModeFromStorage();
+
+// راهنمای تصویری اولین اجرا — فقط یک‌بار (روی همین گوشی) بعد از اولین ورود موفق نشان داده می‌شود
+const ONB_SLIDES = [
+  {icon:'📷', title:'عکس فقط با دوربین، همین لحظه', text:'همه‌ی عکس‌های سینه‌کار، ماشین‌آلات و احراز هویت باید مستقیم با دوربین گرفته بشن (نه از گالری) — موقعیت GPS و مشخصات شما خودکار روی عکس درج می‌شه.'},
+  {icon:'🎯', title:'پیاده کردن نقاط پروانه', text:'با دکمه‌ی «پیاده کردن نقاط پروانه» می‌تونید فاصله و جهت خودتون تا هر گوشه‌ی محدوده‌ی قانونی معدن رو روی نقشه ببینید — نیازی به قطب‌نمای گوشی نیست.'},
+  {icon:'📴', title:'حتی بدون اینترنت هم کار می‌کنه', text:'اگه تو سایت معدن آنتن نداشته باشید، گزارش و عکس‌ها ذخیره می‌مونن و به‌محض وصل‌شدن اینترنت خودکار ارسال می‌شن — چیزی گم نمی‌شه.'},
+  {icon:'✨', title:'رسمی‌نویسی با هوش مصنوعی', text:'روی دکمه‌ی «رسمی‌نویسی با هوش مصنوعی» کنار توضیحات بزنید تا فقط جمله‌بندی رسمی‌تر بشه — هیچ عدد یا ادعای جدیدی اضافه نمی‌شه و متن نهایی همیشه با خودتونه.'},
+];
+let onbIdx = 0;
+function showOnboardingIfNeeded() {
+  if(localStorage.getItem('techOfficerOnboardingSeen') === '1') return;
+  onbIdx = 0;
+  renderOnboardingSlide();
+  document.getElementById('onbOverlay').style.display = 'flex';
+}
+function renderOnboardingSlide() {
+  const s = ONB_SLIDES[onbIdx];
+  document.getElementById('onbIcon').textContent = s.icon;
+  document.getElementById('onbTitle').textContent = s.title;
+  document.getElementById('onbText').textContent = s.text;
+  document.getElementById('onbDots').innerHTML = ONB_SLIDES.map((_,i) => '<span class="onb-dot'+(i===onbIdx?' active':'')+'"></span>').join('');
+  document.getElementById('onbNextBtn').textContent = onbIdx === ONB_SLIDES.length-1 ? 'شروع کنید' : 'بعدی';
+  document.getElementById('onbBackBtn').style.visibility = onbIdx === 0 ? 'hidden' : 'visible';
+}
+function onbNext() {
+  if(onbIdx < ONB_SLIDES.length-1) { onbIdx++; renderOnboardingSlide(); return; }
+  closeOnboarding();
+}
+function onbBack() { if(onbIdx > 0) { onbIdx--; renderOnboardingSlide(); } }
+function closeOnboarding() {
+  localStorage.setItem('techOfficerOnboardingSeen', '1');
+  document.getElementById('onbOverlay').style.display = 'none';
+}
+
+function togglePwd(id, btn) {
+  const el = document.getElementById(id);
+  if(el.type === 'password') { el.type = 'text'; btn.textContent = '🙈 مخفی کردن رمز'; }
+  else { el.type = 'password'; btn.textContent = '👁 نمایش رمز'; }
+}
+// چون پیام‌های خطای Supabase انگلیسی و فنی هستن، رایج‌ترینشون رو به فارسی ساده ترجمه می‌کنیم؛
+// اگه پیام ناشناخته بود، همون پیام اصلی (کوتاه‌شده) رو نشون می‌دیم که چیزی گم نشه.
+function friendlyError(err) {
+  const msg = (err && err.message) || String(err || '');
+  const m = msg.toLowerCase();
+  if(m.includes('user already registered') || m.includes('already registered')) return 'این ایمیل قبلاً ثبت‌نام کرده — از فرم ورود استفاده کنید یا رمز را بازیابی کنید';
+  if(m.includes('email not confirmed')) return 'ایمیل شما هنوز تایید نشده — کد ارسالی به ایمیل را وارد کنید';
+  if(m.includes('invalid login credentials')) return 'ایمیل یا رمز اشتباه است';
+  if(m.includes('rate limit') || m.includes('too many requests')) return 'تعداد تلاش‌ها زیاد بوده — چند دقیقه صبر کنید و دوباره امتحان کنید';
+  if(m.includes('failed to fetch') || m.includes('network')) return 'اتصال به اینترنت برقرار نشد — دوباره امتحان کنید';
+  if(m.includes('password')) return 'رمز عبور نامعتبر است: ' + msg;
+  return msg;
+}
+function updateConnDot() {
+  const dot = document.getElementById('connDot');
+  if(!dot) return;
+  const online = navigator.onLine;
+  dot.style.background = online ? '#66bb6a' : '#e53935';
+  dot.title = online ? 'آنلاین' : 'آفلاین — گزارش‌ها ذخیره و بعداً ارسال می‌شوند';
+}
+window.addEventListener('online', updateConnDot);
+window.addEventListener('offline', updateConnDot);
+document.addEventListener('DOMContentLoaded', updateConnDot);
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.style.opacity = '1';
@@ -930,6 +1081,8 @@ function closeStakeout() {
 }
 
 function hideAllGates() {
+  const splash = document.getElementById('bootSplash');
+  if(splash) splash.style.display = 'none';
   document.getElementById('authGate').style.display = 'none';
   document.getElementById('registerGate').style.display = 'none';
   document.getElementById('registerDoneGate').style.display = 'none';
@@ -963,7 +1116,7 @@ function showForgotGate() {
 async function doForgotPassword() {
   const errEl = document.getElementById('forgotErr');
   errEl.textContent = '';
-  let identifier = document.getElementById('forgotEmail').value.trim();
+  let identifier = toEnDigits(document.getElementById('forgotEmail').value.trim());
   if(!identifier) { errEl.textContent = 'ایمیل خود را وارد کنید'; return; }
   let email = identifier;
   if(!identifier.includes('@')) {
@@ -976,7 +1129,7 @@ async function doForgotPassword() {
   btn.disabled = true; btn.textContent = '⏳ در حال ارسال...';
   const {error} = await sb.auth.resetPasswordForEmail(email);
   btn.disabled = false; btn.textContent = 'ارسال کد بازیابی';
-  if(error) { errEl.textContent = 'خطا در ارسال: ' + error.message; return; }
+  if(error) { errEl.textContent = 'خطا در ارسال: ' + friendlyError(error); return; }
   document.getElementById('resetPassErr').textContent = '';
   document.getElementById('resetCode').value = '';
   document.getElementById('resetPass1').value = '';
@@ -988,7 +1141,7 @@ async function doForgotPassword() {
 async function doResetPasswordWithCode() {
   const errEl = document.getElementById('resetPassErr');
   errEl.textContent = '';
-  const code = document.getElementById('resetCode').value.trim();
+  const code = toEnDigits(document.getElementById('resetCode').value.trim());
   const p1 = document.getElementById('resetPass1').value;
   const p2 = document.getElementById('resetPass2').value;
   if(!recoverySessionActive && (!code || code.length < 4)) { errEl.textContent = 'کد ارسال‌شده به ایمیل را کامل وارد کنید'; return; }
@@ -999,7 +1152,7 @@ async function doResetPasswordWithCode() {
     if(verifyErr) { errEl.textContent = 'کد نادرست یا منقضی‌شده است — دوباره تلاش کنید یا کد جدید بگیرید'; return; }
   }
   const {error: updErr} = await sb.auth.updateUser({ password: p1 });
-  if(updErr) { errEl.textContent = 'خطا در تغییر رمز عبور: ' + updErr.message; return; }
+  if(updErr) { errEl.textContent = 'خطا در تغییر رمز عبور: ' + friendlyError(updErr); return; }
   recoverySessionActive = false;
   await sb.auth.signOut();
   hideAllGates();
@@ -1008,22 +1161,28 @@ async function doResetPasswordWithCode() {
 }
 
 async function doGateLogin() {
-  let identifier = document.getElementById('gateEmail').value.trim();
+  let identifier = toEnDigits(document.getElementById('gateEmail').value.trim());
   const pass = document.getElementById('gatePass').value;
   const errEl = document.getElementById('gateErr');
   errEl.textContent = '';
   if(!identifier || !pass) { errEl.textContent = 'ایمیل/شماره عضویت و رمز را وارد کنید'; return; }
 
-  let email = identifier;
-  if(!identifier.includes('@')) {
-    const {data: resolved} = await sb.rpc('resolve_login_email', {identifier});
-    if(!resolved) { errEl.textContent = 'ایمیل یا رمز اشتباه است'; return; }
-    email = resolved;
-  }
+  const btn = document.getElementById('gateLoginBtn');
+  btn.disabled = true; const originalLabel = btn.textContent; btn.textContent = '⏳ در حال ورود...';
+  try {
+    let email = identifier;
+    if(!identifier.includes('@')) {
+      const {data: resolved} = await sb.rpc('resolve_login_email', {identifier});
+      if(!resolved) { errEl.textContent = 'ایمیل یا رمز اشتباه است'; return; }
+      email = resolved;
+    }
 
-  const {error} = await sb.auth.signInWithPassword({email, password:pass});
-  if(error) { errEl.textContent = 'ایمیل یا رمز اشتباه است'; return; }
-  await onLogin();
+    const {error} = await sb.auth.signInWithPassword({email, password:pass});
+    if(error) { errEl.textContent = 'ایمیل یا رمز اشتباه است'; return; }
+    await onLogin();
+  } finally {
+    btn.disabled = false; btn.textContent = originalLabel;
+  }
 }
 async function doLogout() { await sb.auth.signOut(); location.reload(); }
 
@@ -1045,54 +1204,61 @@ async function doGateRegister() {
   const errEl = document.getElementById('regErr');
   errEl.textContent = '';
   const full_name = document.getElementById('regFullName').value.trim();
-  const national_code = document.getElementById('regNationalCode').value.trim();
-  const phone = document.getElementById('regPhone').value.trim();
+  const national_code = toEnDigits(document.getElementById('regNationalCode').value.trim());
+  const phone = toEnDigits(document.getElementById('regPhone').value.trim());
   const email = document.getElementById('regEmail').value.trim();
   const pass = document.getElementById('regPass').value;
   const pass2 = document.getElementById('regPass2').value;
   const tech_officer_specialty = document.getElementById('regSpecialty').value;
-  const membership_no = document.getElementById('regMembershipNo').value.trim();
-  const license_no = document.getElementById('regLicenseNo').value.trim();
+  const membership_no = toEnDigits(document.getElementById('regMembershipNo').value.trim());
+  const license_no = toEnDigits(document.getElementById('regLicenseNo').value.trim());
   const requested_mine_name = document.getElementById('regMineName').value.trim();
-  const contract_no = document.getElementById('regContractNo').value.trim();
+  const contract_no = toEnDigits(document.getElementById('regContractNo').value.trim());
   const preferred_messenger = document.getElementById('regMessenger').value;
   const messenger_chat_id = document.getElementById('regMessengerChatId').value.trim();
 
   if(!full_name || !national_code || !phone || !email || !pass) { errEl.textContent = 'اطلاعات هویتی، ایمیل و رمز عبور را کامل کنید'; return; }
   if(pass.length < 6) { errEl.textContent = 'رمز عبور باید حداقل ۶ کاراکتر باشد'; return; }
   if(pass !== pass2) { errEl.textContent = 'تکرار رمز عبور با رمز عبور یکسان نیست'; return; }
+  if(!/^\d{10}$/.test(national_code)) { errEl.textContent = 'کد ملی باید ۱۰ رقم باشد'; return; }
   if(!membership_no || !license_no || !requested_mine_name || !contract_no || !messenger_chat_id) { errEl.textContent = 'اطلاعات نظام مهندسی، معدن و شناسه پیام‌رسان را کامل کنید'; return; }
   if(TURNSTILE_SITE_KEY && !getCaptchaToken()) { errEl.textContent = 'لطفاً تیک «من ربات نیستم» را تکمیل کنید'; return; }
 
-  const {data: signUpData, error: signUpErr} = await sb.auth.signUp({
-    email, password: pass,
-    options: { data: { full_name, phone, national_code, membership_no, license_no, requested_mine_name, contract_no, tech_officer_specialty, preferred_messenger, messenger_chat_id }, captchaToken: getCaptchaToken() }
-  });
-  if(signUpErr) { errEl.textContent = 'خطا در ثبت‌نام: ' + signUpErr.message; resetCaptcha(); return; }
+  const btn = document.getElementById('regSubmitBtn');
+  btn.disabled = true; const originalLabel = btn.textContent; btn.textContent = '⏳ در حال ارسال...';
+  try {
+    const {data: signUpData, error: signUpErr} = await sb.auth.signUp({
+      email, password: pass,
+      options: { data: { full_name, phone, national_code, membership_no, license_no, requested_mine_name, contract_no, tech_officer_specialty, preferred_messenger, messenger_chat_id }, captchaToken: getCaptchaToken() }
+    });
+    if(signUpErr) { errEl.textContent = 'خطا در ثبت‌نام: ' + friendlyError(signUpErr); resetCaptcha(); return; }
 
-  if(!signUpData.session) {
-    // تایید ایمیل فعال است: به‌جای صبر برای کلیک لینک (که اسکنر امنیتی ایمیل ممکن است زودتر مصرفش کند)،
-    // یک کد ۶ رقمی برای کاربر می‌فرستیم و همینجا از او می‌خواهیم وارد کند.
-    pendingSignupEmail = email;
+    if(!signUpData.session) {
+      // تایید ایمیل فعال است: به‌جای صبر برای کلیک لینک (که اسکنر امنیتی ایمیل ممکن است زودتر مصرفش کند)،
+      // یک کد ۶ رقمی برای کاربر می‌فرستیم و همینجا از او می‌خواهیم وارد کند.
+      pendingSignupEmail = email;
+      hideAllGates();
+      document.getElementById('confirmSignupErr').textContent = '';
+      document.getElementById('confirmSignupCode').value = '';
+      document.getElementById('confirmSignupGate').style.display = 'flex';
+      return;
+    }
+
+    const {data: insertedRow, error: insErr} = await sb.from('user_roles').upsert([{
+      email, role: 'pending', department: deptForSpecialty(tech_officer_specialty), full_name, phone,
+      national_code, membership_no, license_no, requested_mine_name, contract_no, tech_officer_specialty, preferred_messenger, messenger_chat_id
+    }], {onConflict:'email', ignoreDuplicates:true}).select();
+    if(insErr) { errEl.textContent = 'حساب ساخته شد ولی ثبت اطلاعات با خطا مواجه شد: ' + friendlyError(insErr); return; }
+    if(insertedRow && insertedRow.length) {
+      await notifyNewRegistration({ fullName: full_name, email, phone, requestedMineName: requested_mine_name, membershipNo: membership_no, licenseNo: license_no });
+    }
+
+    await sb.auth.signOut();
     hideAllGates();
-    document.getElementById('confirmSignupErr').textContent = '';
-    document.getElementById('confirmSignupCode').value = '';
-    document.getElementById('confirmSignupGate').style.display = 'flex';
-    return;
+    document.getElementById('registerDoneGate').style.display = 'flex';
+  } finally {
+    btn.disabled = false; btn.textContent = originalLabel;
   }
-
-  const {data: insertedRow, error: insErr} = await sb.from('user_roles').upsert([{
-    email, role: 'pending', department: deptForSpecialty(tech_officer_specialty), full_name, phone,
-    national_code, membership_no, license_no, requested_mine_name, contract_no, tech_officer_specialty, preferred_messenger, messenger_chat_id
-  }], {onConflict:'email', ignoreDuplicates:true}).select();
-  if(insErr) { errEl.textContent = 'حساب ساخته شد ولی ثبت اطلاعات با خطا مواجه شد: ' + insErr.message; return; }
-  if(insertedRow && insertedRow.length) {
-    await notifyNewRegistration({ fullName: full_name, email, phone, requestedMineName: requested_mine_name, membershipNo: membership_no, licenseNo: license_no });
-  }
-
-  await sb.auth.signOut();
-  hideAllGates();
-  document.getElementById('registerDoneGate').style.display = 'flex';
 }
 
 let myAssignedMines = [];
@@ -1134,7 +1300,7 @@ async function ensureMyRoleRow(user) {
 async function doConfirmSignup() {
   const errEl = document.getElementById('confirmSignupErr');
   errEl.textContent = '';
-  const code = document.getElementById('confirmSignupCode').value.trim();
+  const code = toEnDigits(document.getElementById('confirmSignupCode').value.trim());
   if(!code || code.length < 4) { errEl.textContent = 'کد ارسال‌شده به ایمیل را کامل وارد کنید'; return; }
   const {error: verifyErr} = await sb.auth.verifyOtp({ email: pendingSignupEmail, token: code, type: 'signup' });
   if(verifyErr) { errEl.textContent = 'کد نادرست یا منقضی‌شده است — دوباره تلاش کنید یا کد جدید بگیرید'; return; }
@@ -1243,6 +1409,7 @@ async function showTechOfficerPanel(email, mines, identityVerifiedAt) {
   document.getElementById('techOfficerShell').style.display = 'block';
   renderBiometricBanner(email);
   renderMonthlyReminderBanner(identityVerifiedAt);
+  showOnboardingIfNeeded();
 
   const {data: roleRows} = await sb.from('user_roles').select('full_name, membership_no, national_code, tech_officer_specialty').eq('email', email).limit(1);
   const myRow = (roleRows && roleRows[0]) || {};
@@ -1273,7 +1440,7 @@ async function showTechOfficerPanel(email, mines, identityVerifiedAt) {
 
 async function saveTechOfficerProfile() {
   const full_name = document.getElementById('torFullName').value.trim();
-  const membership_no = document.getElementById('torMembershipNo').value.trim();
+  const membership_no = toEnDigits(document.getElementById('torMembershipNo').value.trim());
   const statusEl = document.getElementById('torProfileStatus');
   const {data:{user}} = await sb.auth.getUser();
   if(!user) return;
@@ -1321,7 +1488,7 @@ async function renderTechOfficerMines(list) {
     '<div style="font-weight:700;color:#1a3a5c">'+esc(m[nf]||'')+'</div>'+
     '<button class="btn-sm" style="background:#ffebee;color:#c62828;flex-shrink:0" onclick="openIncidentModal('+i+')">🚨 اعلام حادثه</button>'+
     '</div>'+
-    '<div style="font-size:11.5px;color:#607d8b;margin-top:4px;line-height:1.9">'+subLine+
+    '<div style="font-size:11.5px;color:#55707d;margin-top:4px;line-height:1.9">'+subLine+
     '</div>'+
     '</div>';
   }).join('');
@@ -1341,14 +1508,14 @@ async function renderTechOfficerLinks() {
   const row = (l) => {
     const hint = appLinkHint(l.key, membership, national);
     return '<div style="display:flex;justify-content:space-between;align-items:center;background:#f8f9fa;border-radius:8px;padding:8px 10px;margin-bottom:6px">'+
-    '<div><div style="font-weight:700;font-size:12px;color:#1a3a5c">'+esc(l.label||labels[l.key]||l.key)+'</div>'+(hint?'<div style="font-size:10.5px;color:#90a4ae;margin-top:2px">'+hint+'</div>':'')+'</div>'+
+    '<div><div style="font-weight:700;font-size:12px;color:#1a3a5c">'+esc(l.label||labels[l.key]||l.key)+'</div>'+(hint?'<div style="font-size:10.5px;color:#6b8291;margin-top:2px">'+hint+'</div>':'')+'</div>'+
     '<a href="'+esc(l.url)+'" target="_blank" style="background:#00695c;color:#fff;border-radius:6px;padding:6px 12px;font-size:11.5px;text-decoration:none;white-space:nowrap">'+(icons[l.key]||'🔗')+' ورود ↗</a>'+
     '</div>';
   };
   return '<div class="mine-card">'+
     '<div style="font-weight:700;color:#1a3a5c;font-size:13px;margin-bottom:8px">🔑 دسترسی سریع به سامانه‌های دولتی</div>'+
     usable.map(row).join('')+
-    '<div style="font-size:10px;color:#90a4ae;margin-top:6px">⚠️ این‌ها سامانه‌های رسمی خارج از این اپ‌اند؛ آمار باید جداگانه و طبق مهلت قانونی (معمولاً تا دهم هر ماه) در آن‌ها هم ثبت شود.</div>'+
+    '<div style="font-size:10px;color:#6b8291;margin-top:6px">⚠️ این‌ها سامانه‌های رسمی خارج از این اپ‌اند؛ آمار باید جداگانه و طبق مهلت قانونی (معمولاً تا دهم هر ماه) در آن‌ها هم ثبت شود.</div>'+
     '</div>';
 }
 
@@ -1388,12 +1555,14 @@ function onIncidentPhotosSelected(event) {
     '<button onclick="removeIncidentPhoto('+i+')" style="position:absolute;top:-4px;right:-4px;background:#c62828;color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer">×</button></div>'
   ).join('');
 }
-function removeIncidentPhoto(i) { incidentPhotos.splice(i,1); onIncidentPhotosSelected({target:{files:[]}}); }
+function removeIncidentPhoto(i) { if(!confirm('این عکس حذف شود؟')) return; incidentPhotos.splice(i,1); onIncidentPhotosSelected({target:{files:[]}}); }
 
 async function uploadIncidentFile(file, mineName) {
-  const safeName = Date.now()+'_'+Math.random().toString(36).slice(2,8)+'_'+file.name.replace(/[^\w.\-]/g,'_');
+  const canvas = await loadScaledImage(file, 1600);
+  const blob = await new Promise(resolve => canvas.toBlob(b => resolve(b), 'image/jpeg', 0.85));
+  const safeName = Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.jpg';
   const path = encodeURIComponent(mineName)+'/'+safeName;
-  const {error} = await sb.storage.from('incident-photos').upload(path, file, {upsert:false, contentType: file.type||'image/jpeg'});
+  const {error} = await sb.storage.from('incident-photos').upload(path, blob, {upsert:false, contentType:'image/jpeg'});
   if(error) throw new Error('آپلود عکس ناموفق بود: '+error.message);
   const {data} = sb.storage.from('incident-photos').getPublicUrl(path);
   return data.publicUrl;
@@ -1499,17 +1668,29 @@ function getGeoLocation() {
   });
 }
 
-async function watermarkPhoto(file, coords, mine) {
+// عکس‌های دوربین گوشی معمولاً ۸ تا ۱۵ مگاپیکسل هستن که آپلودشون در شبکه‌ی موبایل خیلی کند است.
+// این تابع عکس رو قبل از پردازش/آپلود به حداکثر ۱۶۰۰ پیکسل در ضلع بزرگ‌تر کوچیک می‌کند.
+async function loadScaledImage(file, maxDim) {
+  maxDim = maxDim || 1600;
   const img = await new Promise((resolve, reject) => {
     const im = new Image();
     im.onload = () => resolve(im);
     im.onerror = reject;
     im.src = URL.createObjectURL(file);
   });
+  let w = img.naturalWidth, h = img.naturalHeight;
+  const scale = Math.min(1, maxDim / Math.max(w, h));
+  w = Math.round(w * scale); h = Math.round(h * scale);
   const canvas = document.createElement('canvas');
-  canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+  canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext('2d');
-  ctx.drawImage(img, 0, 0);
+  ctx.drawImage(img, 0, 0, w, h);
+  return canvas;
+}
+
+async function watermarkPhoto(file, coords, mine) {
+  const canvas = await loadScaledImage(file, 1600);
+  const ctx = canvas.getContext('2d');
 
   const fullName = document.getElementById('torFullName').value.trim() || '-';
   const membershipNo = document.getElementById('torMembershipNo').value.trim() || '-';
@@ -1646,16 +1827,8 @@ async function captureIdentityPhoto(inputEl) {
 }
 
 async function watermarkIdentityPhoto(file, coords, mine) {
-  const img = await new Promise((resolve, reject) => {
-    const im = new Image();
-    im.onload = () => resolve(im);
-    im.onerror = reject;
-    im.src = URL.createObjectURL(file);
-  });
-  const canvas = document.createElement('canvas');
-  canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+  const canvas = await loadScaledImage(file, 1600);
   const ctx = canvas.getContext('2d');
-  ctx.drawImage(img, 0, 0);
   const now = new Date();
   const lines = [
     '🦺 احراز هویت مسئول فنی — ' + (mine[mine._nameField||'نام_معدن']||'-'),
@@ -1857,7 +2030,7 @@ function renderEquipmentChecklist() {
     return '<div style="background:#f8f9fa;border-radius:10px;padding:10px;margin-bottom:8px">'+
       '<div style="display:flex;justify-content:space-between;align-items:flex-start">'+
         '<div><div style="font-weight:700;font-size:12.5px;color:#1a3a5c">'+esc(eq.name||eq.type)+'</div>'+
-        '<div style="font-size:11px;color:#607d8b;margin-bottom:6px">'+esc(eq.type)+(eq.model?' — مدل '+esc(eq.model):'')+(eq.count?' — تعداد '+esc(eq.count):'')+'</div></div>'+
+        '<div style="font-size:11px;color:#55707d;margin-bottom:6px">'+esc(eq.type)+(eq.model?' — مدل '+esc(eq.model):'')+(eq.count?' — تعداد '+esc(eq.count):'')+'</div></div>'+
         '<button onclick="editTechEquipRow(\''+k+'\')" style="background:none;border:none;font-size:15px;cursor:pointer">✏️</button>'+
       '</div>'+
       '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
@@ -1872,7 +2045,7 @@ function renderEquipmentChecklist() {
     '</div>';
   }).join('');
 
-  box.innerHTML = (torEquipWorkingList.length ? rowsHtml : '<div style="font-size:11.5px;color:#90a4ae;padding:8px 0">هنوز ماشین‌آلاتی برای این معدن ثبت نشده — با دکمه‌ی زیر اضافه کنید.</div>')+
+  box.innerHTML = (torEquipWorkingList.length ? rowsHtml : '<div style="font-size:11.5px;color:#6b8291;padding:8px 0">هنوز ماشین‌آلاتی برای این معدن ثبت نشده — با دکمه‌ی زیر اضافه کنید.</div>')+
     '<div style="display:flex;gap:6px;margin-top:6px">'+
       '<button class="btn-sm" style="background:#e8eaf6;color:#3949ab;flex:1" onclick="addTechEquipRow()">➕ افزودن ماشین جدید</button>'+
       '<button class="btn-sm" id="torEquipSaveBtn" style="background:#00695c;color:#fff;flex:1" onclick="saveTechEquipmentChanges()">💾 ذخیره لیست</button>'+
@@ -1910,6 +2083,7 @@ function renderEquipItemThumbs(key, photoType) {
   ).join('');
 }
 function removeEquipItemPhoto(key, photoType, i) {
+  if(!confirm('این عکس حذف شود؟')) return;
   torEquipItemCaptures[key][photoType].splice(i,1);
   renderEquipItemThumbs(key, photoType);
 }
@@ -1945,6 +2119,7 @@ function renderTechPhotoThumbs(category) {
   ).join('');
 }
 function removeTechPhoto(category, i) {
+  if(!confirm('این عکس حذف شود؟')) return;
   const arr = category === 'face' ? torFaceCaptures : torEquipCaptures;
   arr.splice(i, 1);
   renderTechPhotoThumbs(category);
@@ -2003,6 +2178,9 @@ async function submitTechReport() {
   if(!period) { showToast('⚠️ دوره گزارش را وارد کنید'); return; }
   if(!document.getElementById('torFullName').value.trim() || !document.getElementById('torMembershipNo').value.trim()) {
     showToast('⚠️ ابتدا نام و شماره عضویت نظام مهندسی خود را در بالا وارد و ذخیره کنید'); return;
+  }
+  if(reportFile && reportFile.size > 20*1024*1024) {
+    showToast('⚠️ حجم فایل گزارش بیشتر از ۲۰ مگابایت است — لطفاً فایل کوچیک‌تری آپلود کنید'); return;
   }
   const hasEquipItemPhotos = Object.values(torEquipItemCaptures).some(c => c.overview.length || c.serial.length);
   if(!reportFile && !torFaceCaptures.length && !torEquipCaptures.length && !hasEquipItemPhotos) { showToast('⚠️ حداقل یک فایل یا عکس ثبت کنید'); return; }
@@ -2063,16 +2241,27 @@ async function submitTechReport() {
   btn.disabled = false; btn.textContent = '📤 ارسال گزارش';
 }
 
+let _techHistoryData = [];
 async function loadTechOfficerHistory(mineNames) {
   const box = document.getElementById('techOfficerHistory');
   if(!mineNames || !mineNames.length) { box.innerHTML = ''; return; }
   const {data, error} = await sb.from('tech_reports').select('*').in('mine_name', mineNames).order('created_at', {ascending:false}).limit(20);
   if(error) { box.innerHTML = '<div style="color:#c62828;font-size:12px">خطا در بارگذاری تاریخچه</div>'; return; }
-  if(!data || !data.length) { box.innerHTML = '<div style="color:#90a4ae;font-size:12px">هنوز گزارشی ارسال نشده</div>'; return; }
-  box.innerHTML = data.map(r =>
+  _techHistoryData = data || [];
+  renderTechHistoryList();
+}
+function renderTechHistoryList() {
+  const box = document.getElementById('techOfficerHistory');
+  const searchEl = document.getElementById('techHistorySearch');
+  const q = (searchEl ? searchEl.value : '').trim().toLowerCase();
+  const rows = !q ? _techHistoryData : _techHistoryData.filter(r =>
+    (r.mine_name||'').toLowerCase().includes(q) || (r.period||'').toLowerCase().includes(q));
+  if(!_techHistoryData.length) { box.innerHTML = '<div style="color:#6b8291;font-size:12px">هنوز گزارشی ارسال نشده</div>'; return; }
+  if(!rows.length) { box.innerHTML = '<div style="color:#6b8291;font-size:12px">موردی با این جست‌وجو پیدا نشد</div>'; return; }
+  box.innerHTML = rows.map(r =>
     '<div style="background:#f8fafd;border-radius:10px;padding:10px 12px;margin-bottom:6px;font-size:12px">'+
-    '<b>'+esc(r.mine_name)+'</b> — '+esc(r.period||'')+' <span style="color:#90a4ae">('+new Date(r.created_at).toLocaleDateString('fa-IR')+')</span>'+
-    (r.note ? '<div style="color:#607d8b;margin-top:4px">'+esc(r.note)+'</div>' : '')+
+    '<b>'+esc(r.mine_name)+'</b> — '+esc(r.period||'')+' <span style="color:#6b8291">('+new Date(r.created_at).toLocaleDateString('fa-IR')+')</span>'+
+    (r.note ? '<div style="color:#55707d;margin-top:4px">'+esc(r.note)+'</div>' : '')+
     '</div>'
   ).join('');
 }
@@ -2183,6 +2372,10 @@ function fallbackToPasswordLogin() {
 // اگر همین گوشی قبلاً مورد تایید مدیر سامانه قرار گرفته («گوشی مورد اعتماد») و کاربر همین الان داخل محدوده
 // یکی از معادن خودش است، مرحله ورود (رمز/اثرانگشت) کاملاً حذف می‌شود و اپلیکیشن مستقیم باز می‌شود.
 // خارج از محدوده معدن یا روی گوشی دیگر، ورود عادی (رمز یا اثرانگشت) همچنان لازم است.
+// اگر به هر دلیلی (خطای شبکه در همان لحظه‌ی اول و...) هیچ‌کدام از گیت‌ها ظاهر نشد، صفحه‌ی
+// بارگذاری برای همیشه نمی‌ماند — بعد از ۸ ثانیه به‌صورت ایمن فرم ورود نشان داده می‌شود.
+setTimeout(() => { if(document.getElementById('bootSplash').style.display !== 'none') showLoginGate(); }, 8000);
+
 sb.auth.getSession().then(async ({data}) => {
   if(!data.session) return;
   if(window.location.hash.includes('type=recovery')) return;
@@ -2237,6 +2430,7 @@ function showUpdateBanner(waitingWorker) {
   bar.querySelector('button').onclick = () => { waitingWorker.postMessage('SKIP_WAITING'); bar.remove(); };
   document.body.appendChild(bar);
 }
+
 
 </script>
 </body>

@@ -1,9 +1,10 @@
 // سرویس‌ورکر: پوسته‌ی برنامه را کش می‌کند تا در سایت معدن با اینترنت ضعیف سریع باز شود،
 // و همزمان با استراتژی stale-while-revalidate خودش را در پس‌زمینه به‌روز نگه می‌دارد
-// (به‌جای کش خشک که تا تغییر دستی CACHE_NAME هیچ‌وقت رفرش نمی‌شد).
+// (به‌جای کش خشک که تا تغییر دستی CACHE_NAME هیچ‌وقت رفرش نمی‌شد — همان مشکلی که قبلاً
+// باعث می‌شد نسخه‌ی جدید سایت را نبینید مگر با Incognito).
 // آپلود گزارش/عکس/داده همیشه مستقیم از شبکه می‌رود (هیچ‌وقت کش نمی‌شود) — صف آفلاین
 // آن را در سطح صفحه (index.html، نه اینجا) مدیریت می‌کند.
-const CACHE_NAME = 'tech-officer-app-v7';
+const CACHE_NAME = 'tech-officer-app-v9';
 const APP_SHELL = ['/tech-officer/', '/tech-officer/index.html', '/tech-officer/manifest.json', '/tech-officer/icons/icon-192.png', '/tech-officer/icons/icon-512.png', '/tech-officer/icons/icon-maskable-192.png', '/tech-officer/icons/icon-maskable-512.png'];
 
 self.addEventListener('install', (event) => {
