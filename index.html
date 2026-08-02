@@ -2260,7 +2260,7 @@ async function loadUsersList() {
         (u.contract_no ? 'شماره ثبت قرارداد نظام مهندسی معدن: <b>'+esc(u.contract_no)+'</b>' : '')+
         '</div>' : '';
       return '<div class="user-row" style="background:#fff8e1;flex-direction:column;align-items:stretch;gap:6px">'+
-        '<div><b>'+(u.full_name||u.email)+'</b> <span style="color:#90a4ae;font-size:11px">'+u.email+' | '+(u.phone||'-')+'</span></div>'+
+        '<div><b>'+esc(u.full_name||u.email)+'</b> <span style="color:#90a4ae;font-size:11px">'+esc(u.email)+' | '+esc(u.phone||'-')+'</span></div>'+
         techInfo+
         '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">'+
         '<select class="role-select" id="'+uid+'_role" onchange="onPendingRoleChange(\''+uid+'\')">'+
@@ -2300,7 +2300,7 @@ async function loadUsersList() {
       (u.assigned_mines && u.assigned_mines.length ? 'معدن (های) اختصاص‌یافته فعلی: <b>'+esc(u.assigned_mines.join('، '))+'</b>' : '<span style="color:#e65100">⚠️ هنوز معدنی به این کاربر اختصاص داده نشده</span>')+
       '</div>'
       : (u.role==='tech_officer' ? '<div style="font-size:11px;color:#e65100;margin-top:6px;width:100%">⚠️ این کاربر مسئول فنی است ولی هیچ اطلاعات هویتی (شماره پروانه/عضویت/نام معدن) برایش ثبت نشده — از دکمه «🔐 دسترسی و تنظیمات» وارد کنید.</div>' : '');
-    return '<div class="user-row" style="flex-wrap:wrap"><span class="user-email">'+u.email+'</span>'+
+    return '<div class="user-row" style="flex-wrap:wrap"><span class="user-email">'+esc(u.email)+'</span>'+
       '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
       '<select class="role-select" '+disabled+' onchange="changeUserRole(\''+u.email+'\', this.value)">'+
       '<option value="viewer" '+(u.role==='viewer'?'selected':'')+'>مشاهده‌گر</option>'+
@@ -2886,9 +2886,15 @@ function removeTechPhoto(category, i) {
   renderTechPhotoThumbs(category);
 }
 
+// نام‌ها (مثلاً نام معدن فارسی) را به یک بخش امن برای مسیر فایل در Supabase Storage تبدیل می‌کند.
+// توجه: از encodeURIComponent استفاده نمی‌کنیم چون خروجی آن پر از کاراکتر % است و
+// Supabase Storage کاراکتر % را در نام مسیر (key) مجاز نمی‌داند و خطای «Invalid key» می‌دهد.
+function safeStoragePathSegment(s) {
+  return String(s || '').trim().replace(/[^\w.\-]+/g, '_').replace(/_+/g, '_').slice(0, 80) || '_';
+}
 async function uploadTechFile(fileOrBlob, fileName, mineName, period, category) {
   const safeName = Date.now()+'_'+Math.random().toString(36).slice(2,8)+'_'+fileName.replace(/[^\w.\-]/g,'_');
-  const path = encodeURIComponent(mineName)+'/'+encodeURIComponent(period||'نامشخص')+'/'+category+'/'+safeName;
+  const path = safeStoragePathSegment(mineName)+'/'+safeStoragePathSegment(period||'نامشخص')+'/'+category+'/'+safeName;
   const {error} = await sb.storage.from('tech-reports').upload(path, fileOrBlob, {upsert:false});
   if(error) throw new Error('آپلود فایل ناموفق بود: '+error.message);
   const {data} = sb.storage.from('tech-reports').getPublicUrl(path);
@@ -3309,7 +3315,7 @@ function removeIncidentPhoto(i) { incidentPhotos.splice(i,1); renderIncidentPhot
 
 async function uploadIncidentFile(file, mineName) {
   const safeName = Date.now()+'_'+Math.random().toString(36).slice(2,8)+'_'+file.name.replace(/[^\w.\-]/g,'_');
-  const path = encodeURIComponent(mineName)+'/'+safeName;
+  const path = safeStoragePathSegment(mineName)+'/'+safeName;
   const {error} = await sb.storage.from('incident-photos').upload(path, file, {upsert:false, contentType: file.type||'image/jpeg'});
   if(error) throw new Error('آپلود عکس ناموفق بود: '+error.message);
   const {data} = sb.storage.from('incident-photos').getPublicUrl(path);
@@ -3866,8 +3872,8 @@ function doSearch(q) {
   dd.innerHTML=res.map(({m,i})=>{
     const c=catColors[m['دسته']]||(catColors['غیره']||{bg:'#eceff1',badge:'#546e7a',border:'#90a4ae'});
     return '<div class="drop-item" onclick="selectMine('+i+')">'+
-      '<div><span class="drop-name">'+(m[nameField()]||'')+'</span><span class="drop-sub">'+(m[subField()]||'')+'</span></div>'+
-      '<span class="drop-badge" style="background:'+c.badge+'">'+(m['دسته']||'')+'</span></div>';
+      '<div><span class="drop-name">'+esc(m[nameField()]||'')+'</span><span class="drop-sub">'+esc(m[subField()]||'')+'</span></div>'+
+      '<span class="drop-badge" style="background:'+c.badge+'">'+esc(m['دسته']||'')+'</span></div>';
   }).join('');
   dd.style.display='block';
 }
@@ -4143,9 +4149,9 @@ function showMine(idx) {
 
   document.getElementById('resultCard').innerHTML=
     '<div class="card"><div class="card-header" style="background:linear-gradient(135deg,'+c.badge+','+c.badge+'bb)">'+
-    '<div><div class="card-title">'+(m[nameField()]||'')+'</div>'+
-    '<div class="card-sub">'+(currentDept==='معدن' ? 'پروانه '+(m['شماره_پروانه']||'')+' \u00a0|\u00a0 '+(m['تاریخ_پروانه']||'') : 'مجوز '+(m['شماره_مجوز']||'')+' \u00a0|\u00a0 '+(m['تاریخ_مجوز']||''))+'</div></div>'+
-    '<span class="card-badge">'+(m['دسته']||'')+'</span></div>'+
+    '<div><div class="card-title">'+esc(m[nameField()]||'')+'</div>'+
+    '<div class="card-sub">'+(currentDept==='معدن' ? 'پروانه '+esc(m['شماره_پروانه']||'')+' \u00a0|\u00a0 '+esc(m['تاریخ_پروانه']||'') : 'مجوز '+esc(m['شماره_مجوز']||'')+' \u00a0|\u00a0 '+esc(m['تاریخ_مجوز']||''))+'</div></div>'+
+    '<span class="card-badge">'+esc(m['دسته']||'')+'</span></div>'+
     actionsHTML+
     '<div class="card-body">'+fuelHTML+mapHTML+visitsHTML+volumeHTML+sectHTML+
     (currentDept==='معدن' ? '<div id="supplyChainBox_'+idx+'"></div>' : '')+
