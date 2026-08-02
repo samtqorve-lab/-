@@ -306,38 +306,7 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
       <input id="signupPass" type="password" dir="ltr" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="حداقل ۸ کاراکتر، شامل حرف و عدد">
       <label>تکرار رمز عبور</label>
       <input id="signupPass2" type="password" dir="ltr" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="••••••••">
-      <label style="display:flex;align-items:center;gap:6px;margin-top:10px;cursor:pointer">
-        <input id="signupIsTech" type="checkbox" style="width:auto" onchange="toggleTechSignupFields()">
-        <span>🦺 درخواست به‌عنوان مسئول فنی معدن</span>
-      </label>
-      <div id="techSignupFields" style="display:none">
-        <label>نوع تخصص مسئول فنی</label>
-        <select id="signupSpecialty">
-          <option value="استخراج">⛏️ استخراج</option>
-          <option value="اکتشاف">🔍 اکتشاف</option>
-          <option value="فرآوری">⚗️ فرآوری</option>
-        </select>
-        <label>کد ملی</label>
-        <input id="signupNationalCode" type="text" dir="ltr" placeholder="کد ملی">
-        <label>شماره عضویت نظام مهندسی معدن</label>
-        <input id="signupMembershipNo" type="text" dir="ltr" placeholder="شماره عضویت">
-        <label>شماره پروانه اشتغال به کار</label>
-        <input id="signupLicenseNo" type="text" dir="ltr" placeholder="شماره پروانه">
-        <label>نام معدنی که مسئولیت فنی آن را دارید</label>
-        <input id="signupMineName" type="text" placeholder="نام معدن">
-        <label>شماره ثبت قرارداد نظام مهندسی معدن</label>
-        <input id="signupContractNo" type="text" dir="ltr" placeholder="شماره قرارداد">
-        <label>پیام‌رسان پیش‌فرض اطلاع‌رسانی</label>
-        <select id="signupMessenger" onchange="toggleSignupMessengerHint()">
-          <option value="telegram">تلگرام</option>
-          <option value="bale">بله</option>
-          <option value="eitaa">ایتا</option>
-          <option value="rubika">روبیکا</option>
-          <option value="whatsapp">واتساپ</option>
-        </select>
-        <label id="signupMessengerIdLabel">آیدی چت تلگرام</label>
-        <input id="signupMessengerChatId" type="text" dir="ltr" placeholder="شناسه چت">
-      </div>
+      <p style="font-size:11.5px;color:#607d8b;margin-top:6px">🦺 مسئولین فنی معدن باید از اپلیکیشن مخصوص مسئولین فنی ثبت‌نام کنند.</p>
       <div id="signupCaptcha" style="margin-top:12px"></div>
       <div class="login-err" id="signupErr"></div>
       <button class="btn btn-save" style="width:100%;margin-top:14px" onclick="doSignup()">ثبت‌نام</button>
@@ -360,6 +329,15 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
       <p style="line-height:2">حساب شما ساخته شده ولی هنوز توسط مدیر سامانه تایید نشده است. به‌محض تایید، دوباره وارد شوید.</p>
       <div id="pendingBiometricBanner" style="display:none;align-items:center;justify-content:space-between;gap:10px;background:#e0f2f1;border-radius:10px;padding:10px 12px;margin-top:12px;font-size:11.5px;text-align:right"></div>
       <button class="btn btn-cancel" style="width:100%;margin-top:14px" onclick="doLogout()">خروج از حساب</button>
+    </div>
+  </div>
+
+  <div id="techOfficerBlockedGate" class="gate-screen" style="display:none">
+    <div class="gate-box">
+      <div class="gate-logo">🚫</div>
+      <h2>دسترسی از این طریق مجاز نیست</h2>
+      <p>حساب شما با نقش «مسئول فنی» ثبت شده. لطفاً از اپلیکیشن مخصوص مسئولین فنی وارد شوید.</p>
+      <button class="btn btn-cancel" style="width:100%;margin-top:14px" onclick="showAuthGate()">بازگشت به صفحه ورود</button>
     </div>
   </div>
 
@@ -1674,6 +1652,7 @@ function hideAllGates() {
   document.getElementById('deptGate').style.display = 'none';
   document.getElementById('deptPlaceholder').style.display = 'none';
   document.getElementById('techOfficerShell').style.display = 'none';
+  const tob = document.getElementById('techOfficerBlockedGate'); if(tob) tob.style.display = 'none';
   document.getElementById('appShell').style.display = 'none';
 }
 function showAuthGate() {
@@ -1690,7 +1669,12 @@ function hideAllGates() {
   document.getElementById('deptGate').style.display = 'none';
   document.getElementById('deptPlaceholder').style.display = 'none';
   document.getElementById('techOfficerShell').style.display = 'none';
+  const tob = document.getElementById('techOfficerBlockedGate'); if(tob) tob.style.display = 'none';
   document.getElementById('appShell').style.display = 'none';
+}
+function showTechOfficerBlockedGate() {
+  hideAllGates();
+  document.getElementById('techOfficerBlockedGate').style.display = 'flex';
 }
 function showAuthGate() {
   hideAllGates();
@@ -1812,31 +1796,16 @@ async function doSignup() {
   const errEl = document.getElementById('signupErr');
   errEl.textContent = '';
 
-  const isTech = document.getElementById('signupIsTech').checked;
-  const national_code = document.getElementById('signupNationalCode').value.trim();
-  const membership_no = document.getElementById('signupMembershipNo').value.trim();
-  const license_no = document.getElementById('signupLicenseNo').value.trim();
-  const requested_mine_name = document.getElementById('signupMineName').value.trim();
-  const contract_no = document.getElementById('signupContractNo').value.trim();
-  const tech_officer_specialty = document.getElementById('signupSpecialty').value;
-  const preferred_messenger = document.getElementById('signupMessenger').value;
-  const messenger_chat_id = document.getElementById('signupMessengerChatId').value.trim();
-
   if(!firstName || !lastName || !phone || !email || !pass) { errEl.textContent = 'همه فیلدها را پر کنید'; return; }
   if(pass !== pass2) { errEl.textContent = 'رمز عبور و تکرار آن یکسان نیستند'; return; }
   const passErr = checkPasswordStrength(pass);
   if(passErr) { errEl.textContent = passErr; return; }
-  if(isTech && (!national_code || !membership_no || !license_no || !requested_mine_name || !contract_no || !messenger_chat_id)) {
-    errEl.textContent = 'برای درخواست مسئول فنی، اطلاعات نظام مهندسی و معدن و شناسه پیام‌رسان را کامل کنید';
-    return;
-  }
 
   if(TURNSTILE_SITE_KEY && !getCaptchaToken()) { errEl.textContent = 'لطفاً تیک «من ربات نیستم» را تکمیل کنید'; return; }
 
-  const techMeta = isTech ? { national_code, membership_no, license_no, requested_mine_name, contract_no, tech_officer_specialty, preferred_messenger, messenger_chat_id } : {};
   const {data, error} = await sb.auth.signUp({
     email, password: pass,
-    options: { data: { full_name: firstName + ' ' + lastName, phone, ...techMeta }, captchaToken: getCaptchaToken() }
+    options: { data: { full_name: firstName + ' ' + lastName, phone }, captchaToken: getCaptchaToken() }
   });
   if(error) { errEl.textContent = 'خطا در ثبت‌نام: ' + (error.message || ''); resetCaptcha(); return; }
 
@@ -1847,7 +1816,7 @@ async function doSignup() {
   }
 
   const {error: roleErr} = await sb.from('user_roles').upsert(
-    [{ email, role: 'pending', department: specialtyMeta(techMeta.tech_officer_specialty).dept, full_name: firstName + ' ' + lastName, phone, ...techMeta }],
+    [{ email, role: 'pending', department: 'معدن', full_name: firstName + ' ' + lastName, phone }],
     { onConflict: 'email', ignoreDuplicates: true }
   );
   if(roleErr) {
@@ -1975,8 +1944,9 @@ async function onLogin() {
   if(myRole === 'pending') {
     showPendingGate(user.email);
   } else if(myRole === 'tech_officer') {
+    await sb.auth.signOut();
     hideAllGates();
-    await showTechOfficerPanel(user.email);
+    showTechOfficerBlockedGate();
   } else if(myDept === 'all') {
     showDeptGate();
   } else {
