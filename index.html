@@ -346,22 +346,11 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
       <div class="gate-logo">🏛️</div>
       <h2>سامانه اداره صنعت، معدن و تجارت شهرستان قروه</h2>
       <p>وارد کدام بخش می‌شوید؟</p>
-      <button class="dept-btn dept-mine" onclick="showMineSubGate()">⛏️ واحد معدن</button>
+      <button class="dept-btn dept-mine" onclick="proceedToDept('معدن')">⛏️ واحد معدن</button>
       <button class="dept-btn dept-industry" onclick="proceedToDept('صنعت')">🏭 واحد صنعت</button>
       <button class="dept-btn dept-trade" onclick="proceedToDept('اصناف')">🏪 واحد اصناف</button>
-      <button class="logout-btn" style="margin-top:6px" onclick="doLogout()">خروج از حساب</button>
-    </div>
-  </div>
-
-  <div id="mineSubGate" class="gate-screen" style="display:none">
-    <div class="gate-box">
-      <div class="gate-logo">⛏️</div>
-      <h2>واحد معدن</h2>
-      <p>کدام زیربخش؟</p>
-      <button class="dept-btn dept-mine" onclick="proceedToDept('معدن')">⛏️ استخراج</button>
-      <button class="dept-btn dept-mine" onclick="proceedToDept('اکتشاف')">🔍 اکتشاف</button>
-      <button class="dept-btn dept-industry" onclick="proceedToDept('فرآوری')">⚗️ فرآوری</button>
-      <button class="btn btn-cancel" style="width:100%;margin-top:6px" onclick="showDeptGate()">↩️ بازگشت</button>
+      <button class="dept-btn dept-mine" onclick="proceedToDept('اکتشاف')">🔍 واحد اکتشاف</button>
+      <button class="dept-btn dept-industry" onclick="proceedToDept('فرآوری')">⚗️ واحد فرآوری</button>
       <button class="logout-btn" style="margin-top:6px" onclick="doLogout()">خروج از حساب</button>
     </div>
   </div>
@@ -1681,7 +1670,6 @@ function hideAllGates() {
   document.getElementById('authGate').style.display = 'none';
   document.getElementById('biometricGate').style.display = 'none';
   document.getElementById('deptGate').style.display = 'none';
-  const msg1 = document.getElementById('mineSubGate'); if(msg1) msg1.style.display = 'none';
   document.getElementById('deptPlaceholder').style.display = 'none';
   document.getElementById('techOfficerShell').style.display = 'none';
   const tob = document.getElementById('techOfficerBlockedGate'); if(tob) tob.style.display = 'none';
@@ -1699,7 +1687,6 @@ function hideAllGates() {
   const bg = document.getElementById('biometricGate'); if(bg) bg.style.display = 'none';
   const pg = document.getElementById('pendingGate'); if(pg) pg.style.display = 'none';
   document.getElementById('deptGate').style.display = 'none';
-  const msg2 = document.getElementById('mineSubGate'); if(msg2) msg2.style.display = 'none';
   document.getElementById('deptPlaceholder').style.display = 'none';
   document.getElementById('techOfficerShell').style.display = 'none';
   const tob = document.getElementById('techOfficerBlockedGate'); if(tob) tob.style.display = 'none';
@@ -1864,10 +1851,6 @@ function showDeptGate() {
   currentDept = null;
   hideAllGates();
   document.getElementById('deptGate').style.display = 'flex';
-}
-function showMineSubGate() {
-  hideAllGates();
-  document.getElementById('mineSubGate').style.display = 'flex';
 }
 function backToDeptGate() { showDeptGate(); }
 
@@ -3039,9 +3022,9 @@ const MINE_SECTIONS = [
     ['نام_دارنده','نام دارنده / شرکت'],['نوع_شخصیت','نوع شخصیت'],['کد_ملی','کد ملی'],
     ['شماره_شناسنامه','شماره شناسنامه'],['تاریخ_تولد','تاریخ تولد'],['تلفن_همراه','تلفن همراه (بهره‌بردار)'],
     ['تلفن_ثابت','تلفن ثابت'],['کد_پستی','کد پستی'],['آدرس','آدرس'],
+    ['نام_مسئول_فنی','نام و نام خانوادگی مسئول فنی'],['تلفن_مسئول_فنی','تلفن مسئول فنی'],['تاریخ_عقد_قرارداد_مسئول_فنی','تاریخ عقد قرارداد مسئول فنی'],
   ]},
   {title:'🦺 اطلاعات مسئول فنی و ایمنی', keys:[
-    ['نام_مسئول_فنی','نام و نام خانوادگی مسئول فنی'],['تلفن_مسئول_فنی','تلفن مسئول فنی'],['تاریخ_عقد_قرارداد_مسئول_فنی','تاریخ عقد قرارداد مسئول فنی'],
     ['وضعیت_مسئول_فنی','وضعیت'],['نام_کارشناس_فنی','نام و نام خانوادگی کارشناس'],
     ['سمت_کارشناس_فنی','سمت'],['کدملی_کارشناس_فنی','کد ملی کارشناس'],
     ['کدعضویت_کارشناس_فنی','کد عضویت نظام مهندسی'],['تلفن_کارشناس_فنی','شماره تماس کارشناس'],
@@ -6266,12 +6249,10 @@ async function renderVolumeSatOverlay(m, grid) {
   const map = L.map(container, {attributionControl:false});
   _volSatMapInstance = map;
   const gLayers = createGoogleEarthLayers();
-  const topoLayer = createTopoLayer();
   gLayers.hybrid.addTo(map);
   L.control.layers({
     '🛰️ ماهواره + عوارض (جاده/نام مکان)': gLayers.hybrid,
     '🛰️ ماهواره خالص': gLayers.pure,
-    '⛰️ توپوگرافی (منحنی میزان)': topoLayer,
   }, null, {position:'topleft', collapsed:true}).addTo(map);
   L.imageOverlay(dataUrl, bounds, {opacity:0.85}).addTo(map);
   addMineBoundaryToMap(map, m);
@@ -7087,7 +7068,6 @@ async function renderSatOverlayMap(bbox, ndviCanvas, s1Canvas) {
   const map = L.map(container, {attributionControl:false});
   _satMapInstance = map;
   const gLayers = createGoogleEarthLayers();
-  const topoLayer = createTopoLayer();
   gLayers.hybrid.addTo(map);
 
   const ndviLayer = L.imageOverlay(ndviCanvas.toDataURL('image/png'), bounds, {opacity:0.9}).addTo(map);
@@ -7096,7 +7076,6 @@ async function renderSatOverlayMap(bbox, ndviCanvas, s1Canvas) {
   L.control.layers({
     '🛰️ ماهواره + عوارض (جاده/نام مکان)': gLayers.hybrid,
     '🛰️ ماهواره خالص': gLayers.pure,
-    '⛰️ توپوگرافی (منحنی میزان)': topoLayer,
   }, overlays, {collapsed:false}).addTo(map);
   if(mines[satMineIdx]) addMineBoundaryToMap(map, mines[satMineIdx]);
   map.fitBounds(bounds, {padding:[20,20]});
@@ -8122,14 +8101,6 @@ function createGoogleEarthLayers() {
     }),
   };
 }
-// لایه‌ی توپوگرافی رایگان (منحنی میزان + سایه‌روشن ارتفاعی) — OpenTopoMap، بدون نیاز به کلید API
-// برای همه‌ی نقشه‌های پایش/محاسبه‌ی برنامه قابل استفاده است
-function createTopoLayer() {
-  return L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-    subdomains: ['a','b','c'], maxZoom: 17,
-    attribution: 'Map data: © OpenStreetMap contributors, SRTM | Map style: © OpenTopoMap (CC-BY-SA)'
-  });
-}
 function goToMineFromMap(idx) {
   switchTab('search');
   goToMine(idx);
@@ -8156,13 +8127,11 @@ async function showPhotoLocationMap(lat, lon, mineName) {
   _photoLocationMapInstance = map;
   const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'© OpenStreetMap'});
   const gLayers = createGoogleEarthLayers();
-  const topoLayer = createTopoLayer();
   streetLayer.addTo(map);
   L.control.layers({
     '🗺️ خیابانی': streetLayer,
     '🛰️ ماهواره + عوارض (جاده/نام مکان)': gLayers.hybrid,
     '🛰️ ماهواره خالص': gLayers.pure,
-    '⛰️ توپوگرافی (منحنی میزان)': topoLayer,
   }, null, {position:'topleft', collapsed:true}).addTo(map);
 
   const bounds = [[lat, lon]];
@@ -8201,12 +8170,10 @@ async function renderMapView() {
   const map = L.map(container).setView(center, 10);
   _leafletMapInstance = map;
   const gLayers = createGoogleEarthLayers();
-  const topoLayer = createTopoLayer();
   gLayers.hybrid.addTo(map);
   L.control.layers({
     '🛰️ ماهواره + عوارض (جاده/نام مکان)': gLayers.hybrid,
     '🛰️ ماهواره خالص': gLayers.pure,
-    '⛰️ توپوگرافی (منحنی میزان)': topoLayer,
   }, null, {position:'topleft', collapsed:true}).addTo(map);
   const bounds = [];
   withCoords.forEach(m=>{
