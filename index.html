@@ -6266,10 +6266,12 @@ async function renderVolumeSatOverlay(m, grid) {
   const map = L.map(container, {attributionControl:false});
   _volSatMapInstance = map;
   const gLayers = createGoogleEarthLayers();
+  const topoLayer = createTopoLayer();
   gLayers.hybrid.addTo(map);
   L.control.layers({
     '🛰️ ماهواره + عوارض (جاده/نام مکان)': gLayers.hybrid,
     '🛰️ ماهواره خالص': gLayers.pure,
+    '⛰️ توپوگرافی (منحنی میزان)': topoLayer,
   }, null, {position:'topleft', collapsed:true}).addTo(map);
   L.imageOverlay(dataUrl, bounds, {opacity:0.85}).addTo(map);
   addMineBoundaryToMap(map, m);
@@ -7085,6 +7087,7 @@ async function renderSatOverlayMap(bbox, ndviCanvas, s1Canvas) {
   const map = L.map(container, {attributionControl:false});
   _satMapInstance = map;
   const gLayers = createGoogleEarthLayers();
+  const topoLayer = createTopoLayer();
   gLayers.hybrid.addTo(map);
 
   const ndviLayer = L.imageOverlay(ndviCanvas.toDataURL('image/png'), bounds, {opacity:0.9}).addTo(map);
@@ -7093,6 +7096,7 @@ async function renderSatOverlayMap(bbox, ndviCanvas, s1Canvas) {
   L.control.layers({
     '🛰️ ماهواره + عوارض (جاده/نام مکان)': gLayers.hybrid,
     '🛰️ ماهواره خالص': gLayers.pure,
+    '⛰️ توپوگرافی (منحنی میزان)': topoLayer,
   }, overlays, {collapsed:false}).addTo(map);
   if(mines[satMineIdx]) addMineBoundaryToMap(map, mines[satMineIdx]);
   map.fitBounds(bounds, {padding:[20,20]});
@@ -8118,6 +8122,14 @@ function createGoogleEarthLayers() {
     }),
   };
 }
+// لایه‌ی توپوگرافی رایگان (منحنی میزان + سایه‌روشن ارتفاعی) — OpenTopoMap، بدون نیاز به کلید API
+// برای همه‌ی نقشه‌های پایش/محاسبه‌ی برنامه قابل استفاده است
+function createTopoLayer() {
+  return L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+    subdomains: ['a','b','c'], maxZoom: 17,
+    attribution: 'Map data: © OpenStreetMap contributors, SRTM | Map style: © OpenTopoMap (CC-BY-SA)'
+  });
+}
 function goToMineFromMap(idx) {
   switchTab('search');
   goToMine(idx);
@@ -8144,11 +8156,13 @@ async function showPhotoLocationMap(lat, lon, mineName) {
   _photoLocationMapInstance = map;
   const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'© OpenStreetMap'});
   const gLayers = createGoogleEarthLayers();
+  const topoLayer = createTopoLayer();
   streetLayer.addTo(map);
   L.control.layers({
     '🗺️ خیابانی': streetLayer,
     '🛰️ ماهواره + عوارض (جاده/نام مکان)': gLayers.hybrid,
     '🛰️ ماهواره خالص': gLayers.pure,
+    '⛰️ توپوگرافی (منحنی میزان)': topoLayer,
   }, null, {position:'topleft', collapsed:true}).addTo(map);
 
   const bounds = [[lat, lon]];
@@ -8187,10 +8201,12 @@ async function renderMapView() {
   const map = L.map(container).setView(center, 10);
   _leafletMapInstance = map;
   const gLayers = createGoogleEarthLayers();
+  const topoLayer = createTopoLayer();
   gLayers.hybrid.addTo(map);
   L.control.layers({
     '🛰️ ماهواره + عوارض (جاده/نام مکان)': gLayers.hybrid,
     '🛰️ ماهواره خالص': gLayers.pure,
+    '⛰️ توپوگرافی (منحنی میزان)': topoLayer,
   }, null, {position:'topleft', collapsed:true}).addTo(map);
   const bounds = [];
   withCoords.forEach(m=>{
