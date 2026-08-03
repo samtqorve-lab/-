@@ -298,7 +298,7 @@ setTimeout(function(){
 
     <label>شرح حادثه</label>
     <textarea id="incDescription" rows="3" placeholder="چه اتفاقی افتاد؟"></textarea>
-    <button class="btn-sm" style="background:#f3e5f5;color:#6a1b9a;margin-top:4px" onclick="polishNarrativeWithAI('incDescription')">✨ رسمی‌نویسی با هوش مصنوعی</button>
+    <button class="btn-sm" style="background:#f3e5f5;color:#6a1b9a;margin-top:4px" onclick="polishNarrativeWithAI('incDescription')">✨ رسمی‌نویسی خودکار</button>
 
     <label>اقدامات انجام‌شده (اختیاری)</label>
     <textarea id="incActions" rows="2" placeholder="مثلاً تخلیه محل، اطلاع اورژانس"></textarea>
@@ -488,7 +488,7 @@ setTimeout(function(){
 
     <label>توضیحات</label>
     <textarea id="torNote" rows="3" placeholder="توضیحات تکمیلی..."></textarea>
-    <button class="btn-sm" style="background:#f3e5f5;color:#6a1b9a;margin-top:4px" onclick="polishNarrativeWithAI('torNote')">✨ رسمی‌نویسی با هوش مصنوعی</button>
+    <button class="btn-sm" style="background:#f3e5f5;color:#6a1b9a;margin-top:4px" onclick="polishNarrativeWithAI('torNote')">✨ رسمی‌نویسی خودکار</button>
 
     <button class="btn btn-save" id="torSubmitBtn" style="width:100%;margin-top:14px" onclick="submitTechReport()">📤 ارسال گزارش</button>
     <div id="torStatus" style="margin-top:10px;font-size:12.5px"></div>
@@ -499,6 +499,8 @@ setTimeout(function(){
     <input id="techHistorySearch" type="text" placeholder="جست‌وجو بر اساس معدن یا دوره..." style="margin-bottom:8px" oninput="renderTechHistoryList()">
     <div id="techOfficerHistory"><div style="text-align:center;color:#6b8291;font-size:12px;padding:12px">در حال بارگذاری...</div></div>
   </div>
+
+  <div id="torGovLinksBox"></div>
 </div>
 
 <div id="onbOverlay" class="onb-overlay">
@@ -695,7 +697,7 @@ const ONB_SLIDES = [
   {icon:'📷', title:'عکس فقط با دوربین، همین لحظه', text:'همه‌ی عکس‌های سینه‌کار، ماشین‌آلات و احراز هویت باید مستقیم با دوربین گرفته بشن (نه از گالری) — موقعیت GPS و مشخصات شما خودکار روی عکس درج می‌شه.'},
   {icon:'🎯', title:'پیاده کردن نقاط پروانه', text:'با دکمه‌ی «پیاده کردن نقاط پروانه» می‌تونید فاصله و جهت خودتون تا هر گوشه‌ی محدوده‌ی قانونی معدن رو روی نقشه ببینید — نیازی به قطب‌نمای گوشی نیست.'},
   {icon:'📴', title:'حتی بدون اینترنت هم کار می‌کنه', text:'اگه تو سایت معدن آنتن نداشته باشید، گزارش و عکس‌ها ذخیره می‌مونن و به‌محض وصل‌شدن اینترنت خودکار ارسال می‌شن — چیزی گم نمی‌شه.'},
-  {icon:'✨', title:'رسمی‌نویسی با هوش مصنوعی', text:'روی دکمه‌ی «رسمی‌نویسی با هوش مصنوعی» کنار توضیحات بزنید تا فقط جمله‌بندی رسمی‌تر بشه — هیچ عدد یا ادعای جدیدی اضافه نمی‌شه و متن نهایی همیشه با خودتونه.'},
+  {icon:'✨', title:'رسمی‌نویسی خودکار', text:'روی دکمه‌ی «رسمی‌نویسی خودکار» کنار توضیحات بزنید تا رایج‌ترین عبارات محاوره‌ای به رسمی جایگزین بشه — هیچ عدد یا ادعای جدیدی اضافه نمی‌شه و متن نهایی همیشه با خودتونه.'},
 ];
 let onbIdx = 0;
 function showOnboardingIfNeeded() {
@@ -757,36 +759,367 @@ function showToast(msg) {
   clearTimeout(window._toastTimer);
   window._toastTimer = setTimeout(()=>{ t.style.opacity = '0'; }, 3000);
 }
-// ── رسمی‌نویسی متن با هوش مصنوعی (هماهنگ با پنل ادمین) ─────────────
+// ── رسمی‌نویسی متن (هماهنگ با پنل ادمین) ─────────────
 // فقط جمله‌بندی/نگارش را رسمی می‌کند؛ هیچ واقعیتی اضافه یا حذف نمی‌شود.
 // نتیجه در یک پیش‌نمایش نشان داده می‌شود و مسئول فنی خودش تایید می‌کند.
 let aiPolishTargetId = null;
+// ── رسمی‌نویسی محلی و قانون‌محور، سطح جمله (بدون نیاز به سرویس هوش مصنوعی/اینترنت) ────
+// نسخه‌ی گسترده‌تر: علاوه بر جایگزینی کلمه‌به‌کلمه، عبارات پرکاربردتر، حذف کلمات
+// پرکننده‌ی محاوره‌ای، و پاک‌سازی نشانه‌گذاری/فاصله‌ها را هم انجام می‌دهد. سقف این روش
+// همچنان پایین‌تر از هوش مصنوعی واقعی است — چون بر اساس الگوی از‌پیش‌تعریف‌شده کار
+// می‌کند نه فهم معنای جمله؛ برای جمله‌های پیچیده یا غیرمنتظره ممکن است اثری نداشته
+// باشد، اما هرگز چیزی غیر از جایگزینی‌های زیر به متن اضافه نمی‌کند.
+const PERSIAN_FILLERS = ['راستش', 'والا', 'چیزه', 'خب،', 'خب '];
+const PERSIAN_FORMAL_DICT = [
+  ['نیاز به تعمیر داره', 'نیازمند تعمیر است'],
+  ['باید اضافه کنم', 'لازم به ذکر است'],
+  ['باید تعمیر بشه', 'باید تعمیر شود'],
+  ['باید تعویض بشه', 'باید تعویض شود'],
+  ['باید بررسی بشه', 'باید بررسی شود'],
+  ['یه نکته دیگه', 'نکته‌ی دیگر'],
+  ['باید بگم که', 'لازم به ذکر است که'],
+  ['مشکلی نداره', 'مشکلی ندارد'],
+  ['وضعیت خوبیه', 'وضعیت مطلوبی دارد'],
+  ['وضعیتش خوبه', 'وضعیت آن مطلوب است'],
+  ['باید چک بشه', 'باید بررسی شود'],
+  ['هرچه سریعتر', 'در اسرع وقت'],
+  ['روی هم رفته', 'در مجموع'],
+  ['یه چیز دیگه', 'نکته‌ی دیگر'],
+  ['فکر می‌کنم', 'به نظر می‌رسد'],
+  ['ماشین‌الات', 'ماشین‌آلات'],
+  ['ایراد داره', 'دارای ایراد است'],
+  ['وضعیت بدیه', 'وضعیت نامطلوبی دارد'],
+  ['وضعیتش بده', 'وضعیت آن نامطلوب است'],
+  ['کار نمیکنه', 'کار نمی‌کند'],
+  ['درست نمیشه', 'درست نمی‌شود'],
+  ['پیگیری بشه', 'پیگیری شود'],
+  ['میخواستیم', 'می‌خواستیم'],
+  ['نمیخواستن', 'نمی‌خواستند'],
+  ['میتونستیم', 'می‌توانستیم'],
+  ['نمیدونستم', 'نمی‌دانستم'],
+  ['همین الان', 'هم‌اکنون'],
+  ['مشکل داره', 'دارای مشکل است'],
+  ['نیاز داره', 'نیاز دارد'],
+  ['کار میکنه', 'کار می‌کند'],
+  ['پیدا کردم', 'یافتم'],
+  ['نمیخوایم', 'نمی‌خواهیم'],
+  ['نمیخواین', 'نمی‌خواهید'],
+  ['میخواستم', 'می‌خواستم'],
+  ['میخواستی', 'می‌خواستی'],
+  ['میخواستن', 'می‌خواستند'],
+  ['نمیخواست', 'نمی‌خواست'],
+  ['نمیتونیم', 'نمی‌توانیم'],
+  ['نمیتونین', 'نمی‌توانید'],
+  ['میتونستم', 'می‌توانستم'],
+  ['میتونستن', 'می‌توانستند'],
+  ['نمیدونیم', 'نمی‌دانیم'],
+  ['میدونستم', 'می‌دانستم'],
+  ['به گمونم', 'به نظر می‌رسد'],
+  ['باید بگم', 'لازم به ذکر است'],
+  ['آماده‌ست', 'آماده است'],
+  ['درست شده', 'رفع شده است'],
+  ['همین‌طور', 'همچنین'],
+  ['به هرحال', 'به‌هرحال'],
+  ['این دفعه', 'این‌بار'],
+  ['دفعه قبل', 'بار قبل'],
+  ['پیدا نشد', 'یافت نشد'],
+  ['می‌خوام', 'می‌خواهم'],
+  ['میخوایم', 'می‌خواهیم'],
+  ['میخواین', 'می‌خواهید'],
+  ['نمیخوام', 'نمی‌خواهم'],
+  ['نمیخوای', 'نمی‌خواهی'],
+  ['نمیخواد', 'نمی‌خواهد'],
+  ['نمیخوان', 'نمی‌خواهند'],
+  ['میخواست', 'می‌خواست'],
+  ['نمیکنیم', 'نمی‌کنیم'],
+  ['نمیکنین', 'نمی‌کنید'],
+  ['میکردیم', 'می‌کردیم'],
+  ['نمیکردن', 'نمی‌کردند'],
+  ['میرفتیم', 'می‌رفتیم'],
+  ['میبینیم', 'مشاهده می‌کنیم'],
+  ['میگیریم', 'می‌گیریم'],
+  ['میگیرین', 'می‌گیرید'],
+  ['نمیگیره', 'نمی‌گیرد'],
+  ['نمیگیرن', 'نمی‌گیرند'],
+  ['میتونیم', 'می‌توانیم'],
+  ['میتونین', 'می‌توانید'],
+  ['نمیتونم', 'نمی‌توانم'],
+  ['نمیتونی', 'نمی‌توانی'],
+  ['نمیتونه', 'نمی‌تواند'],
+  ['نمیتونن', 'نمی‌توانند'],
+  ['میتونست', 'می‌توانست'],
+  ['نتونستم', 'نتوانستم'],
+  ['نتونستن', 'نتوانستند'],
+  ['میدونیم', 'می‌دانیم'],
+  ['میدونین', 'می‌دانید'],
+  ['نمیدونم', 'نمی‌دانم'],
+  ['نمیدونی', 'نمی‌دانی'],
+  ['نمیدونه', 'نمی‌داند'],
+  ['نمیدونن', 'نمی‌دانند'],
+  ['میدونست', 'می‌دانست'],
+  ['میمونیم', 'می‌مانیم'],
+  ['میمونین', 'می‌مانید'],
+  ['فکر کنم', 'به نظر می‌رسد'],
+  ['به نظرم', 'به نظر می‌رسد'],
+  ['تازه‌ست', 'تازه است'],
+  ['همینطور', 'همچنین'],
+  ['میخوام', 'می‌خواهم'],
+  ['میخوای', 'می‌خواهی'],
+  ['میخواد', 'می‌خواهد'],
+  ['میخوان', 'می‌خواهند'],
+  ['نمیشیم', 'نمی‌شویم'],
+  ['نمیشین', 'نمی‌شوید'],
+  ['میشدیم', 'می‌شدیم'],
+  ['نمیشدن', 'نمی‌شدند'],
+  ['میکنیم', 'می‌کنیم'],
+  ['میکنین', 'می‌کنید'],
+  ['نمیکنم', 'نمی‌کنم'],
+  ['نمیکنی', 'نمی‌کنی'],
+  ['نمیکنه', 'نمی‌کند'],
+  ['نمیکنن', 'نمی‌کنند'],
+  ['میکردم', 'می‌کردم'],
+  ['میکردی', 'می‌کردی'],
+  ['میکردن', 'می‌کردند'],
+  ['نمیکرد', 'نمی‌کرد'],
+  ['ندارین', 'ندارید'],
+  ['نداشتن', 'نداشتند'],
+  ['نیستین', 'نیستید'],
+  ['نمیریم', 'نمی‌رویم'],
+  ['نمیرین', 'نمی‌روید'],
+  ['میرفتم', 'می‌رفتم'],
+  ['میرفتن', 'می‌رفتند'],
+  ['نمیایم', 'نمی‌آییم'],
+  ['نمیاین', 'نمی‌آیید'],
+  ['اومدیم', 'آمدیم'],
+  ['اومدین', 'آمدید'],
+  ['نیومدن', 'نیامدند'],
+  ['میگفتم', 'می‌گفتم'],
+  ['میگفتن', 'می‌گفتند'],
+  ['میبینم', 'مشاهده می‌کنم'],
+  ['میبینی', 'مشاهده می‌کنی'],
+  ['میبینه', 'مشاهده می‌کند'],
+  ['میبینن', 'مشاهده می‌کنند'],
+  ['میدادم', 'می‌دادم'],
+  ['میدادن', 'می‌دادند'],
+  ['میگیرم', 'می‌گیرم'],
+  ['میگیری', 'می‌گیری'],
+  ['میگیره', 'می‌گیرد'],
+  ['میگیرن', 'می‌گیرند'],
+  ['میتونم', 'می‌توانم'],
+  ['میتونی', 'می‌توانی'],
+  ['میتونه', 'می‌تواند'],
+  ['میتونن', 'می‌توانند'],
+  ['نتونست', 'نتوانست'],
+  ['میدونم', 'می‌دانم'],
+  ['میدونی', 'می‌دانی'],
+  ['میدونه', 'می‌داند'],
+  ['میدونن', 'می‌دانند'],
+  ['میمونم', 'می‌مانم'],
+  ['میمونی', 'می‌مانی'],
+  ['میمونه', 'می‌ماند'],
+  ['میمونن', 'می‌مانند'],
+  ['میخوره', 'می‌خورد'],
+  ['میخورن', 'می‌خورند'],
+  ['میخورم', 'می‌خورم'],
+  ['میذارم', 'می‌گذارم'],
+  ['میذاری', 'می‌گذاری'],
+  ['میذاره', 'می‌گذارد'],
+  ['میذارن', 'می‌گذارند'],
+  ['گذاشتن', 'قرار دادند'],
+  ['بذارید', 'قرار دهید'],
+  ['بذاریم', 'قرار دهیم'],
+  ['هرکاری', 'هر اقدامی'],
+  ['یه ذره', 'اندکی'],
+  ['همه چی', 'همه‌ی موارد'],
+  ['همه‌چی', 'همه‌ی موارد'],
+  ['همینجا', 'همین محل'],
+  ['ماشینا', 'ماشین‌آلات'],
+  ['کارگرا', 'کارگران'],
+  ['مسئولا', 'مسئولین'],
+  ['بچه‌ها', 'افراد'],
+  ['همکارا', 'همکاران'],
+  ['کوچیکه', 'کوچک است'],
+  ['قدیمیه', 'قدیمی است'],
+  ['خاموشه', 'خاموش است'],
+  ['سریعتر', 'سریع‌تر'],
+  ['در ضمن', 'ضمناً'],
+  ['دوباره', 'مجدداً'],
+  ['گم شده', 'مفقود شده است'],
+  ['میشیم', 'می‌شویم'],
+  ['میشین', 'می‌شوید'],
+  ['نمیشم', 'نمی‌شوم'],
+  ['نمیشی', 'نمی‌شوی'],
+  ['نمیشه', 'نمی‌شود'],
+  ['نمیشن', 'نمی‌شوند'],
+  ['میشدم', 'می‌شدم'],
+  ['میشدی', 'می‌شدی'],
+  ['میشدن', 'می‌شدند'],
+  ['نمیشد', 'نمی‌شد'],
+  ['میکنم', 'می‌کنم'],
+  ['میکنی', 'می‌کنی'],
+  ['میکنه', 'می‌کند'],
+  ['میکنن', 'می‌کنند'],
+  ['میکرد', 'می‌کرد'],
+  ['دارین', 'دارید'],
+  ['نداره', 'ندارد'],
+  ['ندارن', 'ندارند'],
+  ['داشتن', 'داشتند'],
+  ['هستین', 'هستید'],
+  ['نیستن', 'نیستند'],
+  ['بودین', 'بودید'],
+  ['نبودن', 'نبودند'],
+  ['میریم', 'می‌رویم'],
+  ['میرین', 'می‌روید'],
+  ['نمیرم', 'نمی‌روم'],
+  ['نمیری', 'نمی‌روی'],
+  ['نمیره', 'نمی‌رود'],
+  ['نمیرن', 'نمی‌روند'],
+  ['میرفت', 'می‌رفت'],
+  ['میایم', 'می‌آییم'],
+  ['میاین', 'می‌آیید'],
+  ['نمیام', 'نمی‌آیم'],
+  ['نمیای', 'نمی‌آیی'],
+  ['نمیاد', 'نمی‌آید'],
+  ['نمیان', 'نمی‌آیند'],
+  ['اومدم', 'آمدم'],
+  ['اومدی', 'آمدی'],
+  ['اومدن', 'آمدند'],
+  ['نیومد', 'نیامد'],
+  ['میگیم', 'می‌گوییم'],
+  ['میگین', 'می‌گویید'],
+  ['نمیگم', 'نمی‌گویم'],
+  ['نمیگه', 'نمی‌گوید'],
+  ['نمیگن', 'نمی‌گویند'],
+  ['میگفت', 'می‌گفت'],
+  ['دیدیم', 'مشاهده کردیم'],
+  ['ندیدم', 'مشاهده نکردم'],
+  ['میدیم', 'می‌دهیم'],
+  ['میدین', 'می‌دهید'],
+  ['نمیده', 'نمی‌دهد'],
+  ['نمیدن', 'نمی‌دهند'],
+  ['میداد', 'می‌داد'],
+  ['موندم', 'ماندم'],
+  ['موندن', 'ماندند'],
+  ['نموند', 'نماند'],
+  ['میزنه', 'می‌زند'],
+  ['میزنن', 'می‌زنند'],
+  ['میزنم', 'می‌زنم'],
+  ['بذارن', 'قرار دهند'],
+  ['انگار', 'به نظر می‌رسد'],
+  ['ظاهرا', 'ظاهراً'],
+  ['واقعا', 'درواقع'],
+  ['وگرنه', 'در غیر این صورت'],
+  ['چیکار', 'چه اقدامی'],
+  ['چجوری', 'چگونه'],
+  ['چطوری', 'چگونه'],
+  ['چندتا', 'چند'],
+  ['یدونه', 'یک عدد'],
+  ['یه‌کم', 'اندکی'],
+  ['بهتره', 'بهتر است'],
+  ['بدتره', 'نامطلوب‌تر است'],
+  ['اینجا', 'این محل'],
+  ['اونجا', 'آن محل'],
+  ['بزرگه', 'بزرگ است'],
+  ['خرابه', 'خراب است'],
+  ['خرابن', 'خراب هستند'],
+  ['سالمه', 'سالم است'],
+  ['سالمن', 'سالم هستند'],
+  ['زیاده', 'زیاد است'],
+  ['خالیه', 'خالی است'],
+  ['روشنه', 'روشن است'],
+  ['زودتر', 'در اولین فرصت'],
+  ['راستی', 'ضمناً'],
+  ['در کل', 'در مجموع'],
+  ['گم شد', 'مفقود شد'],
+  ['میشم', 'می‌شوم'],
+  ['میشی', 'می‌شوی'],
+  ['میشه', 'می‌شود'],
+  ['میشن', 'می‌شوند'],
+  ['میشد', 'می‌شد'],
+  ['داره', 'دارد'],
+  ['دارن', 'دارند'],
+  ['هستن', 'هستند'],
+  ['بودن', 'بودند'],
+  ['میرم', 'می‌روم'],
+  ['میری', 'می‌روی'],
+  ['میره', 'می‌رود'],
+  ['میرن', 'می‌روند'],
+  ['میام', 'می‌آیم'],
+  ['میای', 'می‌آیی'],
+  ['میاد', 'می‌آید'],
+  ['میان', 'می‌آیند'],
+  ['اومد', 'آمد'],
+  ['میگم', 'می‌گویم'],
+  ['میگی', 'می‌گویی'],
+  ['میگه', 'می‌گوید'],
+  ['میگن', 'می‌گویند'],
+  ['گفتن', 'اظهار کردند'],
+  ['دیدم', 'مشاهده کردم'],
+  ['دیدی', 'مشاهده کردی'],
+  ['دیدن', 'مشاهده کردند'],
+  ['میدم', 'می‌دهم'],
+  ['میدی', 'می‌دهی'],
+  ['میده', 'می‌دهد'],
+  ['میدن', 'می‌دهند'],
+  ['موند', 'ماند'],
+  ['بذار', 'قرار داده شود'],
+  ['حتما', 'قطعاً'],
+  ['شاید', 'احتمالاً'],
+  ['اصلا', 'به‌هیچ‌وجه'],
+  ['هرچی', 'هرچه'],
+  ['هرکی', 'هرکس'],
+  ['هرجا', 'هر مکان'],
+  ['خیلی', 'بسیار'],
+  ['هیچی', 'هیچ‌چیز'],
+  ['اینا', 'این موارد'],
+  ['اونا', 'آن موارد'],
+  ['چیزی', 'موردی'],
+  ['الان', 'هم‌اکنون'],
+  ['فعلا', 'در حال حاضر'],
+  ['آدما', 'افراد'],
+  ['بازم', 'مجدداً'],
+  ['نیس', 'نیست'],
+  ['اصن', 'اصلاً'],
+  ['چون', 'زیرا'],
+  ['اگه', 'اگر'],
+  ['یکم', 'اندکی'],
+  ['کمه', 'کم است'],
+  ['یه', 'یک'],];
+const PERSIAN_DICT_MAP = new Map(PERSIAN_FORMAL_DICT);
+function _escapeRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+// نگهبان مرز کلمه‌ی فارسی: مطمئن می‌شویم بلافاصله قبل/بعد از عبارت، حرف فارسی یا نیم‌فاصله
+// نباشد — یعنی عبارت به‌عنوان یک کلمه‌ی مستقل تشخیص داده شود، نه تکه‌ای از وسط کلمه‌ای دیگر
+// (مثلاً «کمه» در دیکشنری نباید داخل «محکمه» یا «یه» داخل «سرمایه» جایگزین شود)
+const _PB = '\u0621-\u063A\u0641-\u064A\u066E-\u06D3\u200C';
+const PERSIAN_COMBINED_RE = new RegExp(
+  '(?<![' + _PB + '])(?:' +
+  Array.from(PERSIAN_DICT_MAP.keys()).sort((a, b) => b.length - a.length).map(_escapeRe).join('|') +
+  ')(?![' + _PB + '])', 'g'
+);
+
+function formalizePersianText(text) {
+  let t = text;
+  t = t.replace(/ي/g, 'ی').replace(/ك/g, 'ک');
+  PERSIAN_FILLERS.forEach(f => { t = t.split(f).join(''); });
+  t = t.replace(/\bمی[ ]+/g, 'می‌').replace(/\bنمی[ ]+/g, 'نمی‌');
+  t = t.replace(PERSIAN_COMBINED_RE, (m) => PERSIAN_DICT_MAP.get(m));
+  t = t.replace(/[ \t]+([،؛؟!.,])/g, '$1');
+  t = t.replace(/[ \t]{2,}/g, ' ');
+  t = t.split('\n').map(line => line.trim()).filter(Boolean).join('\n');
+  return t.trim();
+}
+
 async function polishNarrativeWithAI(targetId) {
   const ta = document.getElementById(targetId);
   const text = (ta.value || '').trim();
   if(!text) { showToast('⚠️ ابتدا متن را بنویسید'); return; }
-  if(!navigator.onLine) { showToast('⚠️ برای این کار به اینترنت نیاز است'); return; }
   aiPolishTargetId = targetId;
   const btn = event && event.target;
   const originalLabel = btn ? btn.textContent : '';
   if(btn) { btn.disabled = true; btn.textContent = '⏳ در حال ویرایش...'; }
-  try {
-    const {data: sessionData} = await sb.auth.getSession();
-    const jwt = sessionData && sessionData.session ? sessionData.session.access_token : SUPA_KEY;
-    const res = await fetch(SUPA_URL + '/functions/v1/polish-report-text', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + jwt},
-      body: JSON.stringify({text})
-    });
-    const data = await res.json().catch(()=>({}));
-    if(!res.ok || !data.polished) { showToast('⚠️ ' + (data.error || 'ویرایش ناموفق بود')); }
-    else {
-      document.getElementById('aiPolishResultBox').value = data.polished;
-      document.getElementById('aiPolishModal').style.display = 'flex';
-    }
-  } catch(e) {
-    showToast('⚠️ اتصال به سرویس هوش مصنوعی برقرار نشد');
-  }
+  const polished = formalizePersianText(text);
+  document.getElementById('aiPolishResultBox').value = polished;
+  document.getElementById('aiPolishModal').style.display = 'flex';
   if(btn) { btn.disabled = false; btn.textContent = originalLabel; }
 }
 function acceptAiPolish() {
@@ -1389,8 +1722,10 @@ async function onLogin() {
   const {data:{user}} = await sb.auth.getUser();
   if(!user) return;
   await ensureMyRoleRow(user);
+  // یک کوئری واحد به user_roles به‌جای دو کوئری جدا (یکی اینجا، یکی داخل showTechOfficerPanel) —
+  // این تکرار یکی از علت‌های کند بودن ورود بود، چون هر کوئری یک رفت‌وبرگشت شبکه‌ی جداست
   const {data} = await sb.from('user_roles')
-    .select('role, assigned_mines, tech_officer_specialty, identity_status, identity_verified_at, trusted_device_id')
+    .select('role, assigned_mines, tech_officer_specialty, identity_status, identity_verified_at, trusted_device_id, full_name, membership_no, national_code')
     .eq('email', user.email).limit(1);
   const row = (data && data[0]) || {role:'pending', assigned_mines:[]};
   hideAllGates();
@@ -1400,7 +1735,7 @@ async function onLogin() {
   const mines = await fetchAssignedMines(row.tech_officer_specialty, myAssignedMines);
   const ok = await runIdentityGate(user.email, mines, row);
   if(!ok) return;
-  await showTechOfficerPanel(user.email, mines, row.identity_verified_at);
+  await showTechOfficerPanel(user.email, mines, row.identity_verified_at, row);
 }
 
 const MONTHLY_REMINDER_WINDOW_MS = 5*24*60*60*1000; // ۵ روز قبل از سررسید، هشدار نمایش داده می‌شود
@@ -1422,15 +1757,15 @@ function renderMonthlyReminderBanner(identityVerifiedAt) {
 // ── پنل مسئول فنی (همان منطق نسخه اصلی) ──
 let techOfficerMinesCache = [];
 let myTechOfficerDept = 'معدن';
-async function showTechOfficerPanel(email, mines, identityVerifiedAt) {
+async function showTechOfficerPanel(email, mines, identityVerifiedAt, myRoleRow) {
   document.getElementById('techOfficerEmail').textContent = email;
   document.getElementById('techOfficerShell').style.display = 'block';
   renderBiometricBanner(email);
   renderMonthlyReminderBanner(identityVerifiedAt);
   showOnboardingIfNeeded();
 
-  const {data: roleRows} = await sb.from('user_roles').select('full_name, membership_no, national_code, tech_officer_specialty').eq('email', email).limit(1);
-  const myRow = (roleRows && roleRows[0]) || {};
+  // اگر اطلاعات کاربر از قبل (توسط onLogin) گرفته شده، دوباره از دیتابیس نمی‌خوانیم — یک رفت‌وبرگشت شبکه کمتر
+  const myRow = myRoleRow || (await sb.from('user_roles').select('full_name, membership_no, national_code, tech_officer_specialty').eq('email', email).limit(1)).data?.[0] || {};
   document.getElementById('torFullName').value = myRow.full_name || '';
   document.getElementById('torMembershipNo').value = myRow.membership_no || '';
   myMembershipNo = myRow.membership_no || '';
@@ -1510,7 +1845,9 @@ async function renderTechOfficerMines(list) {
     '</div>'+
     '</div>';
   }).join('');
-  box.innerHTML = cardsHtml + await renderTechOfficerLinks();
+  box.innerHTML = cardsHtml;
+  const govBox = document.getElementById('torGovLinksBox');
+  if(govBox) govBox.innerHTML = await renderTechOfficerLinks();
 }
 
 async function renderTechOfficerLinks() {
@@ -1527,11 +1864,11 @@ async function renderTechOfficerLinks() {
     const hint = appLinkHint(l.key, membership, national);
     return '<div style="display:flex;justify-content:space-between;align-items:center;background:#f8f9fa;border-radius:8px;padding:8px 10px;margin-bottom:6px">'+
     '<div><div style="font-weight:700;font-size:12px;color:#1a3a5c">'+esc(l.label||labels[l.key]||l.key)+'</div>'+(hint?'<div style="font-size:10.5px;color:#6b8291;margin-top:2px">'+hint+'</div>':'')+'</div>'+
-    '<a href="'+esc(l.url)+'" target="_blank" style="background:#00695c;color:#fff;border-radius:6px;padding:6px 12px;font-size:11.5px;text-decoration:none;white-space:nowrap">'+(icons[l.key]||'🔗')+' ورود ↗</a>'+
+    '<a href="'+esc(l.url)+'" style="background:#00695c;color:#fff;border-radius:6px;padding:6px 12px;font-size:11.5px;text-decoration:none;white-space:nowrap">'+(icons[l.key]||'🔗')+' ورود ↗</a>'+
     '</div>';
   };
-  return '<div class="mine-card">'+
-    '<div style="font-weight:700;color:#1a3a5c;font-size:13px;margin-bottom:8px">🔑 دسترسی سریع به سامانه‌های دولتی</div>'+
+  return '<div class="panel-card">'+
+    '<h3>🔑 سامانه‌های مورد نیاز</h3>'+
     usable.map(row).join('')+
     '<div style="font-size:10px;color:#6b8291;margin-top:6px">⚠️ این‌ها سامانه‌های رسمی خارج از این اپ‌اند؛ آمار باید جداگانه و طبق مهلت قانونی (معمولاً تا دهم هر ماه) در آن‌ها هم ثبت شود.</div>'+
     '</div>';
@@ -1706,7 +2043,7 @@ async function loadScaledImage(file, maxDim) {
   return canvas;
 }
 
-async function watermarkPhoto(file, coords, mine) {
+async function watermarkPhoto(file, coords, mine, typeLabel) {
   const canvas = await loadScaledImage(file, 1600);
   const ctx = canvas.getContext('2d');
 
@@ -1714,7 +2051,7 @@ async function watermarkPhoto(file, coords, mine) {
   const membershipNo = document.getElementById('torMembershipNo').value.trim() || '-';
   const now = new Date();
   const lines = [
-    '⛏️ ' + (mine['نام_معدن']||'-'),
+    '⛏️ ' + (mine['نام_معدن']||'-') + (typeLabel ? '   |   🏷️ نوع عکس: ' + typeLabel : ''),
     '📜 پروانه: ' + (mine['شماره_پروانه']||'-') + '   تاریخ: ' + (mine['تاریخ_پروانه']||'-'),
     '🗺️ کاداستر: ' + (mine['کد_کاداستر']||'-'),
     '📍 ' + coords.latitude.toFixed(6) + ', ' + coords.longitude.toFixed(6) + '  (دقت ~' + Math.round(coords.accuracy) + 'م)',
@@ -2079,7 +2416,7 @@ async function captureEquipItemPhoto(inputEl, key, photoType) {
   showToast('⏳ در حال دریافت موقعیت مکانی...');
   try {
     const coords = await getGeoLocation();
-    const watermarked = await watermarkPhoto(file, coords, mine);
+    const watermarked = await watermarkPhoto(file, coords, mine, photoType === 'overview' ? 'نمای دور' : 'شماره سریال');
     if(!torEquipItemCaptures[key]) torEquipItemCaptures[key] = {overview:[], serial:[]};
     torEquipItemCaptures[key][photoType].push({ blob: watermarked, previewUrl: URL.createObjectURL(watermarked) });
     renderEquipItemThumbs(key, photoType);
@@ -2150,7 +2487,7 @@ async function captureTechPhoto(inputEl, category) {
   showToast('⏳ در حال دریافت موقعیت مکانی...');
   try {
     const coords = await getGeoLocation();
-    const watermarked = await watermarkPhoto(file, coords, mine);
+    const watermarked = await watermarkPhoto(file, coords, mine, category === 'face' ? 'سینه‌کار' : 'سایر ماشین‌آلات');
     const arr = category === 'face' ? torFaceCaptures : torEquipCaptures;
     arr.push({ blob: watermarked, previewUrl: URL.createObjectURL(watermarked) });
     renderTechPhotoThumbs(category);
