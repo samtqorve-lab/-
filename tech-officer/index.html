@@ -59,6 +59,7 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:var(--text-main)
 .dark-toggle-btn{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:8px;padding:7px 10px;font-size:13px;cursor:pointer;font-family:Tahoma;line-height:1}
 
 #techOfficerShell{max-width:720px;margin:0 auto;padding:16px;display:none;background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);min-height:100vh}
+#safetyHealthShell{max-width:720px;margin:0 auto;padding:16px;background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);min-height:100vh}
 .panel-card{background:var(--card-bg);border-radius:14px;padding:18px;margin-top:16px;box-shadow:0 2px 10px rgba(0,0,0,.06)}
 .panel-card h3{font-size:15px;color:var(--heading);margin-bottom:8px}
 label{display:block;font-size:13.5px;color:var(--label-text);margin:12px 0 5px;line-height:1.5}
@@ -328,6 +329,166 @@ setTimeout(function(){
   </div>
 </div>
 
+<!-- ── چک‌لیست ایمنی نوبت‌کاری ── -->
+<div class="gate-screen" id="safetyChecklistModal" style="display:none;z-index:1000">
+  <div class="gate-box" style="max-width:460px;max-height:88vh;overflow-y:auto;text-align:right">
+    <h2 style="color:#b71c1c">✅ چک‌لیست ایمنی نوبت‌کاری</h2>
+    <div id="scMineNameBox" style="font-size:12.5px;color:#55707d;margin-bottom:6px"></div>
+    <div style="font-size:10.5px;color:#90a4ae;margin-bottom:10px">طبق آیین‌نامه ایمنی معادن، این بازرسی باید پیش از شروع هر نوبت کاری انجام شود.</div>
+    <div style="display:flex;gap:8px">
+      <div style="flex:1"><label>تاریخ</label><input id="scShiftDate" type="date"></div>
+      <div style="flex:1"><label>نوبت کاری</label>
+        <select id="scShiftType"><option>صبح</option><option>عصر</option><option>شب</option></select>
+      </div>
+    </div>
+    <div id="scItemsBox" style="margin-top:8px"></div>
+    <label style="margin-top:8px">توضیحات کلی (اختیاری)</label>
+    <textarea id="scNotes" rows="2"></textarea>
+    <div class="login-err" id="safetyChecklistErr"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn" style="flex:1;background:#eee;color:#333" onclick="closeSafetyChecklistModal()">انصراف</button>
+      <button class="btn" style="flex:1;background:#b71c1c;color:#fff" id="safetyChecklistSubmitBtn" onclick="submitSafetyChecklist()">✅ ثبت چک‌لیست</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── آموزش ایمنی کارکنان ── -->
+<div class="gate-screen" id="trainingModal" style="display:none;z-index:1000">
+  <div class="gate-box" style="max-width:440px;max-height:88vh;overflow-y:auto;text-align:right">
+    <h2 style="color:#2e7d32">🎓 ثبت آموزش ایمنی کارکنان</h2>
+    <div id="trainingMineNameBox" style="font-size:12.5px;color:#55707d;margin-bottom:10px"></div>
+    <label>موضوع آموزش</label>
+    <input id="trTopic" type="text" placeholder="مثلاً استفاده از کپسول آتش‌نشانی">
+    <label>مدرس/برگزارکننده (اختیاری)</label>
+    <input id="trTrainer" type="text">
+    <label>تاریخ برگزاری</label>
+    <input id="trDate" type="date">
+    <label>تعداد شرکت‌کنندگان</label>
+    <input id="trCount" type="number" min="0" value="0">
+    <label>نام شرکت‌کنندگان (اختیاری)</label>
+    <textarea id="trAttendees" rows="2" placeholder="اسامی را با ویرگول جدا کنید"></textarea>
+    <label>عکس از جلسه (اختیاری)</label>
+    <input id="trPhotoInput" type="file" accept="image/*" capture="environment">
+    <label>توضیحات (اختیاری)</label>
+    <textarea id="trNotes" rows="2"></textarea>
+    <div class="login-err" id="trainingErr"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn" style="flex:1;background:#eee;color:#333" onclick="closeTrainingModal()">انصراف</button>
+      <button class="btn" style="flex:1;background:#2e7d32;color:#fff" id="trainingSubmitBtn" onclick="submitTraining()">✅ ثبت</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── تولید و عیار ── -->
+<div class="gate-screen" id="productionModal" style="display:none;z-index:1000">
+  <div class="gate-box" style="max-width:440px;max-height:88vh;overflow-y:auto;text-align:right">
+    <h2 style="color:#1565c0">⚖️ گزارش تولید و عیار</h2>
+    <div id="productionMineNameBox" style="font-size:12.5px;color:#55707d;margin-bottom:10px"></div>
+    <label>دوره (مثلاً تیر ۱۴۰۵)</label>
+    <input id="prPeriod" type="text">
+    <label>نوع ماده معدنی</label>
+    <input id="prMaterial" type="text">
+    <label>تناژ استخراج‌شده (تن)</label>
+    <input id="prTonnage" type="number" min="0" step="0.01">
+    <label>عیار (٪ - اختیاری)</label>
+    <input id="prGrade" type="number" min="0" max="100" step="0.01">
+    <label>توضیحات (اختیاری)</label>
+    <textarea id="prNotes" rows="2"></textarea>
+    <div class="login-err" id="productionErr"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn" style="flex:1;background:#eee;color:#333" onclick="closeProductionModal()">انصراف</button>
+      <button class="btn" style="flex:1;background:#1565c0;color:#fff" id="productionSubmitBtn" onclick="submitProduction()">✅ ثبت</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── پرسنل تحت سرپرستی ── -->
+<div class="gate-screen" id="personnelModal" style="display:none;z-index:1000">
+  <div class="gate-box" style="max-width:440px;max-height:88vh;overflow-y:auto;text-align:right">
+    <h2 style="color:#e65100">👥 پرسنل تحت سرپرستی</h2>
+    <div id="personnelMineNameBox" style="font-size:12.5px;color:#55707d;margin-bottom:10px"></div>
+    <label>نام و نام خانوادگی</label>
+    <input id="peName" type="text">
+    <label>نقش/سمت</label>
+    <input id="peRole" type="text" list="peRoleSuggestions" placeholder="مثلاً اپراتور دستگاه حفاری">
+    <datalist id="peRoleSuggestions">
+      <option value="مسئول ایمنی">
+      <option value="مسئول بهداشت حرفه‌ای">
+      <option value="مسئول فنی">
+      <option value="سرپرست معدن">
+      <option value="اپراتور دستگاه حفاری">
+      <option value="راننده کامیون/لودر">
+      <option value="آتشبار">
+      <option value="کارگر عمومی">
+    </datalist>
+    <label>تاریخ شروع (اختیاری)</label>
+    <input id="peStart" type="date">
+    <label>شماره تماس (اختیاری)</label>
+    <input id="pePhone" type="text" dir="ltr">
+    <div class="login-err" id="personnelErr"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn" style="flex:1;background:#eee;color:#333" onclick="closePersonnelModal()">انصراف</button>
+      <button class="btn" style="flex:1;background:#e65100;color:#fff" id="personnelSubmitBtn" onclick="submitPersonnel()">➕ افزودن</button>
+    </div>
+    <hr style="margin:14px 0;border:none;border-top:1px solid #eee">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <b style="font-size:12.5px;color:#1a3a5c">لیست فعلی</b>
+      <button class="btn-sm" onclick="loadPersonnelList()">🔄 نمایش/بروزرسانی</button>
+    </div>
+    <div id="personnelListBox" style="margin-top:8px"></div>
+  </div>
+</div>
+
+<!-- ── اقدام اصلاحی ── -->
+<div class="gate-screen" id="correctiveModal" style="display:none;z-index:1000">
+  <div class="gate-box" style="max-width:440px;max-height:88vh;overflow-y:auto;text-align:right">
+    <h2 style="color:#c62828">🛠️ اقدام اصلاحی</h2>
+    <div id="correctiveMineNameBox" style="font-size:12.5px;color:#55707d;margin-bottom:10px"></div>
+    <label>نوع مورد</label>
+    <select id="coSourceType">
+      <option value="equipment">⚙️ ماشین‌آلات</option>
+      <option value="incident">🚨 حادثه</option>
+      <option value="report">📋 گزارش دوره‌ای</option>
+      <option value="other">❓ سایر</option>
+    </select>
+    <label>شرح مشکل</label>
+    <textarea id="coDescription" rows="3" placeholder="چه مشکلی باید رفع شود؟"></textarea>
+    <label>مهلت رفع (اختیاری)</label>
+    <input id="coDueDate" type="date">
+    <div class="login-err" id="correctiveErr"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn" style="flex:1;background:#eee;color:#333" onclick="closeCorrectiveModal()">انصراف</button>
+      <button class="btn" style="flex:1;background:#c62828;color:#fff" id="correctiveSubmitBtn" onclick="submitCorrective()">➕ ثبت مورد جدید</button>
+    </div>
+    <hr style="margin:14px 0;border:none;border-top:1px solid #eee">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <b style="font-size:12.5px;color:#1a3a5c">موارد باز</b>
+      <button class="btn-sm" onclick="loadCorrectiveList()">🔄 نمایش/بروزرسانی</button>
+    </div>
+    <div id="correctiveListBox" style="margin-top:8px"></div>
+  </div>
+</div>
+
+<!-- ── نقشه سه‌ماهه وضعیت معدن ── -->
+<div class="gate-screen" id="quarterlyMapModal" style="display:none;z-index:1000">
+  <div class="gate-box" style="max-width:440px;max-height:88vh;overflow-y:auto;text-align:right">
+    <h2 style="color:#6a1b9a">🗺️ نقشه سه‌ماهه وضعیت معدن</h2>
+    <div id="quarterlyMapMineNameBox" style="font-size:12.5px;color:#55707d;margin-bottom:10px"></div>
+    <div style="font-size:11px;color:#90a4ae;margin-bottom:10px">طبق آیین‌نامه، ارائه‌ی نقشه‌ی وضعیت معدن به نظام مهندسی معدن هر سه ماه یک‌بار الزامی است.</div>
+    <label>دوره (مثلاً سه‌ماهه اول ۱۴۰۵)</label>
+    <input id="qmPeriod" type="text">
+    <label>فایل نقشه (عکس یا PDF)</label>
+    <input id="qmFileInput" type="file" accept="image/*,.pdf">
+    <label>توضیحات (اختیاری)</label>
+    <textarea id="qmNotes" rows="2"></textarea>
+    <div class="login-err" id="quarterlyMapErr"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn" style="flex:1;background:#eee;color:#333" onclick="closeQuarterlyMapModal()">انصراف</button>
+      <button class="btn" style="flex:1;background:#6a1b9a;color:#fff" id="quarterlyMapSubmitBtn" onclick="submitQuarterlyMap()">✅ ارسال</button>
+    </div>
+  </div>
+</div>
+
 <div class="stakeout-view" id="stakeoutView">
   <div class="stakeout-header">
     <h3 id="stakeoutTitle">🎯 پیاده کردن نقاط پروانه</h3>
@@ -442,6 +603,10 @@ setTimeout(function(){
     <button class="btn-sm" style="background:#00695c;color:#fff" onclick="onLogin()">📸 گرفتن عکس ماهانه</button>
   </div>
 
+  <div id="licenseExpiryBanner" style="display:none;background:#ffebee;border-radius:10px;padding:10px 14px;margin:12px 0;font-size:12px;align-items:center;gap:8px;flex-wrap:wrap;color:#c62828;font-weight:700">
+    <span id="licenseExpiryText"></span>
+  </div>
+
   <div id="techOfficerMines"></div>
 
   <div class="panel-card">
@@ -495,12 +660,87 @@ setTimeout(function(){
   </div>
 
   <div class="panel-card">
+    <h3>📋 گزارش‌های تکمیلی</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">
+      <button class="btn-sm" style="background:#ffebee;color:#b71c1c;padding:10px;grid-column:1/3" onclick="openSafetyChecklistModal()">✅ چک‌لیست ایمنی نوبت‌کاری</button>
+      <button class="btn-sm" style="background:#e8f5e9;color:#2e7d32;padding:10px" onclick="openTrainingModal()">🎓 آموزش ایمنی کارکنان</button>
+      <button class="btn-sm" style="background:#e3f2fd;color:#1565c0;padding:10px" onclick="openProductionModal()">⚖️ تولید و عیار</button>
+      <button class="btn-sm" style="background:#fff3e0;color:#e65100;padding:10px" onclick="openPersonnelModal()">👥 پرسنل تحت سرپرستی</button>
+      <button class="btn-sm" style="background:#ffebee;color:#c62828;padding:10px" onclick="openCorrectiveModal()">🛠️ اقدام اصلاحی</button>
+      <button class="btn-sm" style="background:#f3e5f5;color:#6a1b9a;padding:10px;grid-column:1/3" onclick="openQuarterlyMapModal()">🗺️ نقشه سه‌ماهه وضعیت معدن</button>
+    </div>
+  </div>
+
+  <div class="panel-card">
     <h3>🗂️ گزارش‌های ارسالی قبلی</h3>
     <input id="techHistorySearch" type="text" placeholder="جست‌وجو بر اساس معدن یا دوره..." style="margin-bottom:8px" oninput="renderTechHistoryList()">
     <div id="techOfficerHistory"><div style="text-align:center;color:#6b8291;font-size:12px;padding:12px">در حال بارگذاری...</div></div>
   </div>
 
   <div id="torGovLinksBox"></div>
+</div>
+
+<div id="safetyHealthShell" style="display:none">
+  <div class="topbar">
+    <div class="topbar-title" id="shTopbarTitle">🦺 پنل مسئول ایمنی</div>
+    <div class="topbar-right">
+      <button class="dark-toggle-btn" id="darkToggleBtn2" onclick="toggleDarkMode()" title="حالت تاریک">🌙</button>
+      <span class="topbar-user" id="shEmail"></span>
+      <button class="logout-btn" onclick="doLogout()">خروج</button>
+    </div>
+  </div>
+
+  <div id="shMonthlyReminderBanner" style="display:none;background:#fff8e1;border-radius:10px;padding:10px 14px;margin:12px 0;font-size:12px;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;color:#8d6e00">
+    <span id="shMonthlyReminderText"></span>
+    <button class="btn-sm" style="background:#00695c;color:#fff" onclick="onLogin()">📸 گرفتن عکس ماهانه</button>
+  </div>
+  <div id="shLicenseExpiryBanner" style="display:none;background:#ffebee;border-radius:10px;padding:10px 14px;margin:12px 0;font-size:12px;align-items:center;gap:8px;flex-wrap:wrap;color:#c62828;font-weight:700">
+    <span id="shLicenseExpiryText"></span>
+  </div>
+
+  <div class="panel-card">
+    <h3>👤 مشخصات (روی چک‌لیست و عکس‌ها درج می‌شود)</h3>
+    <label>نام و نام خانوادگی</label>
+    <input id="shFullName" type="text">
+    <label>شماره عضویت نظام مهندسی/پروانه</label>
+    <input id="shMembershipNo" type="text">
+    <button class="btn-sm" style="margin-top:10px;background:#e3f2fd;color:#1565c0" onclick="saveShProfile()">💾 ذخیره مشخصات</button>
+    <span id="shProfileStatus" style="font-size:11px;margin-right:8px"></span>
+  </div>
+
+  <div class="panel-card">
+    <h3>⛏️ انتخاب معدن</h3>
+    <select id="shMine"></select>
+  </div>
+
+  <div class="panel-card">
+    <h3 id="shChecklistTitle">✅ چک‌لیست ایمنی نوبت‌کاری</h3>
+    <p style="font-size:11.5px;color:#6b8291;line-height:1.9;margin-bottom:8px">این چک‌لیست باید داخل محدوده‌ی قانونی معدن پر شود؛ برای موارد مشخص‌شده، عکس با درج خودکار موقعیت مکانی و توضیحات الزامی است.</p>
+    <button class="btn btn-save" style="width:100%" onclick="openRoleChecklistModal()">📋 شروع چک‌لیست</button>
+  </div>
+
+  <div class="panel-card">
+    <h3>🗂️ چک‌لیست‌های ارسالی قبلی</h3>
+    <div id="shHistory"><div style="text-align:center;color:#6b8291;font-size:12px;padding:12px">در حال بارگذاری...</div></div>
+  </div>
+</div>
+
+<!-- ── چک‌لیست مسئول ایمنی/بهداشت حرفه‌ای (نیازمند داخل‌محدوده‌بودن + عکس واترمارک‌دار برای موارد لازم) ── -->
+<div class="gate-screen" id="roleChecklistModal" style="display:none;z-index:1000">
+  <div class="gate-box" style="max-width:460px;max-height:88vh;overflow-y:auto;text-align:right">
+    <h2 id="rcTitle" style="color:#b71c1c">✅ چک‌لیست</h2>
+    <div id="rcMineNameBox" style="font-size:12.5px;color:#55707d;margin-bottom:10px"></div>
+    <label>تاریخ</label>
+    <input id="rcShiftDate" type="date">
+    <div id="rcItemsBox" style="margin-top:8px"></div>
+    <label style="margin-top:8px">توضیحات کلی (اختیاری)</label>
+    <textarea id="rcNotes" rows="2"></textarea>
+    <div class="login-err" id="roleChecklistErr"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn" style="flex:1;background:#eee;color:#333" onclick="closeRoleChecklistModal()">انصراف</button>
+      <button class="btn" style="flex:1;background:#b71c1c;color:#fff" id="roleChecklistSubmitBtn" onclick="submitRoleChecklist()">✅ ثبت چک‌لیست</button>
+    </div>
+  </div>
 </div>
 
 <div id="onbOverlay" class="onb-overlay">
@@ -1261,7 +1501,7 @@ async function openStakeout() {
 
   const corners = getStakeoutMineCorners(mine);
   stakeoutPoints = corners.slice();
-  if(!stakeoutPoints.length) { showToast('⚠️ این معدن هیچ مختصات گوشه‌ی محدوده‌ای ثبت‌شده ندارد (بخش «آپلود اکسل مختصات چهار گوشه محدوده» در سامانه اصلی)'); return; }
+  if(!stakeoutPoints.length) { showToast('⚠️ این معدن هیچ مختصات گوشه‌ی محدوده‌ای ثبت‌شده ندارد (بخش «آپلود فایل مختصات محدوده» در سامانه اصلی)'); return; }
 
   document.getElementById('stakeoutTitle').textContent = '🎯 پیاده کردن نقاط — ' + mineName;
   document.getElementById('stakeoutView').style.display = 'flex';
@@ -1613,7 +1853,7 @@ async function doGateRegister() {
 }
 
 let myAssignedMines = [];
-let myMembershipNo = '', myNationalCode = '';
+let myMembershipNo = '', myNationalCode = '', myRole = 'tech_officer';
 // اطلاع‌رسانی به سوپرادمین‌ها/ادمین‌ها (تلگرام/روبیکا) که یک مسئول فنی جدید ثبت‌نام کرده و منتظر تایید است.
 // عمداً نتیجه/خطای این تابع مانع از ادامه‌ی روند ثبت‌نام کاربر نمی‌شود (best-effort).
 async function notifyNewRegistration(payloadFields) {
@@ -1687,7 +1927,19 @@ async function fetchAssignedMines(specialty, assignedMines) {
     .filter(m => (assignedMines||[]).includes(m[meta.nameField]));
 }
 
-const MONTHLY_IDENTITY_MS = 30*24*60*60*1000;
+let MONTHLY_IDENTITY_MS = 30*24*60*60*1000;
+let MONTHLY_REMINDER_WINDOW_MS = 5*24*60*60*1000; // پیش‌فرض؛ در loadIdentitySettingsPublic بازخوانی می‌شود
+async function loadIdentitySettingsPublic() {
+  try {
+    const {data} = await sb.from('public_settings').select('key,value').in('key', ['identity_reverify_interval_days','identity_reverify_reminder_days']);
+    (data||[]).forEach(r => {
+      const n = parseInt(r.value);
+      if(!n || n < 1) return;
+      if(r.key === 'identity_reverify_interval_days') MONTHLY_IDENTITY_MS = n*24*60*60*1000;
+      if(r.key === 'identity_reverify_reminder_days') MONTHLY_REMINDER_WINDOW_MS = n*24*60*60*1000;
+    });
+  } catch(e) { /* در صورت خطا، مقادیر پیش‌فرض ۳۰ و ۵ روز باقی می‌مانند */ }
+}
 // وضعیت احراز هویت را بررسی می‌کند؛ اگر نیاز به عکس/تایید باشد گیت مربوطه را نمایش می‌دهد و false برمی‌گرداند
 async function runIdentityGate(email, mines, row) {
   if(row.identity_status === 'pending') {
@@ -1722,37 +1974,64 @@ async function onLogin() {
   const {data:{user}} = await sb.auth.getUser();
   if(!user) return;
   await ensureMyRoleRow(user);
+  await loadIdentitySettingsPublic();
   // یک کوئری واحد به user_roles به‌جای دو کوئری جدا (یکی اینجا، یکی داخل showTechOfficerPanel) —
   // این تکرار یکی از علت‌های کند بودن ورود بود، چون هر کوئری یک رفت‌وبرگشت شبکه‌ی جداست
   const {data} = await sb.from('user_roles')
-    .select('role, assigned_mines, tech_officer_specialty, identity_status, identity_verified_at, trusted_device_id, full_name, membership_no, national_code')
+    .select('role, assigned_mines, tech_officer_specialty, identity_status, identity_verified_at, trusted_device_id, full_name, membership_no, national_code, license_no, license_expiry_date')
     .eq('email', user.email).limit(1);
   const row = (data && data[0]) || {role:'pending', assigned_mines:[]};
   hideAllGates();
   if(row.role === 'pending') { document.getElementById('pendingGate').style.display = 'flex'; return; }
-  if(row.role !== 'tech_officer') { document.getElementById('notAllowedGate').style.display = 'flex'; return; }
+  if(!['tech_officer','safety_officer','health_officer'].includes(row.role)) { document.getElementById('notAllowedGate').style.display = 'flex'; return; }
   myAssignedMines = row.assigned_mines || [];
   const mines = await fetchAssignedMines(row.tech_officer_specialty, myAssignedMines);
   const ok = await runIdentityGate(user.email, mines, row);
   if(!ok) return;
-  await showTechOfficerPanel(user.email, mines, row.identity_verified_at, row);
+  if(row.role === 'tech_officer') await showTechOfficerPanel(user.email, mines, row.identity_verified_at, row);
+  else await showSafetyHealthPanel(user.email, mines, row.identity_verified_at, row);
 }
 
-const MONTHLY_REMINDER_WINDOW_MS = 5*24*60*60*1000; // ۵ روز قبل از سررسید، هشدار نمایش داده می‌شود
-function renderMonthlyReminderBanner(identityVerifiedAt) {
-  const box = document.getElementById('monthlyReminderBanner');
+function renderMonthlyReminderBanner(identityVerifiedAt, boxId, textId) {
+  boxId = boxId || 'monthlyReminderBanner'; textId = textId || 'monthlyReminderText';
+  const box = document.getElementById(boxId);
   if(!identityVerifiedAt) { box.style.display = 'none'; return; }
   const dueAt = new Date(identityVerifiedAt).getTime() + MONTHLY_IDENTITY_MS;
   const remainMs = dueAt - Date.now();
   if(remainMs > 0 && remainMs <= MONTHLY_REMINDER_WINDOW_MS) {
     const daysLeft = Math.max(1, Math.ceil(remainMs / (24*60*60*1000)));
-    document.getElementById('monthlyReminderText').textContent =
+    document.getElementById(textId).textContent =
       '⏰ '+daysLeft+' روز تا سررسید تمدید ماهانه احراز هویت مانده — هر وقت داخل محدوده معدن بودید، عکس را ثبت کنید تا اپ قفل نشود.';
     box.style.display = 'flex';
   } else {
     box.style.display = 'none';
   }
 }
+
+// طبق ماده ۴ قانون نظام مهندسی معدن، فعالیت فنی مستلزم پروانه اشتغال معتبر است —
+// این بنر صرفاً برای اطلاع خود مسئول فنی است (تصمیم نهایی و مسدودسازی احتمالی با مدیر سامانه است)
+function renderLicenseExpiryBanner(licenseNo, expiryDate, boxId, textId) {
+  boxId = boxId || 'licenseExpiryBanner'; textId = textId || 'licenseExpiryText';
+  const box = document.getElementById(boxId);
+  if(!licenseNo) { box.style.display = 'none'; return; }
+  if(!expiryDate) {
+    document.getElementById(textId).textContent = '⚠️ تاریخ انقضای پروانه اشتغال شما در سامانه ثبت نشده — لطفاً از طریق «🔐 دسترسی و تنظیمات» با مدیر سامانه هماهنگ کنید.';
+    box.style.display = 'flex';
+    return;
+  }
+  const d = new Date(expiryDate + 'T00:00:00');
+  const daysLeft = Math.round((d.getTime() - Date.now()) / 86400000);
+  if(daysLeft < 0) {
+    document.getElementById(textId).textContent = '⏰ پروانه اشتغال به کار شما منقضی شده است (طبق ماده ۴ قانون نظام مهندسی معدن). لطفاً برای تمدید اقدام کنید.';
+    box.style.display = 'flex';
+  } else if(daysLeft <= 60) {
+    document.getElementById(textId).textContent = '⚠️ '+daysLeft+' روز تا انقضای پروانه اشتغال به کار شما مانده — لطفاً برای تمدید اقدام کنید.';
+    box.style.display = 'flex';
+  } else {
+    box.style.display = 'none';
+  }
+}
+
 
 // ── پنل مسئول فنی (همان منطق نسخه اصلی) ──
 let techOfficerMinesCache = [];
@@ -1765,11 +2044,12 @@ async function showTechOfficerPanel(email, mines, identityVerifiedAt, myRoleRow)
   showOnboardingIfNeeded();
 
   // اگر اطلاعات کاربر از قبل (توسط onLogin) گرفته شده، دوباره از دیتابیس نمی‌خوانیم — یک رفت‌وبرگشت شبکه کمتر
-  const myRow = myRoleRow || (await sb.from('user_roles').select('full_name, membership_no, national_code, tech_officer_specialty').eq('email', email).limit(1)).data?.[0] || {};
+  const myRow = myRoleRow || (await sb.from('user_roles').select('full_name, membership_no, national_code, tech_officer_specialty, license_no, license_expiry_date').eq('email', email).limit(1)).data?.[0] || {};
   document.getElementById('torFullName').value = myRow.full_name || '';
   document.getElementById('torMembershipNo').value = myRow.membership_no || '';
   myMembershipNo = myRow.membership_no || '';
   myNationalCode = myRow.national_code || '';
+  renderLicenseExpiryBanner(myRow.license_no, myRow.license_expiry_date);
   const mySpecialty = myRow.tech_officer_specialty || 'استخراج';
   const specBadge = document.getElementById('torSpecialtyBadge');
   if(specBadge) {
@@ -1789,6 +2069,194 @@ async function showTechOfficerPanel(email, mines, identityVerifiedAt, myRoleRow)
     : '<option value="">— موردی اختصاص نیافته —</option>';
   renderEquipmentChecklist();
   loadTechOfficerHistory(myMines.map(m => m[meta.nameField]));
+}
+
+// ── پنل ساده‌شده‌ی مسئول ایمنی / مسئول بهداشت حرفه‌ای (معادن با بیش از ۲۵ کارگر) ──────
+async function showSafetyHealthPanel(email, mines, identityVerifiedAt, myRoleRow) {
+  myRole = myRoleRow.role;
+  document.getElementById('safetyHealthShell').style.display = 'block';
+  document.getElementById('shEmail').textContent = email;
+  const roleLabel = myRole === 'safety_officer' ? 'ایمنی' : 'بهداشت حرفه‌ای';
+  document.getElementById('shTopbarTitle').textContent = (myRole === 'safety_officer' ? '🦺' : '⚕️') + ' پنل مسئول ' + roleLabel;
+  document.getElementById('shChecklistTitle').textContent = '✅ چک‌لیست ' + roleLabel + ' نوبت‌کاری';
+  renderMonthlyReminderBanner(identityVerifiedAt, 'shMonthlyReminderBanner', 'shMonthlyReminderText');
+
+  const myRow = myRoleRow || {};
+  document.getElementById('shFullName').value = myRow.full_name || '';
+  document.getElementById('shMembershipNo').value = myRow.membership_no || '';
+  myMembershipNo = myRow.membership_no || '';
+  myNationalCode = myRow.national_code || '';
+  renderLicenseExpiryBanner(myRow.license_no, myRow.license_expiry_date, 'shLicenseExpiryBanner', 'shLicenseExpiryText');
+
+  myTechOfficerDept = 'معدن'; // نقش‌های ایمنی/بهداشت فقط برای معادن (ماده ۳ آیین‌نامه ایمنی معادن) تعریف شده‌اند
+  const myMines = mines || await fetchAssignedMines('استخراج', myAssignedMines);
+  techOfficerMinesCache = myMines;
+  const sel = document.getElementById('shMine');
+  sel.innerHTML = myMines.length
+    ? myMines.map(m => '<option value="'+esc(m['نام_معدن'])+'">'+esc(m['نام_معدن'])+'</option>').join('')
+    : '<option value="">— موردی اختصاص نیافته —</option>';
+  loadShHistory(myMines.map(m => m['نام_معدن']));
+}
+
+async function saveShProfile() {
+  const full_name = document.getElementById('shFullName').value.trim();
+  const membership_no = toEnDigits(document.getElementById('shMembershipNo').value.trim());
+  const {data:{user}} = await sb.auth.getUser();
+  const {error} = await sb.from('user_roles').update({full_name, membership_no}).eq('email', user.email);
+  const statusEl = document.getElementById('shProfileStatus');
+  if(error) { statusEl.textContent = '⚠️ خطا در ذخیره'; return; }
+  myMembershipNo = membership_no;
+  statusEl.textContent = '✅ ذخیره شد';
+  setTimeout(() => { statusEl.textContent = ''; }, 2500);
+}
+
+async function loadShHistory(mineNames) {
+  const box = document.getElementById('shHistory');
+  if(!mineNames || !mineNames.length) { box.innerHTML = '<div style="text-align:center;color:#90a4ae;font-size:12px;padding:12px">معدنی اختصاص نیافته</div>'; return; }
+  const {data:{user}} = await sb.auth.getUser();
+  const {data, error} = await sb.from('safety_checklists').select('*').eq('submitted_by', user.email).order('created_at', {ascending:false}).limit(30);
+  if(error || !data || !data.length) { box.innerHTML = '<div style="text-align:center;color:#90a4ae;font-size:12px;padding:12px">هنوز چک‌لیستی ثبت نشده</div>'; return; }
+  box.innerHTML = data.map(c => {
+    const items = Array.isArray(c.items) ? c.items : [];
+    const issues = items.filter(i => i.status === 'issue');
+    return '<div style="background:'+(c.overall_status==='issues'?'#fff8e1':'#e8f5e9')+';border-radius:8px;padding:10px 12px;margin-bottom:6px;font-size:12px">'+
+      '<div style="display:flex;justify-content:space-between"><b>'+esc(c.mine_name)+'</b><span style="color:'+(c.overall_status==='issues'?'#f57c00':'#2e7d32')+';font-weight:700">'+(c.overall_status==='issues'?'⚠️ '+issues.length+' مورد':'✅ سالم')+'</span></div>'+
+      '<div style="color:#90a4ae;font-size:10.5px">'+new Date(c.shift_date).toLocaleDateString('fa-IR')+(c.inside_boundary===false?' | ⚠️ خارج از محدوده ثبت شده':'')+'</div>'+
+    '</div>';
+  }).join('');
+}
+
+function getSelectedMineForRole() {
+  const mineName = document.getElementById('shMine').value;
+  const mine = techOfficerMinesCache.find(m => m['نام_معدن'] === mineName);
+  if(!mine) { showToast('⚠️ ابتدا معدن را از لیست بالا انتخاب کنید'); return null; }
+  return mine;
+}
+
+// چک‌لیست مسئول ایمنی/بهداشت — برخلاف چک‌لیست پیش‌شیفت مسئول فنی، این یکی الزاماً باید داخل
+// محدوده‌ی قانونی معدن پر شود (مثل تایید عکس ماشین‌آلات) و برای آیتم‌های علامت‌گذاری‌شده
+// (requires_photo) عکس واترمارک‌دار با موقعیت مکانی و نام آیتم الزامی است.
+let rcItemsList = [];
+let rcItemStates = {};
+let rcCoords = null;
+let rcInsideBoundary = null;
+async function openRoleChecklistModal() {
+  const mine = getSelectedMineForRole(); if(!mine) return;
+  const roleLabel = myRole === 'safety_officer' ? 'ایمنی' : 'بهداشت حرفه‌ای';
+  document.getElementById('rcTitle').textContent = '✅ چک‌لیست ' + roleLabel + ' نوبت‌کاری';
+  document.getElementById('rcShiftDate').value = todayStr();
+  document.getElementById('rcNotes').value = '';
+  document.getElementById('roleChecklistErr').textContent = '';
+  document.getElementById('rcItemsBox').innerHTML = '';
+  document.getElementById('rcMineNameBox').textContent = '⛏️ ' + mine['نام_معدن'] + ' | ⏳ در حال دریافت موقعیت مکانی...';
+  document.getElementById('roleChecklistModal').style.display = 'flex';
+
+  rcCoords = null; rcInsideBoundary = null;
+  try {
+    rcCoords = await getGeoLocation();
+    rcInsideBoundary = isInsideMineBoundary(rcCoords, mine);
+  } catch(e) { /* رد می‌شویم، پیام هشدار پایین نمایش داده می‌شود */ }
+  const boundaryMsg = rcInsideBoundary === true ? '✅ داخل محدوده معدن'
+    : (rcInsideBoundary === false ? '⚠️ خارج از محدوده قانونی معدن — این چک‌لیست فقط داخل محدوده قابل ثبت است'
+    : '⚠️ موقعیت مکانی دریافت نشد — GPS را بررسی کنید');
+  document.getElementById('rcMineNameBox').innerHTML = '⛏️ ' + esc(mine['نام_معدن']) + ' | <span style="color:'+(rcInsideBoundary===false?'#c62828':(rcInsideBoundary===true?'#2e7d32':'#e65100'))+'">'+boundaryMsg+'</span>';
+
+  const {data, error} = await sb.from('safety_checklist_items').select('item_text, requires_photo').eq('department', 'معدن').eq('role', myRole).eq('active', true).order('sort_order');
+  if(error || !data || !data.length) {
+    document.getElementById('rcItemsBox').innerHTML = '<div style="color:#c62828;font-size:12px">⚠️ آیتم‌های چک‌لیست بارگذاری نشد. اتصال اینترنت را بررسی کنید.</div>';
+    return;
+  }
+  rcItemsList = data;
+  rcItemStates = {};
+  data.forEach(it => { rcItemStates[it.item_text] = {status:'ok', note:'', photoBlob:null, photoPreviewUrl:null}; });
+  renderRcItems();
+}
+function renderRcItems() {
+  const box = document.getElementById('rcItemsBox');
+  box.innerHTML = rcItemsList.map(it => {
+    const key = esc(it.item_text).replace(/'/g, "\\'");
+    const st = rcItemStates[it.item_text];
+    return '<div style="border-bottom:1px solid #eee;padding:8px 0">'+
+      '<div style="font-size:12.5px;margin-bottom:4px">'+esc(it.item_text)+(it.requires_photo?' <span style="color:#6a1b9a;font-size:10px">📷 نیاز به عکس</span>':'')+'</div>'+
+      '<div style="display:flex;gap:6px">'+
+        '<button type="button" class="btn-sm" style="flex:1;background:'+(st.status==='ok'?'#2e7d32':'#eee')+';color:'+(st.status==='ok'?'#fff':'#333')+'" onclick="setRcItemStatus(\''+key+'\',\'ok\')">✅ مطلوب</button>'+
+        '<button type="button" class="btn-sm" style="flex:1;background:'+(st.status==='issue'?'#c62828':'#eee')+';color:'+(st.status==='issue'?'#fff':'#333')+'" onclick="setRcItemStatus(\''+key+'\',\'issue\')">⚠️ نامطلوب</button>'+
+      '</div>'+
+      (st.status==='issue' ? '<input type="text" placeholder="توضیح مشکل (اختیاری)" value="'+esc(st.note)+'" oninput="rcItemStates[\''+key+'\'].note=this.value" style="margin-top:6px;font-size:11.5px">' : '')+
+      (it.requires_photo ? (
+        st.photoPreviewUrl
+          ? '<div style="margin-top:6px;display:flex;align-items:center;gap:6px"><img src="'+st.photoPreviewUrl+'" style="width:56px;height:56px;object-fit:cover;border-radius:6px"><button type="button" class="btn-sm" style="font-size:10px" onclick="captureRcPhoto(\''+key+'\')">🔄 عکس جدید</button></div>'
+          : '<button type="button" class="btn-sm" style="margin-top:6px;background:#f3e5f5;color:#6a1b9a;font-size:11px" onclick="captureRcPhoto(\''+key+'\')">📷 گرفتن عکس (الزامی)</button>'
+      ) : '')+
+    '</div>';
+  }).join('');
+}
+function setRcItemStatus(item, status) {
+  if(!rcItemStates[item]) return;
+  rcItemStates[item].status = status;
+  renderRcItems();
+}
+function captureRcPhoto(item) {
+  if(!rcCoords) { showToast('⚠️ موقعیت مکانی هنوز دریافت نشده — کمی صبر کنید'); return; }
+  const mine = getSelectedMineForRole(); if(!mine) return;
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = 'image/*'; input.capture = 'environment';
+  input.onchange = async () => {
+    const file = input.files[0];
+    if(!file) return;
+    showToast('⏳ در حال درج واترمارک...');
+    const watermarked = await watermarkPhoto(file, rcCoords, mine, item);
+    rcItemStates[item].photoBlob = watermarked;
+    rcItemStates[item].photoPreviewUrl = URL.createObjectURL(watermarked);
+    renderRcItems();
+  };
+  input.click();
+}
+function closeRoleChecklistModal() { document.getElementById('roleChecklistModal').style.display = 'none'; }
+async function submitRoleChecklist() {
+  const mine = getSelectedMineForRole(); if(!mine) return;
+  const errEl = document.getElementById('roleChecklistErr'); errEl.textContent = '';
+  if(!rcItemsList.length) { errEl.textContent = 'آیتم‌های چک‌لیست هنوز بارگذاری نشده — کمی صبر کنید'; return; }
+  if(rcInsideBoundary === false) { errEl.textContent = '⚠️ شما خارج از محدوده‌ی قانونی معدن هستید — این چک‌لیست فقط داخل محدوده قابل ثبت است'; return; }
+  if(!rcCoords) { errEl.textContent = '⚠️ موقعیت مکانی دریافت نشد — دوباره تلاش کنید'; return; }
+  const missing = rcItemsList.find(it => it.requires_photo && !rcItemStates[it.item_text].photoBlob);
+  if(missing) { errEl.textContent = '⚠️ برای «' + missing.item_text + '» عکس الزامی است'; return; }
+
+  const btn = document.getElementById('roleChecklistSubmitBtn');
+  btn.disabled = true; btn.textContent = '⏳ در حال ارسال...';
+  try {
+    const {data:{user}} = await sb.auth.getUser();
+    const items = [];
+    for(const it of rcItemsList) {
+      const st = rcItemStates[it.item_text];
+      let photoUrl = null;
+      if(st.photoBlob) {
+        photoUrl = await uploadTechFile(st.photoBlob, 'checklist_'+Date.now()+'.jpg', mine['نام_معدن'], myRole+'-checklist', 'checklist');
+      }
+      items.push({item: it.item_text, status: st.status, note: st.note || null, photo_url: photoUrl});
+    }
+    const issueItems = items.filter(i => i.status === 'issue');
+    const {error} = await sb.from('safety_checklists').insert([{
+      mine_name: mine['نام_معدن'], department: myTechOfficerDept, submitted_by: user ? user.email : '',
+      submitter_role: myRole, shift_date: document.getElementById('rcShiftDate').value || todayStr(), shift_type: 'صبح',
+      items, overall_status: issueItems.length ? 'issues' : 'ok',
+      notes: document.getElementById('rcNotes').value.trim() || null,
+      lat: rcCoords.latitude, lon: rcCoords.longitude, inside_boundary: rcInsideBoundary
+    }]);
+    if(error) throw new Error(error.message);
+    if(issueItems.length) {
+      const roleLabel = myRole === 'safety_officer' ? 'چک‌لیست ایمنی' : 'چک‌لیست بهداشت حرفه‌ای';
+      await sb.from('corrective_actions').insert(issueItems.map(i => ({
+        mine_name: mine['نام_معدن'], department: myTechOfficerDept, submitted_by: user ? user.email : '',
+        description: roleLabel + ' — ' + i.item + (i.note ? (': ' + i.note) : ''),
+        source_type: 'other', status: 'open'
+      })));
+    }
+    showToast(issueItems.length ? ('⚠️ چک‌لیست ثبت شد — ' + issueItems.length + ' مورد نیازمند پیگیری') : '✅ چک‌لیست ثبت شد');
+    closeRoleChecklistModal();
+    loadShHistory(techOfficerMinesCache.map(m => m['نام_معدن']));
+  } catch(err) { errEl.textContent = err.message; }
+  btn.disabled = false; btn.textContent = '✅ ثبت چک‌لیست';
 }
 
 async function saveTechOfficerProfile() {
@@ -2010,6 +2478,340 @@ async function submitIncident() {
     }
   }
   btn.disabled = false; btn.textContent = '🚨 ارسال فوری';
+}
+
+function todayStr() { return new Date().toISOString().slice(0,10); }
+
+// ── ۰) چک‌لیست ایمنی نوبت‌کاری (الزام ماده ۳ آیین‌نامه ایمنی معادن) ────────
+// آیتم‌های چک‌لیست از جدول safety_checklist_items خوانده می‌شود (نه لیست ثابت داخل کد)
+// تا ادمین بتواند بدون نیاز به تغییر کد، آیتم‌ها را اضافه/حذف/ویرایش کند.
+let scItemStates = {};
+let scItemsList = [];
+async function openSafetyChecklistModal() {
+  const mine = getSelectedMineForSupp(); if(!mine) return;
+  document.getElementById('scMineNameBox').textContent = '⛏️ ' + mine['نام_معدن'];
+  document.getElementById('scShiftDate').value = todayStr();
+  document.getElementById('scShiftType').value = 'صبح';
+  document.getElementById('scNotes').value = '';
+  document.getElementById('safetyChecklistErr').textContent = '';
+  document.getElementById('scItemsBox').innerHTML = '<div style="text-align:center;color:#90a4ae;font-size:12px;padding:10px">در حال بارگذاری آیتم‌ها...</div>';
+  document.getElementById('safetyChecklistModal').style.display = 'flex';
+  const {data, error} = await sb.from('safety_checklist_items').select('item_text').eq('department', myTechOfficerDept).eq('active', true).order('sort_order');
+  if(error || !data || !data.length) {
+    document.getElementById('scItemsBox').innerHTML = '<div style="color:#c62828;font-size:12px">⚠️ آیتم‌های چک‌لیست بارگذاری نشد. اتصال اینترنت را بررسی کنید.</div>';
+    return;
+  }
+  scItemsList = data.map(r => r.item_text);
+  scItemStates = {};
+  scItemsList.forEach(it => { scItemStates[it] = {status:'ok', note:''}; });
+  renderScItems();
+}
+function renderScItems() {
+  const box = document.getElementById('scItemsBox');
+  box.innerHTML = scItemsList.map(it => {
+    const st = scItemStates[it];
+    const key = esc(it).replace(/'/g, "\\'");
+    return '<div style="border-bottom:1px solid #eee;padding:8px 0">'+
+      '<div style="font-size:12.5px;margin-bottom:4px">'+esc(it)+'</div>'+
+      '<div style="display:flex;gap:6px">'+
+        '<button type="button" class="btn-sm" style="flex:1;background:'+(st.status==='ok'?'#2e7d32':'#eee')+';color:'+(st.status==='ok'?'#fff':'#333')+'" onclick="setScItemStatus(\''+key+'\',\'ok\')">✅ سالم</button>'+
+        '<button type="button" class="btn-sm" style="flex:1;background:'+(st.status==='issue'?'#c62828':'#eee')+';color:'+(st.status==='issue'?'#fff':'#333')+'" onclick="setScItemStatus(\''+key+'\',\'issue\')">⚠️ مشکل دارد</button>'+
+      '</div>'+
+      (st.status==='issue' ? '<input type="text" placeholder="توضیح مشکل (اختیاری)" value="'+esc(st.note)+'" oninput="scItemStates[\''+key+'\'].note=this.value" style="margin-top:6px;font-size:11.5px">' : '')+
+    '</div>';
+  }).join('');
+}
+function setScItemStatus(item, status) {
+  if(!scItemStates[item]) return;
+  scItemStates[item].status = status;
+  renderScItems();
+}
+function closeSafetyChecklistModal() { document.getElementById('safetyChecklistModal').style.display = 'none'; }
+async function submitSafetyChecklist() {
+  const mine = getSelectedMineForSupp(); if(!mine) return;
+  const errEl = document.getElementById('safetyChecklistErr'); errEl.textContent = '';
+  if(!scItemsList.length) { errEl.textContent = 'آیتم‌های چک‌لیست هنوز بارگذاری نشده — کمی صبر کنید'; return; }
+  const btn = document.getElementById('safetyChecklistSubmitBtn');
+  btn.disabled = true; btn.textContent = '⏳ در حال ارسال...';
+  try {
+    const {data:{user}} = await sb.auth.getUser();
+    const items = scItemsList.map(it => ({item: it, status: scItemStates[it].status, note: scItemStates[it].note || null}));
+    const issueItems = items.filter(i => i.status === 'issue');
+    const {error} = await sb.from('safety_checklists').insert([{
+      mine_name: mine['نام_معدن'], department: myTechOfficerDept, submitted_by: user ? user.email : '',
+      shift_date: document.getElementById('scShiftDate').value || todayStr(),
+      shift_type: document.getElementById('scShiftType').value,
+      items, overall_status: issueItems.length ? 'issues' : 'ok',
+      notes: document.getElementById('scNotes').value.trim() || null
+    }]);
+    if(error) throw new Error(error.message);
+    // برای هر مورد «مشکل دارد»، یک اقدام اصلاحی باز به‌طور خودکار ثبت می‌شود تا پیگیری شود
+    if(issueItems.length) {
+      await sb.from('corrective_actions').insert(issueItems.map(i => ({
+        mine_name: mine['نام_معدن'], department: myTechOfficerDept, submitted_by: user ? user.email : '',
+        description: 'چک‌لیست ایمنی — ' + i.item + (i.note ? (': ' + i.note) : ''),
+        source_type: 'other', status: 'open'
+      })));
+    }
+    showToast(issueItems.length ? ('⚠️ چک‌لیست ثبت شد — ' + issueItems.length + ' مورد نیازمند پیگیری') : '✅ چک‌لیست سالم ثبت شد');
+    closeSafetyChecklistModal();
+  } catch(err) { errEl.textContent = err.message; }
+  btn.disabled = false; btn.textContent = '✅ ثبت چک‌لیست';
+}
+
+// ── ابزار مشترک ۵ گزارش تکمیلی: تعیین معدن انتخاب‌شده‌ی فعلی ──────────────
+function getSelectedMineForSupp() {
+  const mineName = document.getElementById('torMine').value;
+  const mine = techOfficerMinesCache.find(m => m['نام_معدن'] === mineName);
+  if(!mine) { showToast('⚠️ ابتدا معدن را از لیست بالا انتخاب کنید'); return null; }
+  return mine;
+}
+
+// ── ۱) آموزش ایمنی کارکنان ──────────────────────────────────────────────
+let trainingPhotoFile = null;
+function openTrainingModal() {
+  const mine = getSelectedMineForSupp(); if(!mine) return;
+  document.getElementById('trainingMineNameBox').textContent = '⛏️ ' + mine['نام_معدن'];
+  document.getElementById('trTopic').value = '';
+  document.getElementById('trTrainer').value = '';
+  document.getElementById('trDate').value = todayStr();
+  document.getElementById('trCount').value = 0;
+  document.getElementById('trAttendees').value = '';
+  document.getElementById('trPhotoInput').value = '';
+  document.getElementById('trNotes').value = '';
+  document.getElementById('trainingErr').textContent = '';
+  trainingPhotoFile = null;
+  document.getElementById('trainingModal').style.display = 'flex';
+}
+function closeTrainingModal() { document.getElementById('trainingModal').style.display = 'none'; }
+async function submitTraining() {
+  const mine = getSelectedMineForSupp(); if(!mine) return;
+  const errEl = document.getElementById('trainingErr'); errEl.textContent = '';
+  const topic = document.getElementById('trTopic').value.trim();
+  if(!topic) { errEl.textContent = 'موضوع آموزش را وارد کنید'; return; }
+  const btn = document.getElementById('trainingSubmitBtn');
+  btn.disabled = true; btn.textContent = '⏳ در حال ارسال...';
+  try {
+    const {data:{user}} = await sb.auth.getUser();
+    const file = document.getElementById('trPhotoInput').files[0];
+    let photoUrl = null;
+    if(file) {
+      const canvas = await loadScaledImage(file, 1400);
+      const blob = await new Promise(r => canvas.toBlob(b=>r(b), 'image/jpeg', 0.85));
+      photoUrl = await uploadTechFile(blob, 'training.jpg', mine['نام_معدن'], 'safety-training', 'training');
+    }
+    const {error} = await sb.from('safety_trainings').insert([{
+      mine_name: mine['نام_معدن'], department: myTechOfficerDept, submitted_by: user ? user.email : '',
+      topic, trainer_name: document.getElementById('trTrainer').value.trim() || null,
+      training_date: document.getElementById('trDate').value || todayStr(),
+      attendee_count: parseInt(document.getElementById('trCount').value) || 0,
+      attendee_names: document.getElementById('trAttendees').value.trim() || null,
+      photo_url: photoUrl, notes: document.getElementById('trNotes').value.trim() || null
+    }]);
+    if(error) throw new Error(error.message);
+    showToast('✅ آموزش ثبت شد');
+    closeTrainingModal();
+  } catch(err) { errEl.textContent = err.message; }
+  btn.disabled = false; btn.textContent = '✅ ثبت';
+}
+
+// ── ۲) تولید و عیار ──────────────────────────────────────────────────────
+function openProductionModal() {
+  const mine = getSelectedMineForSupp(); if(!mine) return;
+  document.getElementById('productionMineNameBox').textContent = '⛏️ ' + mine['نام_معدن'];
+  document.getElementById('prPeriod').value = '';
+  document.getElementById('prMaterial').value = '';
+  document.getElementById('prTonnage').value = '';
+  document.getElementById('prGrade').value = '';
+  document.getElementById('prNotes').value = '';
+  document.getElementById('productionErr').textContent = '';
+  document.getElementById('productionModal').style.display = 'flex';
+}
+function closeProductionModal() { document.getElementById('productionModal').style.display = 'none'; }
+async function submitProduction() {
+  const mine = getSelectedMineForSupp(); if(!mine) return;
+  const errEl = document.getElementById('productionErr'); errEl.textContent = '';
+  const period = document.getElementById('prPeriod').value.trim();
+  if(!period) { errEl.textContent = 'دوره را وارد کنید'; return; }
+  const btn = document.getElementById('productionSubmitBtn');
+  btn.disabled = true; btn.textContent = '⏳ در حال ارسال...';
+  try {
+    const {data:{user}} = await sb.auth.getUser();
+    const {error} = await sb.from('production_reports').insert([{
+      mine_name: mine['نام_معدن'], department: myTechOfficerDept, submitted_by: user ? user.email : '',
+      period, material: document.getElementById('prMaterial').value.trim() || null,
+      tonnage: parseFloat(document.getElementById('prTonnage').value) || null,
+      grade_percent: parseFloat(document.getElementById('prGrade').value) || null,
+      notes: document.getElementById('prNotes').value.trim() || null
+    }]);
+    if(error) throw new Error(error.message);
+    showToast('✅ گزارش تولید ثبت شد');
+    closeProductionModal();
+  } catch(err) { errEl.textContent = err.message; }
+  btn.disabled = false; btn.textContent = '✅ ثبت';
+}
+
+// ── ۳) پرسنل تحت سرپرستی ─────────────────────────────────────────────────
+function openPersonnelModal() {
+  const mine = getSelectedMineForSupp(); if(!mine) return;
+  document.getElementById('personnelMineNameBox').textContent = '⛏️ ' + mine['نام_معدن'];
+  document.getElementById('peName').value = '';
+  document.getElementById('peRole').value = '';
+  document.getElementById('peStart').value = '';
+  document.getElementById('pePhone').value = '';
+  document.getElementById('personnelErr').textContent = '';
+  document.getElementById('personnelListBox').innerHTML = '';
+  document.getElementById('personnelModal').style.display = 'flex';
+}
+function closePersonnelModal() { document.getElementById('personnelModal').style.display = 'none'; }
+async function submitPersonnel() {
+  const mine = getSelectedMineForSupp(); if(!mine) return;
+  const errEl = document.getElementById('personnelErr'); errEl.textContent = '';
+  const fullName = document.getElementById('peName').value.trim();
+  if(!fullName) { errEl.textContent = 'نام فرد را وارد کنید'; return; }
+  const btn = document.getElementById('personnelSubmitBtn');
+  btn.disabled = true; btn.textContent = '⏳ در حال ثبت...';
+  try {
+    const {data:{user}} = await sb.auth.getUser();
+    const {error} = await sb.from('mine_personnel').insert([{
+      mine_name: mine['نام_معدن'], department: myTechOfficerDept, submitted_by: user ? user.email : '',
+      full_name: fullName, role: document.getElementById('peRole').value.trim() || null,
+      start_date: document.getElementById('peStart').value || null,
+      phone: document.getElementById('pePhone').value.trim() || null, status: 'active'
+    }]);
+    if(error) throw new Error(error.message);
+    showToast('✅ فرد به لیست اضافه شد');
+    document.getElementById('peName').value = ''; document.getElementById('peRole').value = '';
+    document.getElementById('peStart').value = ''; document.getElementById('pePhone').value = '';
+    loadPersonnelList();
+  } catch(err) { errEl.textContent = err.message; }
+  btn.disabled = false; btn.textContent = '➕ افزودن';
+}
+async function loadPersonnelList() {
+  const mine = getSelectedMineForSupp(); if(!mine) return;
+  const box = document.getElementById('personnelListBox');
+  box.innerHTML = '<div style="font-size:11px;color:#90a4ae">در حال بارگذاری...</div>';
+  const {data, error} = await sb.from('mine_personnel').select('*').eq('mine_name', mine['نام_معدن']).order('created_at', {ascending:false});
+  if(error) { box.innerHTML = '<div style="font-size:11px;color:#c62828">خطا در بارگذاری</div>'; return; }
+  if(!data || !data.length) { box.innerHTML = '<div style="font-size:11px;color:#90a4ae">هنوز کسی ثبت نشده</div>'; return; }
+  box.innerHTML = data.map(p =>
+    '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #eee;font-size:12px">'+
+      '<div><b>'+esc(p.full_name)+'</b>'+(p.role?' — '+esc(p.role):'')+'<div style="font-size:10px;color:'+(p.status==='active'?'#2e7d32':'#90a4ae')+'">'+(p.status==='active'?'✅ فعال':'⏸️ غیرفعال')+'</div></div>'+
+      '<button class="btn-sm" style="font-size:10px;padding:3px 8px" onclick="togglePersonnelStatus('+p.id+',\''+(p.status==='active'?'inactive':'active')+'\')">'+(p.status==='active'?'غیرفعال کردن':'فعال کردن')+'</button>'+
+    '</div>'
+  ).join('');
+}
+async function togglePersonnelStatus(id, newStatus) {
+  const {error} = await sb.from('mine_personnel').update({status:newStatus}).eq('id', id);
+  if(error) { showToast('⚠️ ' + error.message); return; }
+  loadPersonnelList();
+}
+
+// ── ۴) اقدام اصلاحی (باز/بسته) ────────────────────────────────────────────
+function openCorrectiveModal() {
+  const mine = getSelectedMineForSupp(); if(!mine) return;
+  document.getElementById('correctiveMineNameBox').textContent = '⛏️ ' + mine['نام_معدن'];
+  document.getElementById('coSourceType').value = 'equipment';
+  document.getElementById('coDescription').value = '';
+  document.getElementById('coDueDate').value = '';
+  document.getElementById('correctiveErr').textContent = '';
+  document.getElementById('correctiveListBox').innerHTML = '';
+  document.getElementById('correctiveModal').style.display = 'flex';
+}
+function closeCorrectiveModal() { document.getElementById('correctiveModal').style.display = 'none'; }
+async function submitCorrective() {
+  const mine = getSelectedMineForSupp(); if(!mine) return;
+  const errEl = document.getElementById('correctiveErr'); errEl.textContent = '';
+  const description = document.getElementById('coDescription').value.trim();
+  if(!description) { errEl.textContent = 'شرح مشکل را وارد کنید'; return; }
+  const btn = document.getElementById('correctiveSubmitBtn');
+  btn.disabled = true; btn.textContent = '⏳ در حال ثبت...';
+  try {
+    const {data:{user}} = await sb.auth.getUser();
+    const {error} = await sb.from('corrective_actions').insert([{
+      mine_name: mine['نام_معدن'], department: myTechOfficerDept, submitted_by: user ? user.email : '',
+      description, source_type: document.getElementById('coSourceType').value,
+      due_date: document.getElementById('coDueDate').value || null, status: 'open'
+    }]);
+    if(error) throw new Error(error.message);
+    showToast('✅ اقدام اصلاحی ثبت شد');
+    document.getElementById('coDescription').value = '';
+    loadCorrectiveList();
+  } catch(err) { errEl.textContent = err.message; }
+  btn.disabled = false; btn.textContent = '➕ ثبت مورد جدید';
+}
+async function loadCorrectiveList() {
+  const mine = getSelectedMineForSupp(); if(!mine) return;
+  const box = document.getElementById('correctiveListBox');
+  box.innerHTML = '<div style="font-size:11px;color:#90a4ae">در حال بارگذاری...</div>';
+  const {data, error} = await sb.from('corrective_actions').select('*').eq('mine_name', mine['نام_معدن']).eq('status','open').order('created_at', {ascending:false});
+  if(error) { box.innerHTML = '<div style="font-size:11px;color:#c62828">خطا در بارگذاری</div>'; return; }
+  if(!data || !data.length) { box.innerHTML = '<div style="font-size:11px;color:#90a4ae">موردی باز نیست</div>'; return; }
+  box.innerHTML = data.map(a =>
+    '<div style="padding:6px 0;border-bottom:1px solid #eee;font-size:12px">'+
+      '<div>'+esc(a.description)+'</div>'+
+      '<div style="font-size:10px;color:#90a4ae">'+new Date(a.created_at).toLocaleDateString('fa-IR')+(a.due_date?' | مهلت: '+a.due_date:'')+'</div>'+
+      '<button class="btn-sm" style="font-size:10px;padding:3px 8px;background:#e8f5e9;color:#2e7d32;margin-top:4px" onclick="closeCorrectiveAction('+a.id+')">✅ بسته شد</button>'+
+    '</div>'
+  ).join('');
+}
+async function closeCorrectiveAction(id) {
+  const note = prompt('توضیح کوتاه درباره‌ی رفع مشکل (اختیاری):') || '';
+  const {data:{user}} = await sb.auth.getUser();
+  const {error} = await sb.from('corrective_actions').update({
+    status: 'closed', closed_note: note || null, closed_at: new Date().toISOString(), closed_by: user ? user.email : ''
+  }).eq('id', id);
+  if(error) { showToast('⚠️ ' + error.message); return; }
+  showToast('✅ مورد بسته شد');
+  loadCorrectiveList();
+}
+
+// ── ۵) نقشه سه‌ماهه وضعیت معدن ────────────────────────────────────────────
+async function openQuarterlyMapModal() {
+  const mine = getSelectedMineForSupp(); if(!mine) return;
+  document.getElementById('quarterlyMapMineNameBox').textContent = '⛏️ ' + mine['نام_معدن'];
+  document.getElementById('qmPeriod').value = '';
+  document.getElementById('qmFileInput').value = '';
+  document.getElementById('qmNotes').value = '';
+  document.getElementById('quarterlyMapErr').textContent = '';
+  document.getElementById('quarterlyMapModal').style.display = 'flex';
+  const {data} = await sb.from('quarterly_maps').select('period, created_at').eq('mine_name', mine['نام_معدن']).order('created_at', {ascending:false}).limit(1);
+  const hintEl = document.getElementById('quarterlyMapMineNameBox');
+  if(data && data.length) {
+    hintEl.textContent += ' | آخرین ارسال: ' + esc(data[0].period) + ' (' + new Date(data[0].created_at).toLocaleDateString('fa-IR') + ')';
+  } else {
+    hintEl.textContent += ' | ⚠️ هنوز نقشه‌ای برای این معدن ثبت نشده';
+  }
+}
+function closeQuarterlyMapModal() { document.getElementById('quarterlyMapModal').style.display = 'none'; }
+async function submitQuarterlyMap() {
+  const mine = getSelectedMineForSupp(); if(!mine) return;
+  const errEl = document.getElementById('quarterlyMapErr'); errEl.textContent = '';
+  const period = document.getElementById('qmPeriod').value.trim();
+  const file = document.getElementById('qmFileInput').files[0];
+  if(!period) { errEl.textContent = 'دوره را وارد کنید'; return; }
+  if(!file) { errEl.textContent = 'فایل نقشه را انتخاب کنید'; return; }
+  const btn = document.getElementById('quarterlyMapSubmitBtn');
+  btn.disabled = true; btn.textContent = '⏳ در حال ارسال...';
+  try {
+    const {data:{user}} = await sb.auth.getUser();
+    let fileUrl;
+    if(file.type === 'application/pdf') {
+      fileUrl = await uploadTechFile(file, file.name, mine['نام_معدن'], 'quarterly-map', 'map');
+    } else {
+      const canvas = await loadScaledImage(file, 2000);
+      const blob = await new Promise(r => canvas.toBlob(b=>r(b), 'image/jpeg', 0.9));
+      fileUrl = await uploadTechFile(blob, 'map.jpg', mine['نام_معدن'], 'quarterly-map', 'map');
+    }
+    const {error} = await sb.from('quarterly_maps').insert([{
+      mine_name: mine['نام_معدن'], department: myTechOfficerDept, submitted_by: user ? user.email : '',
+      period, file_url: fileUrl, notes: document.getElementById('qmNotes').value.trim() || null
+    }]);
+    if(error) throw new Error(error.message);
+    showToast('✅ نقشه ارسال شد');
+    closeQuarterlyMapModal();
+  } catch(err) { errEl.textContent = err.message; }
+  btn.disabled = false; btn.textContent = '✅ ارسال';
 }
 
 function getGeoLocation() {
@@ -2420,18 +3222,16 @@ async function captureEquipItemPhoto(inputEl, key, photoType) {
     if(!torEquipItemCaptures[key]) torEquipItemCaptures[key] = {overview:[], serial:[]};
     torEquipItemCaptures[key][photoType].push({ blob: watermarked, previewUrl: URL.createObjectURL(watermarked) });
     renderEquipItemThumbs(key, photoType);
-    // عکس «نمای دور» علاوه بر ضمیمه‌شدن به گزارش دوره‌ای، همین الان برای تایید مدیر سامانه
-    // در جدول mine_equipment هم ثبت می‌شود — همان جدولی که تب «ماشین‌آلات» ادمین و دکمه‌ی
-    // «دریافت ماشین‌آلات تایید‌شده» در چاپ سوخت از آن می‌خوانند. قبل از این تغییر هیچ کدی این
-    // جدول را پر نمی‌کرد، برای همین عکس‌های ماشین‌آلات هیچ‌وقت آنجا ظاهر نمی‌شدند.
-    if(photoType === 'overview') {
-      try {
-        await submitEquipmentForApproval(key, mine, coords, watermarked);
-        showToast('✅ عکس ماشین برای تایید مدیر سامانه ارسال شد');
-      } catch(subErr) {
-        console.warn('mine_equipment insert failed', subErr);
-        showToast('⚠️ عکس ذخیره شد ولی ارسال برای تایید ماشین‌آلات ناموفق بود: ' + subErr.message);
-      }
+    // هم عکس «نمای دور» و هم «شماره سریال» علاوه بر ضمیمه‌شدن به گزارش دوره‌ای، همین الان برای
+    // تایید مدیر سامانه در جدول mine_equipment هم ثبت می‌شوند — همان جدولی که تب «ماشین‌آلات»
+    // ادمین و دکمه‌ی «دریافت ماشین‌آلات تایید‌شده» در چاپ سوخت از آن می‌خوانند. قبل از این تغییر
+    // فقط عکس «نمای دور» ارسال می‌شد و «شماره سریال» هیچ‌وقت در پنل ادمین دیده نمی‌شد.
+    try {
+      await submitEquipmentForApproval(key, mine, coords, watermarked, photoType);
+      showToast('✅ عکس ماشین برای تایید مدیر سامانه ارسال شد');
+    } catch(subErr) {
+      console.warn('mine_equipment insert failed', subErr);
+      showToast('⚠️ عکس ذخیره شد ولی ارسال برای تایید ماشین‌آلات ناموفق بود: ' + subErr.message);
     }
   } catch(err) {
     showToast('⚠️ ' + err.message);
@@ -2443,15 +3243,16 @@ async function captureEquipItemPhoto(inputEl, key, photoType) {
 // خودکار به‌عنوان «approved» ثبت می‌شود (همان‌طور که بلافاصله در بخش «ماشین‌آلات» و
 // دکمه‌ی «دریافت ماشین‌آلات تایید‌شده» در چاپ سوخت قابل استفاده باشد). اگر خارج از محدوده
 // بود، همچنان با وضعیت «در انتظار بررسی» می‌ماند تا ادمین دستی بررسی/تایید کند.
-async function submitEquipmentForApproval(key, mine, coords, watermarkedBlob) {
+async function submitEquipmentForApproval(key, mine, coords, watermarkedBlob, photoType) {
   const eq = torEquipWorkingList.find(r => r.key === key);
   const {data:{user}} = await sb.auth.getUser();
-  const photoUrl = await uploadTechFile(watermarkedBlob, 'equip_'+key+'.jpg', mine['نام_معدن'], 'equipment', 'equip_submit');
+  const photoUrl = await uploadTechFile(watermarkedBlob, 'equip_'+key+'_'+photoType+'.jpg', mine['نام_معدن'], 'equipment', 'equip_submit');
   const insideBoundary = isInsideMineBoundary(coords, mine);
   const {error} = await sb.from('mine_equipment').insert([{
     mine_name: mine['نام_معدن'], submitted_by: user ? user.email : '',
     machine_type: (eq && (eq.name || eq.type)) || '', plate_no: (eq && eq.model) || '',
-    photo_url: photoUrl, lat: coords.latitude, lon: coords.longitude,
+    photo_url: photoUrl, photo_type: photoType, device_key: key,
+    lat: coords.latitude, lon: coords.longitude,
     inside_boundary: insideBoundary, department: myTechOfficerDept,
     status: insideBoundary ? 'approved' : 'pending',
     reviewed_by: insideBoundary ? 'تایید خودکار (داخل محدوده معدن)' : null,
@@ -2520,7 +3321,7 @@ async function submitGeneralEquipmentForApproval(mine, coords, watermarkedBlob) 
   const {error} = await sb.from('mine_equipment').insert([{
     mine_name: mine['نام_معدن'], submitted_by: user ? user.email : '',
     machine_type: 'سایر ماشین‌آلات (خارج از لیست)', plate_no: '',
-    photo_url: photoUrl, lat: coords.latitude, lon: coords.longitude,
+    photo_url: photoUrl, photo_type: 'general', lat: coords.latitude, lon: coords.longitude,
     inside_boundary: insideBoundary, department: myTechOfficerDept,
     status: insideBoundary ? 'approved' : 'pending',
     reviewed_by: insideBoundary ? 'تایید خودکار (داخل محدوده معدن)' : null,
