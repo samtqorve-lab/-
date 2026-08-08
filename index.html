@@ -229,6 +229,8 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
 .user-email{font-size:13px;color:#1a3a5c;font-weight:600}
 .role-select{border:1.5px solid #cfd8dc;border-radius:7px;padding:6px 10px;font-size:12px;font-family:Tahoma;color:#1a3a5c}
 .btn-sm{padding:6px 12px;border-radius:7px;border:none;font-size:11px;font-weight:700;cursor:pointer;font-family:Tahoma}
+.supp-subtab,.cim-role-tab{opacity:.55;transition:opacity .15s}
+.supp-subtab.active,.cim-role-tab.active{opacity:1;box-shadow:0 0 0 2px currentColor inset}
 
 .upload-zone{border:2.5px dashed rgba(255,255,255,.4);border-radius:14px;padding:32px 16px;text-align:center;color:rgba(255,255,255,.8);cursor:pointer;margin-bottom:16px}
 .upload-zone:hover{border-color:rgba(255,255,255,.7);background:rgba(255,255,255,.05)}
@@ -443,6 +445,7 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
       <button class="switch-dept-btn" onclick="openHelpModal()" title="راهنما">❓</button>
       <button class="switch-dept-btn" id="switchDeptBtn" style="display:none" onclick="backToDeptGate()">🔀 تغییر بخش</button>
       <span class="topbar-user" id="userEmail" style="display:none"></span>
+      <span class="topbar-user" id="userScopeBadge" style="display:none;font-size:11px;opacity:.85"></span>
       <button class="logout-btn" id="mfaSettingsBtn" style="display:none;margin-left:6px" onclick="openMfaManage()">🔐 2FA</button>
       <button class="logout-btn" id="logoutBtn" style="display:none" onclick="doLogout()">خروج</button>
     </div>
@@ -461,6 +464,7 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
           <button class="tab" id="techReportsTabBtn" onclick="switchTab('techreports')" style="display:none">📄 گزارش‌های ماهانه</button>
           <button class="tab" id="equipmentTabBtn" onclick="switchTab('equipment')" style="display:none">🚜 ماشین‌آلات<span id="equipmentBadge" style="display:none;background:#f57c00;color:#fff;border-radius:10px;font-size:10px;padding:1px 6px;margin-right:5px;font-weight:700"></span></button>
           <button class="tab" id="identityTabBtn" onclick="switchTab('identity')" style="display:none">🪪 احراز هویت<span id="identityBadge" style="display:none;background:#f57c00;color:#fff;border-radius:10px;font-size:10px;padding:1px 6px;margin-right:5px;font-weight:700"></span></button>
+          <button class="tab" id="supplementaryTabBtn" onclick="switchTab('supplementary')" style="display:none">📋 گزارش‌های تکمیلی</button>
         </div>
       </div>
 
@@ -469,6 +473,7 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
         <div class="tab-dropdown">
           <button class="tab" id="usersTabBtn" onclick="switchTab('users')" style="display:none">👥 کاربران<span id="usersPendingBadge" style="display:none;background:#e53935;color:#fff;border-radius:10px;font-size:10px;padding:1px 6px;margin-right:5px;font-weight:700"></span></button>
           <button class="tab" id="cornersTabBtn" onclick="switchTab('corners')" style="display:none">📥 ورود اطلاعات</button>
+          <button class="tab" id="legalTabBtn" onclick="switchTab('legal')" style="display:none">⚖️ الزامات قانونی</button>
           <button class="tab" id="fuelTabBtn" onclick="switchTab('fuel')" style="display:none">⛽ سوخت</button>
           <button class="tab" id="linksTabBtn" onclick="switchTab('links')" style="display:none">🔗 لینک‌ها</button>
           <button class="tab" id="auditTabBtn" onclick="switchTab('audit')" style="display:none">🕵️ سابقه تغییرات</button>
@@ -512,6 +517,7 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
       <div id="healthCheckBox"></div>
       <div class="list-filters" id="listFilters">
         <select id="listFilterCategory" onchange="renderList()"><option value="">همه دسته‌ها</option></select>
+        <select id="listFilterBakhsh" onchange="renderList()"><option value="">همه بخش‌ها</option></select>
         <label class="list-filter-chk"><input type="checkbox" id="listFilterExpiring" onchange="renderList()"> فقط نزدیک به انقضا/منقضی</label>
         <label class="list-filter-chk"><input type="checkbox" id="listFilterNoCoords" onchange="renderList()"> فقط بدون مختصات</label>
         <span id="listFilterCount" style="font-size:11.5px;color:#90a4ae"></span>
@@ -551,12 +557,34 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
 
       <div class="upload-zone" id="cornersDrop" onclick="document.getElementById('cornersFile').click()" style="margin-top:18px">
         <div style="font-size:32px;margin-bottom:8px">🧭</div>
-        <div style="font-weight:700;margin-bottom:4px">آپلود اکسل مختصات چهار گوشه محدوده</div>
-        <div style="font-size:11px">فایل باید شامل شماره پروانه یا نام معدن باشد؛ هر گوشه محدوده یک ردیف جدا (تعداد گوشه‌ها نامحدود)</div>
-        <input type="file" id="cornersFile" accept=".csv,.xlsx,.xls" onchange="handleCornersFile(event)">
+        <div style="font-weight:700;margin-bottom:4px">آپلود فایل مختصات محدوده (خروجی سامانه کاداستر)</div>
+        <div style="font-size:11px">همان فایل Excel که سامانه کاداستر برای هر محدوده چاپ می‌کند را مستقیم اینجا آپلود کنید — گوشه‌ها خودکار خوانده و بر اساس «کد شناسایی/کاداستر» با معدن تطبیق داده می‌شوند؛ چند فایل هم‌زمان قابل انتخاب است</div>
+        <input type="file" id="cornersFile" accept=".xlsx,.xls" multiple onchange="handleBoundaryReportFile(event)">
       </div>
       <div id="cornersStatus" style="color:rgba(255,255,255,.8);font-size:13px;text-align:center;margin-bottom:14px"></div>
       <div id="cornersSummary"></div>
+    </div>
+
+    <div class="panel" id="panel-legal">
+      <div class="user-mgmt-card">
+        <h3 style="font-size:15px;color:#1a3a5c;margin-bottom:4px">⚖️ الزامات قانونی</h3>
+        <div style="font-size:11px;color:#90a4ae;margin-bottom:12px">پیگیری حقوق دولتی (رویالتی)، تضمین مالی دوره‌ای (ماده ۴۳ آیین‌نامه اجرایی قانون معادن) و حقوق کاشف (تبصره ۲ ماده ۹ قانون معادن) — بر اساس طرح بهره‌برداری مصوب هر معدن</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+          <button class="btn-sm legal-subtab active" data-sub="royalty" onclick="switchLegalSub('royalty')" style="background:#e8f5e9;color:#2e7d32">💰 حقوق دولتی (رویالتی)</button>
+          <button class="btn-sm legal-subtab" data-sub="guarantee" onclick="switchLegalSub('guarantee')" style="background:#e3f2fd;color:#1565c0">🏦 تضمین مالی</button>
+          <button class="btn-sm legal-subtab" data-sub="kashef" onclick="switchLegalSub('kashef')" style="background:#fff3e0;color:#e65100">👤 حقوق کاشف</button>
+          <button class="btn-sm legal-subtab" data-sub="reclamation" onclick="switchLegalSub('reclamation')" style="background:#e0f2f1;color:#00695c">🌱 بازسازی محیط زیست</button>
+          <button class="btn-sm legal-subtab" data-sub="transfer" onclick="switchLegalSub('transfer')" style="background:#ede7f6;color:#5e35b1">🔄 انتقال پروانه</button>
+          <button class="btn-sm legal-subtab" data-sub="disqualification" onclick="switchLegalSub('disqualification')" style="background:#ffebee;color:#c62828">⚠️ سلب صلاحیت</button>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+          <input id="legalFilterMine" type="text" placeholder="فیلتر بر اساس نام معدن..." style="flex:1;min-width:160px;border:1.5px solid #cfd8dc;border-radius:8px;padding:9px 12px;font-size:13px;font-family:Tahoma" oninput="renderLegalActive()">
+          <button class="btn-sm" style="background:#e8f5e9;color:#2e7d32" onclick="openLegalRecordModal()">➕ ثبت جدید</button>
+          <button class="btn-sm" style="background:#e3f2fd;color:#1565c0" onclick="loadLegalAdmin()">🔄 بروزرسانی</button>
+          <button class="btn-sm" id="legalDigestBtn" style="background:#fce4ec;color:#ad1457" onclick="sendLegalComplianceDigest()">🔔 ارسال هشدار به تلگرام/روبیکا</button>
+        </div>
+        <div id="legalContentBox"><div class="loading">در حال بارگذاری...</div></div>
+      </div>
     </div>
 
     <div class="panel" id="panel-users">
@@ -648,6 +676,26 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
       </div>
     </div>
 
+    <div class="panel" id="panel-supplementary">
+      <div class="user-mgmt-card">
+        <h3 style="font-size:15px;color:#1a3a5c;margin-bottom:10px">📋 گزارش‌های تکمیلی مسئولین فنی</h3>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+          <button class="btn-sm supp-subtab active" data-sub="checklist" onclick="switchSuppSub('checklist')" style="background:#ffebee;color:#b71c1c">✅ چک‌لیست ایمنی</button>
+          <button class="btn-sm" style="background:#eceff1;color:#455a64" onclick="openChecklistItemsManager()">⚙️ مدیریت آیتم‌های چک‌لیست</button>
+          <button class="btn-sm supp-subtab" data-sub="training" onclick="switchSuppSub('training')" style="background:#e8f5e9;color:#2e7d32">🎓 آموزش ایمنی</button>
+          <button class="btn-sm supp-subtab" data-sub="production" onclick="switchSuppSub('production')" style="background:#e3f2fd;color:#1565c0">⚖️ تولید و عیار</button>
+          <button class="btn-sm supp-subtab" data-sub="personnel" onclick="switchSuppSub('personnel')" style="background:#fff3e0;color:#e65100">👥 پرسنل</button>
+          <button class="btn-sm supp-subtab" data-sub="corrective" onclick="switchSuppSub('corrective')" style="background:#ffebee;color:#c62828">🛠️ اقدام اصلاحی</button>
+          <button class="btn-sm supp-subtab" data-sub="quarterlymaps" onclick="switchSuppSub('quarterlymaps')" style="background:#f3e5f5;color:#6a1b9a">🗺️ نقشه سه‌ماهه</button>
+        </div>
+        <input id="suppFilterMine" type="text" placeholder="فیلتر بر اساس نام معدن..." style="width:100%;border:1.5px solid #cfd8dc;border-radius:8px;padding:9px 12px;font-size:13px;font-family:Tahoma;margin-bottom:12px" oninput="renderSuppActive()">
+        <div id="suppCorrectiveExportBox" style="display:none;margin-bottom:10px">
+          <button class="btn-sm" style="background:#ede7f6;color:#5e35b1" onclick="exportCorrectiveActionsForEngineeringOrg()">📤 خروجی گزارش برای سازمان نظام مهندسی معدن استان</button>
+        </div>
+        <div id="suppContentBox"><div class="loading">در حال بارگذاری...</div></div>
+      </div>
+    </div>
+
     <div class="panel" id="panel-dashboard">
       <div class="user-mgmt-card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
@@ -674,6 +722,22 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
         </div>
         <div id="archiveSummary"></div>
       </div>
+
+      <div class="user-mgmt-card" style="margin-top:14px">
+        <h3 style="font-size:15px;color:#1a3a5c;margin-bottom:6px">📤 خروجی سوابق چک‌لیست ایمنی</h3>
+        <p style="font-size:11.5px;color:#607d8b;line-height:1.9;margin-bottom:14px">
+          این بخش برخلاف بالا، <b style="color:#2e7d32">هیچ داده‌ای را حذف نمی‌کند</b> — چون سوابق چک‌لیست ایمنی مدرک قانونی/انطباقی است و باید نگه داشته شود.
+          فقط یک فایل CSV از همه‌ی سوابق (یا بازه‌ی انتخابی) برای بایگانی/چاپ/بررسی بیرون از سامانه دانلود می‌کند.
+        </p>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+          <label style="font-size:12px">از تاریخ:</label>
+          <input id="checklistExportFrom" type="date">
+          <label style="font-size:12px">تا تاریخ:</label>
+          <input id="checklistExportTo" type="date">
+          <button class="btn-sm" style="background:#e8f5e9;color:#2e7d32" onclick="exportChecklistCSV()">📥 دانلود CSV</button>
+        </div>
+        <div id="checklistExportStatus" style="font-size:11.5px;color:#607d8b"></div>
+      </div>
     </div>
 
     <div class="panel" id="panel-links">
@@ -693,6 +757,17 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
           <label style="font-size:11.5px">آدرس اینترنتی</label>
           <input id="newAppLinkUrl" type="text" dir="ltr" placeholder="https://...">
           <button class="btn-sm" style="background:#e8f5e9;color:#2e7d32;margin-top:8px" onclick="addNewAppLink()">➕ افزودن</button>
+        </div>
+
+        <div style="margin-top:18px;padding-top:14px;border-top:1px solid #eceff1">
+          <h3 style="font-size:13.5px;color:#1a3a5c;margin-bottom:6px">🪪 دوره‌ی تکرار احراز هویت مسئولین فنی</h3>
+          <p style="font-size:11.5px;color:#607d8b;line-height:1.9;margin-bottom:10px">هر چند روز یک‌بار مسئول فنی موظف است دوباره عکس احراز هویت بگیرد، و چند روز قبل از سررسید، هشدار داخل اپش نمایش داده شود.</p>
+          <div class="fp-grid">
+            <div><label style="font-size:11.5px">فاصله‌ی تکرار احراز هویت (روز)</label><input id="idReverifyDays" type="number" min="1" step="1" value="30"></div>
+            <div><label style="font-size:11.5px">چند روز قبل از سررسید هشدار داده شود</label><input id="idReminderDays" type="number" min="1" step="1" value="5"></div>
+          </div>
+          <button class="btn-sm" style="background:#e8f5e9;color:#2e7d32;margin-top:8px" onclick="saveIdentitySettings()">💾 ذخیره تنظیمات احراز هویت</button>
+          <div id="idSettingsStatus" style="font-size:11.5px;margin-top:8px"></div>
         </div>
       </div>
     </div>
@@ -734,6 +809,29 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
       <button class="btn btn-save" onclick="confirmAddField()">✅ افزودن</button>
       <button class="btn btn-cancel" onclick="closeModal()">انصراف</button>
     </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="checklistItemsModal">
+  <div class="modal" style="max-width:560px;padding:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <h3 style="margin:0">⚙️ مدیریت آیتم‌های چک‌لیست</h3>
+      <button class="btn-sm" style="background:#eee;color:#333" onclick="closeChecklistItemsManager()">✖ بستن</button>
+    </div>
+    <div style="font-size:11px;color:#78909c;margin-bottom:10px">این آیتم‌ها همان‌هایی هستند که هر نقش موقع پرکردن چک‌لیست نوبت‌کاری‌اش می‌بیند. تغییرات بلافاصله برای همه اعمال می‌شود.</div>
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <button class="btn-sm cim-role-tab active" data-role="tech_officer" onclick="switchCimRole('tech_officer')" style="background:#e3f2fd;color:#1565c0">🦺 مسئول فنی</button>
+      <button class="btn-sm cim-role-tab" data-role="safety_officer" onclick="switchCimRole('safety_officer')" style="background:#ffebee;color:#b71c1c">🦺 مسئول ایمنی</button>
+      <button class="btn-sm cim-role-tab" data-role="health_officer" onclick="switchCimRole('health_officer')" style="background:#e8f5e9;color:#2e7d32">⚕️ بهداشت حرفه‌ای</button>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:6px">
+      <input id="newChecklistItemText" type="text" placeholder="متن آیتم جدید..." style="flex:1">
+      <button class="btn-sm" style="background:#e8f5e9;color:#2e7d32" onclick="addChecklistItem()">➕ افزودن</button>
+    </div>
+    <label style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:#6a1b9a;margin-bottom:10px">
+      <input type="checkbox" id="newChecklistItemPhoto" style="width:auto"> این آیتم نیاز به عکس (با موقعیت مکانی و توضیح در واترمارک) دارد
+    </label>
+    <div id="checklistItemsList"><div class="loading">در حال بارگذاری...</div></div>
   </div>
 </div>
 
@@ -793,23 +891,27 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
   </div>
 </div>
 
-<div class="modal-overlay" id="cornersMapModal">
+<div class="modal-overlay" id="boundaryUnmatchedModal">
   <div class="modal">
-    <h3>🧭 تطبیق ستون‌های اکسل مختصات</h3>
-    <div style="font-size:11px;color:#607d8b;margin-bottom:10px">هر گوشه محدوده باید یک ردیف جدا در اکسل باشد (برای معدنی با ۶ ضلع، ۶ ردیف با همان شماره پروانه/نام معدن تکراری). تعداد گوشه‌ها نامحدود است.</div>
-    <label>ستون شماره پروانه (اولویت تطبیق اول)</label>
-    <select id="mapCornersLicenseCol"></select>
-    <label>ستون نام معدن (اگر شماره پروانه خالی/نامعتبر بود)</label>
-    <select id="mapCornersNameCol"></select>
-    <label>ستون شماره ترتیب گوشه (اختیاری — اگر نباشد، ترتیب ردیف‌های فایل ملاک است)</label>
-    <select id="mapCornersOrderCol"></select>
-    <div class="fp-grid" style="margin-top:12px">
-      <div><label>ستون عرض جغرافیایی (Latitude)</label><select id="mapCornersLatCol"></select></div>
-      <div><label>ستون طول جغرافیایی (Longitude)</label><select id="mapCornersLonCol"></select></div>
-    </div>
+    <h3>🧭 تطبیق دستی محدوده‌های شناسایی‌نشده</h3>
+    <div style="font-size:11px;color:#607d8b;margin-bottom:10px">این فایل‌ها به‌صورت خودکار (بر اساس کد شناسایی/کاداستر) به هیچ معدنی متصل نشدند. معدن مقصد هر فایل را انتخاب کنید یا رد کنید.</div>
+    <div id="boundaryUnmatchedRows"></div>
     <div class="fp-actions">
-      <button class="btn btn-save" onclick="confirmCornersImport()">✅ اعمال و ذخیره</button>
-      <button class="btn btn-cancel" onclick="closeCornersMapModal()">انصراف</button>
+      <button class="btn btn-save" onclick="confirmBoundaryResolve()">✅ اعمال و ذخیره</button>
+      <button class="btn btn-cancel" onclick="closeBoundaryResolveModal()">انصراف</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="legalRecordModal">
+  <div class="modal">
+    <h3 id="legalRecordModalTitle">ثبت رکورد</h3>
+    <label>نام معدن</label>
+    <select id="lr_mine"></select>
+    <div id="legalRecordFields"></div>
+    <div class="fp-actions">
+      <button class="btn btn-save" onclick="saveLegalRecord()">✅ ذخیره</button>
+      <button class="btn btn-cancel" onclick="closeLegalRecordModal()">انصراف</button>
     </div>
   </div>
 </div>
@@ -1235,6 +1337,17 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
   </div>
 </div>
 
+<datalist id="uaProvinceList">
+  <option value="آذربایجان شرقی"><option value="آذربایجان غربی"><option value="اردبیل"><option value="اصفهان">
+  <option value="البرز"><option value="ایلام"><option value="بوشهر"><option value="تهران">
+  <option value="چهارمحال و بختیاری"><option value="خراسان جنوبی"><option value="خراسان رضوی"><option value="خراسان شمالی">
+  <option value="خوزستان"><option value="زنجان"><option value="سمنان"><option value="سیستان و بلوچستان">
+  <option value="فارس"><option value="قزوین"><option value="قم"><option value="کردستان">
+  <option value="کرمان"><option value="کرمانشاه"><option value="کهگیلویه و بویراحمد"><option value="گلستان">
+  <option value="گیلان"><option value="لرستان"><option value="مازندران"><option value="مرکزی">
+  <option value="هرمزگان"><option value="همدان"><option value="یزد">
+</datalist>
+
 <div class="modal-overlay" id="userAccessModal">
   <div class="modal" style="max-width:560px">
     <h3>🔐 دسترسی و تنظیمات کاربر</h3>
@@ -1396,6 +1509,8 @@ let dbRowId = null;
 let myRole = 'viewer'; // viewer | inspector | admin | superadmin | tech_officer
 let myPermissions = null; // null = پیش‌فرض (بدون محدودیت اضافه)، در غیر این صورت {viewList:false, ...}
 let myAssignedMines = []; // فقط برای نقش مسئول فنی
+let myAssignedProvince = ''; // فقط برای ادمین/بازرس/سوپرادمین — خالی یعنی همه‌ی استان‌ها را می‌بیند
+let myAssignedCounty = ''; // فقط برای ادمین/بازرس/سوپرادمین — خالی یعنی همه‌ی شهرستان‌ها را می‌بیند
 
 // ── ورود سریع با اثر انگشت / Face ID (روی همان دستگاه، بعد از یک بار ورود با رمز) ──
 function bioSupported() { return !!(window.PublicKeyCredential && navigator.credentials); }
@@ -1638,14 +1753,16 @@ async function unenrollMfaFactor(factorId) {
 }
 
 async function fetchMyRole(email) {
-  const {data} = await sb.from('user_roles').select('role, department, permissions, assigned_mines').eq('email', email).limit(1);
+  const {data} = await sb.from('user_roles').select('role, department, permissions, assigned_mines, assigned_province, assigned_county').eq('email', email).limit(1);
   if(data && data.length) return {
     role: data[0].role || 'viewer',
     department: data[0].department || 'معدن',
     permissions: data[0].permissions || null,
     assigned_mines: data[0].assigned_mines || [],
+    assigned_province: data[0].assigned_province || '',
+    assigned_county: data[0].assigned_county || '',
   };
-  return {role: 'pending', department: 'معدن', permissions: null, assigned_mines: []};
+  return {role: 'pending', department: 'معدن', permissions: null, assigned_mines: [], assigned_province: '', assigned_county: ''};
 }
 
 // اگر کاربر واردشده هنوز ردیفی در user_roles نداشته باشد (مثلاً چون تایید ایمیل قبل از ثبت درخواست لازم بود)
@@ -1666,22 +1783,6 @@ async function ensureMyRoleRow(user) {
   } catch(e) { console.warn('ensureMyRoleRow failed', e); }
 }
 
-function hideAllGates() {
-  document.getElementById('authGate').style.display = 'none';
-  document.getElementById('biometricGate').style.display = 'none';
-  document.getElementById('deptGate').style.display = 'none';
-  document.getElementById('deptPlaceholder').style.display = 'none';
-  document.getElementById('techOfficerShell').style.display = 'none';
-  const tob = document.getElementById('techOfficerBlockedGate'); if(tob) tob.style.display = 'none';
-  document.getElementById('appShell').style.display = 'none';
-}
-function showAuthGate() {
-  hideAllGates();
-  document.getElementById('gateEmail').value = '';
-  document.getElementById('gatePass').value = '';
-  document.getElementById('gateErr').textContent = '';
-  document.getElementById('authGate').style.display = 'flex';
-}
 function hideAllGates() {
   document.getElementById('authGate').style.display = 'none';
   const bg = document.getElementById('biometricGate'); if(bg) bg.style.display = 'none';
@@ -1897,12 +1998,14 @@ async function proceedToDept(dept) {
     document.getElementById('statsTabBtn').style.display = hasPerm('viewStats') ? 'inline-block' : 'none';
     document.getElementById('fuelTabBtn').style.display = (fuelEnabled && (isAdmin() || (myPermissions && myPermissions.viewFuel === true))) ? 'inline-block' : 'none';
     document.getElementById('cornersTabBtn').style.display = (isAdmin() && boundaryDept) ? 'inline-block' : 'none';
+    document.getElementById('legalTabBtn').style.display = (isAdmin() && dept === 'معدن') ? 'inline-block' : 'none';
     document.getElementById('equipArchiveBtn').style.display = mineOnly ? 'block' : 'none';
     document.getElementById('usersTabBtn').style.display = isAdmin() ? 'inline-block' : 'none';
     document.getElementById('techReportsTabBtn').style.display = (isAdmin() && techOfficerDept) ? 'inline-block' : 'none';
     document.getElementById('incidentsTabBtn').style.display = (isAdmin() && techOfficerDept) ? 'inline-block' : 'none';
     document.getElementById('equipmentTabBtn').style.display = (isAdmin() && techOfficerDept) ? 'inline-block' : 'none';
     document.getElementById('identityTabBtn').style.display = (isAdmin() && techOfficerDept) ? 'inline-block' : 'none';
+    document.getElementById('supplementaryTabBtn').style.display = (isAdmin() && techOfficerDept) ? 'inline-block' : 'none';
     document.getElementById('dashboardTabBtn').style.display = (isAdmin() && dept === 'معدن') ? 'inline-block' : 'none';
     document.getElementById('archiveTabBtn').style.display = isSuper() ? 'inline-block' : 'none';
     document.getElementById('linksTabBtn').style.display = isSuper() ? 'inline-block' : 'none';
@@ -1946,9 +2049,17 @@ async function onLogin() {
   myDept = roleInfo.department;
   myPermissions = roleInfo.permissions;
   myAssignedMines = roleInfo.assigned_mines || [];
+  myAssignedProvince = roleInfo.assigned_province || '';
+  myAssignedCounty = roleInfo.assigned_county || '';
 
   document.getElementById('userEmail').textContent = user.email;
   document.getElementById('userEmail').style.display = 'inline';
+  if(myAssignedProvince || myAssignedCounty) {
+    document.getElementById('userScopeBadge').textContent = '🗺️ ' + [myAssignedCounty, myAssignedProvince].filter(Boolean).join('، ');
+    document.getElementById('userScopeBadge').style.display = 'inline';
+  } else {
+    document.getElementById('userScopeBadge').style.display = 'none';
+  }
   document.getElementById('logoutBtn').style.display = 'inline-block';
   document.getElementById('mfaSettingsBtn').style.display = (myRole === 'admin' || myRole === 'superadmin') ? 'inline-block' : 'none';
   if(myRole === 'admin' || myRole === 'superadmin') {
@@ -2029,8 +2140,20 @@ async function loadData(userEmail) {
       await bulkInsertMineRows(mines, userEmail);
     }
   }
+  mines = applyGeoScope(mines);
   updateCounts();
   lastSavedSnapshot = JSON.stringify({mines, customFields});
+}
+
+// اگر برای این ادمین/بازرس استان و/یا شهرستان مشخصی ثبت شده باشد (برای استفاده‌ی این سامانه در چند شهرستان/استان هم‌زمان)،
+// فقط رکوردهای همان استان/شهرستان نشانش می‌دهد. خالی‌بودن یعنی محدودیتی ندارد و همه را می‌بیند (رفتار پیش‌فرض فعلی).
+function applyGeoScope(list) {
+  if(!myAssignedProvince && !myAssignedCounty) return list;
+  return list.filter(m => {
+    if(myAssignedProvince && (m['استان']||'').trim() !== myAssignedProvince.trim()) return false;
+    if(myAssignedCounty && (m['شهرستان']||'').trim() !== myAssignedCounty.trim()) return false;
+    return true;
+  });
 }
 
 let lastSavedSnapshot = null;
@@ -2263,7 +2386,7 @@ async function loadUsersList() {
   const pending = (data||[]).filter(u => u.role === 'pending');
   const active = (data||[]).filter(u => u.role !== 'pending');
 
-  const roleLabels = {superadmin:'سوپرادمین', admin:'ادمین', inspector:'بازرس', viewer:'مشاهده‌گر', tech_officer:'مسئول فنی'};
+  const roleLabels = {superadmin:'سوپرادمین', admin:'ادمین', inspector:'بازرس', viewer:'مشاهده‌گر', tech_officer:'مسئول فنی', safety_officer:'مسئول ایمنی', health_officer:'مسئول بهداشت حرفه‌ای'};
 
   let html = '';
   if(pending.length) {
@@ -2288,6 +2411,8 @@ async function loadUsersList() {
           '<option value="viewer">مشاهده‌گر</option>'+
           '<option value="inspector">بازرس</option>'+
           '<option value="tech_officer" '+(u.requested_mine_name?'selected':'')+'>مسئول فنی</option>'+
+          '<option value="safety_officer">مسئول ایمنی</option>'+
+          '<option value="health_officer">مسئول بهداشت حرفه‌ای</option>'+
           '<option value="admin">ادمین</option>'+
         '</select>'+
         '<select class="role-select" id="'+uid+'_dept">'+
@@ -2308,30 +2433,35 @@ async function loadUsersList() {
 
   html += (active.map(u => {
     const roleLabel = roleLabels[u.role] || u.role;
-    const disabled = u.role==='superadmin' ? 'disabled' : '';
-    const techInfoActive = (u.role==='tech_officer' && (u.membership_no || u.license_no || u.requested_mine_name || u.contract_no || u.national_code)) ?
+    const disabled = (u.role==='superadmin' && !isSuper()) ? 'disabled' : '';
+    const isOfficerRole = ['tech_officer','safety_officer','health_officer'].includes(u.role);
+    const officerTitle = u.role==='tech_officer' ? '🦺 اطلاعات هویتی ثبت‌شده (ادعای مسئولیت فنی):' : (u.role==='safety_officer' ? '🦺 اطلاعات هویتی مسئول ایمنی:' : '⚕️ اطلاعات هویتی مسئول بهداشت حرفه‌ای:');
+    const techInfoActive = (isOfficerRole && (u.membership_no || u.license_no || u.requested_mine_name || u.contract_no || u.national_code)) ?
       '<div style="background:#f1f8f6;border-radius:8px;padding:8px 10px;font-size:11.5px;color:#455a64;line-height:2;margin-top:6px;width:100%">'+
-      '<b style="color:#00695c">🦺 اطلاعات هویتی ثبت‌شده (ادعای مسئولیت فنی):</b><br>'+
-      (u.tech_officer_specialty ? 'تخصص: <b>'+esc(u.tech_officer_specialty)+'</b><br>' : '')+
+      '<b style="color:#00695c">'+officerTitle+'</b><br>'+
+      (u.tech_officer_specialty && u.role==='tech_officer' ? 'تخصص: <b>'+esc(u.tech_officer_specialty)+'</b><br>' : '')+
       (u.national_code ? 'کد ملی: <b>'+esc(u.national_code)+'</b><br>' : '')+
       (u.membership_no ? 'شماره عضویت نظام مهندسی: <b>'+esc(u.membership_no)+'</b><br>' : '')+
       (u.license_no ? 'شماره پروانه اشتغال به کار: <b>'+esc(u.license_no)+'</b><br>' : '')+
+      (u.license_no ? 'وضعیت اعتبار پروانه اشتغال: '+techLicenseExpiryBadge(u.license_expiry_date)+'<br>' : '')+
       (u.requested_mine_name ? 'معدن اعلام‌شده هنگام ثبت‌نام: <b>'+esc(u.requested_mine_name)+'</b><br>' : '')+
       (u.contract_no ? 'شماره ثبت قرارداد نظام مهندسی معدن: <b>'+esc(u.contract_no)+'</b><br>' : '')+
       (u.assigned_mines && u.assigned_mines.length ? 'معدن (های) اختصاص‌یافته فعلی: <b>'+esc(u.assigned_mines.join('، '))+'</b>' : '<span style="color:#e65100">⚠️ هنوز معدنی به این کاربر اختصاص داده نشده</span>')+
       '</div>'
-      : (u.role==='tech_officer' ? '<div style="font-size:11px;color:#e65100;margin-top:6px;width:100%">⚠️ این کاربر مسئول فنی است ولی هیچ اطلاعات هویتی (شماره پروانه/عضویت/نام معدن) برایش ثبت نشده — از دکمه «🔐 دسترسی و تنظیمات» وارد کنید.</div>' : '');
+      : (isOfficerRole ? '<div style="font-size:11px;color:#e65100;margin-top:6px;width:100%">⚠️ این کاربر '+(u.role==='tech_officer'?'مسئول فنی':(u.role==='safety_officer'?'مسئول ایمنی':'مسئول بهداشت حرفه‌ای'))+' است ولی هیچ اطلاعات هویتی (شماره پروانه/عضویت/نام معدن) برایش ثبت نشده — از دکمه «🔐 دسترسی و تنظیمات» وارد کنید.</div>' : '');
     return '<div class="user-row" style="flex-wrap:wrap"><span class="user-email">'+u.email+'</span>'+
       '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
       '<select class="role-select" '+disabled+' onchange="changeUserRole(\''+u.email+'\', this.value)">'+
       '<option value="viewer" '+(u.role==='viewer'?'selected':'')+'>مشاهده‌گر</option>'+
       '<option value="inspector" '+(u.role==='inspector'?'selected':'')+'>بازرس</option>'+
       '<option value="tech_officer" '+(u.role==='tech_officer'?'selected':'')+'>مسئول فنی</option>'+
+      '<option value="safety_officer" '+(u.role==='safety_officer'?'selected':'')+'>مسئول ایمنی</option>'+
+      '<option value="health_officer" '+(u.role==='health_officer'?'selected':'')+'>مسئول بهداشت حرفه‌ای</option>'+
       '<option value="admin" '+(u.role==='admin'?'selected':'')+'>ادمین</option>'+
-      (u.role==='superadmin' ? '<option value="superadmin" selected>سوپرادمین</option>' : '')+
+      (isSuper() ? '<option value="superadmin" '+(u.role==='superadmin'?'selected':'')+'>سوپرادمین</option>' : (u.role==='superadmin' ? '<option value="superadmin" selected>سوپرادمین</option>' : ''))+
       '</select>'+
       (isAdmin() ? '<button class="btn-sm" style="background:#e3f2fd;color:#1565c0" onclick="openUserAccessModal(\''+u.email+'\')">🔐 دسترسی و تنظیمات</button>' : '')+
-      (u.role!=='superadmin' ? '<button class="btn-sm" style="background:#ffebee;color:#c62828" onclick="removeUserRole(\''+u.email+'\')">حذف</button>' : '')+
+      ((u.role!=='superadmin' || isSuper()) ? '<button class="btn-sm" style="background:#ffebee;color:#c62828" onclick="removeUserRole(\''+u.email+'\')">حذف</button>' : '')+
       '</div>'+techInfoActive+
       '</div>';
   }).join('') || (pending.length ? '' : '<div style="color:#90a4ae;font-size:12px;text-align:center;padding:20px">کاربری ثبت نشده</div>'));
@@ -2340,7 +2470,7 @@ async function loadUsersList() {
   pending.forEach(u => {
     const uid = 'pend_' + u.id;
     const roleSel = document.getElementById(uid+'_role');
-    if(roleSel && roleSel.value === 'tech_officer') onPendingRoleChange(uid);
+    if(roleSel && ['tech_officer','safety_officer','health_officer'].includes(roleSel.value)) onPendingRoleChange(uid);
   });
 }
 
@@ -2351,7 +2481,7 @@ function onPendingRoleChange(uid) {
   const role = document.getElementById(uid+'_role').value;
   const wrap = document.getElementById(uid+'_mineWrap');
   if(!wrap) return;
-  if(role !== 'tech_officer') { wrap.innerHTML = ''; return; }
+  if(!['tech_officer','safety_officer','health_officer'].includes(role)) { wrap.innerHTML = ''; return; }
 
   const requested = wrap.dataset.requested || '';
   if(currentDept !== 'معدن') {
@@ -2382,11 +2512,11 @@ async function approveUser(email, uid) {
   const department = document.getElementById(uid+'_dept').value;
   const update = {role, department};
 
-  if(role === 'tech_officer') {
+  if(['tech_officer','safety_officer','health_officer'].includes(role)) {
     const mineSel = document.getElementById(uid+'_mine');
     const chosen = mineSel ? mineSel.value : '';
     if(!chosen) {
-      showToast('⚠️ برای تایید «مسئول فنی» باید معدن را از لیست انتخاب کنید (اگر لیست دیده نمی‌شود، ابتدا وارد بخش «معدن» شوید)');
+      showToast('⚠️ برای تایید این نقش باید معدن را از لیست انتخاب کنید (اگر لیست دیده نمی‌شود، ابتدا وارد بخش «معدن» شوید)');
       return;
     }
     update.assigned_mines = [chosen];
@@ -2427,15 +2557,35 @@ async function addUserRole() {
 }
 
 async function changeUserRole(email, role) {
-  await sb.from('user_roles').update({role}).eq('email', email);
+  // فقط سوپرادمین‌ها اجازه دارند نقش سوپرادمین بدن/بگیرن؛ این هم در RLS دیتابیس enforced شده، هم اینجا برای جلوگیری از خطای تصادفی
+  const {data: currentRow} = await sb.from('user_roles').select('role').eq('email', email).limit(1).single();
+  const wasSuperadmin = currentRow && currentRow.role === 'superadmin';
+
+  if(role === 'superadmin' && !wasSuperadmin) {
+    if(!confirm('⚠️ کاربر '+email+' به سوپرادمین ارتقا پیدا می‌کند و به همه‌ی بخش‌ها، تنظیمات، و مدیریت سایر کاربران دسترسی کامل خواهد داشت. ادامه می‌دهید؟')) { loadUsersList(); return; }
+  }
+  if(wasSuperadmin && role !== 'superadmin') {
+    const {count} = await sb.from('user_roles').select('email', {count:'exact', head:true}).eq('role','superadmin');
+    if(count !== null && count <= 1) { showToast('⚠️ این تنها سوپرادمین سامانه است — قبل از تغییر نقشش، حداقل یک سوپرادمین دیگر معرفی کنید'); loadUsersList(); return; }
+    if(!confirm('⚠️ سوپرادمین‌بودن کاربر '+email+' گرفته می‌شود. ادامه می‌دهید؟')) { loadUsersList(); return; }
+  }
+
+  const {error} = await sb.from('user_roles').update({role}).eq('email', email);
+  if(error) { showToast('⚠️ خطا در تغییر نقش: ' + error.message); loadUsersList(); return; }
   await logUserAccessChange('تغییر نقش کاربر', email, {role});
   showToast('✅ نقش بروزرسانی شد');
   loadUsersList();
 }
 
 async function removeUserRole(email) {
+  const {data: currentRow} = await sb.from('user_roles').select('role').eq('email', email).limit(1).single();
+  if(currentRow && currentRow.role === 'superadmin') {
+    const {count} = await sb.from('user_roles').select('email', {count:'exact', head:true}).eq('role','superadmin');
+    if(count !== null && count <= 1) { showToast('⚠️ این تنها سوپرادمین سامانه است — نمی‌توان حذفش کرد'); return; }
+  }
   if(!confirm('دسترسی کاربر '+email+' حذف شود؟')) return;
-  await sb.from('user_roles').delete().eq('email', email);
+  const {error} = await sb.from('user_roles').delete().eq('email', email);
+  if(error) { showToast('⚠️ خطا در حذف: ' + error.message); return; }
   await logUserAccessChange('حذف دسترسی کاربر', email, {});
   showToast('🗑 کاربر حذف شد');
   loadUsersList();
@@ -2453,6 +2603,8 @@ async function openUserAccessModal(email) {
 
   const perms = u.permissions || {};
   let html = '';
+  let spec = null; // فقط برای مسئول فنی/ایمنی/بهداشت پر می‌شود؛ بیرون از بلاک if تعریف شده تا در فراخوانی loadUaMineList در انتهای تابع هم قابل‌دسترس باشد
+  const editableNotif = isSuper() || u.email === (document.getElementById('userEmail').textContent||'').trim();
 
   if(u.role === 'viewer' || u.role === 'inspector' || u.role === 'admin') {
     html += '<div style="font-weight:700;color:#1a3a5c;font-size:12.5px;margin-bottom:6px">بخش‌های قابل‌مشاهده</div>';
@@ -2468,34 +2620,52 @@ async function openUserAccessModal(email) {
     if(u.role === 'admin') html += '<div style="font-size:10.5px;color:#90a4ae;margin-bottom:10px">ادمین‌ها همیشه به همه‌ی بخش‌های بالا دسترسی دارند و این ماتریس فقط برای مشاهده‌گر/بازرس قابل تنظیم است.</div>';
   }
 
-  if(u.role === 'tech_officer') {
-    html += '<div style="font-weight:700;color:#00695c;font-size:12.5px;margin-bottom:6px">🦺 اطلاعات هویتی / ادعای مسئولیت فنی</div>';
+  if(['admin','inspector','viewer','superadmin'].includes(u.role)) {
+    html += '<div style="font-weight:700;color:#1a3a5c;font-size:12.5px;margin:12px 0 6px;border-top:1px dashed #cfd8dc;padding-top:10px">🗺️ محدوده جغرافیایی تحت پوشش (اختیاری)</div>'+
+      '<div style="font-size:10.5px;color:#90a4ae;margin-bottom:8px">اگر این سامانه بین چند استان/شهرستان مشترک باشد، با پر کردن این دو فیلد فقط معادن/واحدهای همان استان و شهرستان به این کاربر نشان داده می‌شود. خالی بگذارید یعنی این کاربر همه‌ی رکوردهای این بخش را می‌بیند (رفتار فعلی).</div>'+
+      '<div class="fp-grid">'+
+        '<div><label style="font-size:11px">استان</label><input id="ua_province" type="text" list="uaProvinceList" value="'+esc(u.assigned_province||'')+'" '+(editableNotif?'':'disabled')+'></div>'+
+        '<div><label style="font-size:11px">شهرستان</label><input id="ua_county" type="text" value="'+esc(u.assigned_county||'')+'" '+(editableNotif?'':'disabled')+'></div>'+
+      '</div>'+
+      (editableNotif ? '' : '<div style="font-size:10.5px;color:#90a4ae;margin-top:6px">فقط سوپرادمین یا خود کاربر می‌تواند این محدوده را تغییر دهد.</div>');
+  }
+
+  if(['tech_officer','safety_officer','health_officer'].includes(u.role)) {
+    const roleTitle = u.role==='tech_officer' ? '🦺 اطلاعات هویتی / ادعای مسئولیت فنی' : (u.role==='safety_officer' ? '🦺 اطلاعات هویتی مسئول ایمنی' : '⚕️ اطلاعات هویتی مسئول بهداشت حرفه‌ای');
+    html += '<div style="font-weight:700;color:#00695c;font-size:12.5px;margin-bottom:6px">'+roleTitle+'</div>';
     html += '<div style="font-size:10.5px;color:#90a4ae;margin-bottom:8px">این اطلاعات یا هنگام ثبت‌نام توسط خود شخص وارد شده، یا اینجا توسط مدیر سامانه ثبت/اصلاح می‌شود.</div>';
-    const spec = u.tech_officer_specialty || 'استخراج';
-    html += '<label style="font-size:11px">نوع تخصص</label>'+
-      '<select id="ua_specialty" onchange="loadUaMineList(this.value)">'+
-        '<option value="استخراج" '+(spec==='استخراج'?'selected':'')+'>⛏️ استخراج</option>'+
-        '<option value="اکتشاف" '+(spec==='اکتشاف'?'selected':'')+'>🔍 اکتشاف</option>'+
-        '<option value="فرآوری" '+(spec==='فرآوری'?'selected':'')+'>⚗️ فرآوری</option>'+
-      '</select>';
+    spec = (u.role==='tech_officer') ? (u.tech_officer_specialty || 'استخراج') : 'استخراج';
+    if(u.role === 'tech_officer') {
+      html += '<label style="font-size:11px">نوع تخصص</label>'+
+        '<select id="ua_specialty" onchange="loadUaMineList(this.value)">'+
+          '<option value="استخراج" '+(spec==='استخراج'?'selected':'')+'>⛏️ استخراج</option>'+
+          '<option value="اکتشاف" '+(spec==='اکتشاف'?'selected':'')+'>🔍 اکتشاف</option>'+
+          '<option value="فرآوری" '+(spec==='فرآوری'?'selected':'')+'>⚗️ فرآوری</option>'+
+        '</select>';
+    } else {
+      html += '<div style="font-size:10.5px;color:#90a4ae;margin-bottom:6px">این نقش طبق ماده ۳ آیین‌نامه ایمنی معادن فقط برای معادن (بخش استخراج) تعریف می‌شود.</div>';
+    }
     html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;margin-top:8px">'+
       '<div><label style="font-size:11px">کد ملی</label><input id="ua_national_code" type="text" dir="ltr" value="'+esc(u.national_code||'')+'"></div>'+
       '<div><label style="font-size:11px">شماره عضویت نظام مهندسی</label><input id="ua_membership_no" type="text" dir="ltr" value="'+esc(u.membership_no||'')+'"></div>'+
       '<div><label style="font-size:11px">شماره پروانه اشتغال به کار</label><input id="ua_license_no" type="text" dir="ltr" value="'+esc(u.license_no||'')+'"></div>'+
+      '<div><label style="font-size:11px">تاریخ انقضای پروانه اشتغال (ماده ۴ قانون نظام مهندسی معدن)</label><input id="ua_license_expiry" type="date" dir="ltr" value="'+esc(u.license_expiry_date||'')+'"></div>'+
       '<div><label style="font-size:11px">شماره ثبت قرارداد نظام مهندسی</label><input id="ua_contract_no" type="text" dir="ltr" value="'+esc(u.contract_no||'')+'"></div>'+
+      '<div><label style="font-size:11px">ظرفیت اشتغال مجاز (ماده ۱۲ آیین‌نامه نظام مهندسی معدن)</label><input id="ua_employment_capacity" type="number" min="1" step="1" dir="ltr" value="'+(u.employment_capacity??'')+'" placeholder="طبق پروانه اشتغال"></div>'+
       '</div>'+
+      ((u.assigned_mines||[]).length > (u.employment_capacity || Infinity)
+        ? '<div style="font-size:11px;color:#c62828;margin-top:4px">⚠️ تعداد معادن اختصاص‌یافته ('+(u.assigned_mines||[]).length+') بیشتر از ظرفیت اشتغال ثبت‌شده ('+u.employment_capacity+') است</div>' : '')+
       '<label style="font-size:11px;margin-top:6px;display:block">نام معدن/محدوده اکتشافی/واحد فرآوری که ادعا می‌کند مسئول فنی آن است</label>'+
       '<input id="ua_requested_mine_name" type="text" value="'+esc(u.requested_mine_name||'')+'">';
 
     const assigned = new Set(u.assigned_mines || []);
     const meta = specialtyMeta(spec);
-    html += '<div style="font-weight:700;color:#1a3a5c;font-size:12.5px;margin:12px 0 6px;border-top:1px dashed #cfd8dc;padding-top:10px" id="ua_mine_list_title">مورد(های) اختصاصی این مسئول فنی (پس از تایید هویت)</div>';
+    html += '<div style="font-weight:700;color:#1a3a5c;font-size:12.5px;margin:12px 0 6px;border-top:1px dashed #cfd8dc;padding-top:10px" id="ua_mine_list_title">مورد(های) اختصاصی این کاربر (پس از تایید هویت)</div>';
     html += '<div id="ua_mine_list_box"><div class="loading">در حال بارگذاری فهرست '+esc(meta.dept)+'...</div></div>';
-    html += '<div style="font-size:10.5px;color:#90a4ae;margin:6px 0 10px">مسئول فنی پس از تایید، فقط همین مورد(ها) را می‌بیند و می‌تواند گزارش ماهانه/عکس برایشان آپلود کند.</div>';
+    html += '<div style="font-size:10.5px;color:#90a4ae;margin:6px 0 10px">این کاربر پس از تایید، فقط همین مورد(ها) را می‌بیند و می‌تواند برایشان چک‌لیست/گزارش ثبت کند.</div>';
   }
 
   if(u.role === 'admin' || u.role === 'superadmin') {
-    const editableNotif = isSuper() || u.email === (document.getElementById('userEmail').textContent||'').trim();
     html += '<div style="font-weight:700;color:#1a3a5c;font-size:12.5px;margin:10px 0 6px;border-top:1px dashed #cfd8dc;padding-top:10px">دریافت گزارش‌های مسئولین فنی</div>';
     html += '<label style="display:flex;align-items:center;gap:6px;font-size:12.5px;margin-bottom:8px">'+
       '<input type="checkbox" id="ua_receives" '+(u.receives_tech_reports?'checked':'')+' '+(editableNotif?'':'disabled')+' style="width:auto"> این کاربر گزارش ماهانه/عکس مسئولین فنی را در تلگرام/روبیکا دریافت کند</label>';
@@ -2508,7 +2678,7 @@ async function openUserAccessModal(email) {
 
   document.getElementById('userAccessBody').innerHTML = html;
   document.getElementById('userAccessModal').classList.add('open');
-  if(u.role === 'tech_officer') await loadUaMineList(spec);
+  if(['tech_officer','safety_officer','health_officer'].includes(u.role)) await loadUaMineList(spec);
 }
 
 // فهرست موردهای قابل‌اختصاص را از جدول درست (بر اساس تخصص انتخاب‌شده) می‌خواند —
@@ -2519,7 +2689,7 @@ async function loadUaMineList(spec) {
   if(!box) return;
   const meta = specialtyMeta(spec);
   const label = spec==='استخراج' ? 'معدن' : (spec==='اکتشاف' ? 'پرونده اکتشافی' : 'واحد فرآوری');
-  title.textContent = label + '(های) اختصاصی این مسئول فنی (پس از تایید هویت)';
+  title.textContent = label + '(های) اختصاصی این کاربر (پس از تایید هویت)';
   box.innerHTML = '<div class="loading">در حال بارگذاری...</div>';
   const {data, error} = await sb.rpc('list_assignable_entities', {specialty_in: spec});
   const assigned = new Set((userAccessTarget && userAccessTarget.assigned_mines) || []);
@@ -2548,17 +2718,30 @@ async function saveUserAccess() {
     update.permissions = perms;
   }
 
-  if(u.role === 'tech_officer') {
+  if(['tech_officer','safety_officer','health_officer'].includes(u.role)) {
     const chosen = Array.from(document.querySelectorAll('.ua-mine:checked')).map(cb => cb.value);
     if(chosen.length) update.assigned_mines = chosen; // اگر هیچ گزینه‌ای نبود (مثلاً بخش عوض شده) لیست قبلی دست‌نخورده می‌ماند
     update.national_code = document.getElementById('ua_national_code').value.trim();
     update.membership_no = document.getElementById('ua_membership_no').value.trim();
     update.license_no = document.getElementById('ua_license_no').value.trim();
+    update.license_expiry_date = document.getElementById('ua_license_expiry').value || null;
     update.contract_no = document.getElementById('ua_contract_no').value.trim();
+    const capVal = document.getElementById('ua_employment_capacity').value;
+    update.employment_capacity = capVal ? parseInt(capVal, 10) : null;
     update.requested_mine_name = document.getElementById('ua_requested_mine_name').value.trim();
-    update.tech_officer_specialty = document.getElementById('ua_specialty').value;
-    update.department = specialtyMeta(update.tech_officer_specialty).dept;
+    const specEl = document.getElementById('ua_specialty');
+    if(specEl) {
+      update.tech_officer_specialty = specEl.value;
+      update.department = specialtyMeta(update.tech_officer_specialty).dept;
+    } else {
+      update.department = 'معدن'; // مسئول ایمنی/بهداشت همیشه بخش معدن است
+    }
   }
+
+  const provinceEl = document.getElementById('ua_province');
+  const countyEl = document.getElementById('ua_county');
+  if(provinceEl && !provinceEl.disabled) update.assigned_province = provinceEl.value.trim() || null;
+  if(countyEl && !countyEl.disabled) update.assigned_county = countyEl.value.trim() || null;
 
   const receivesEl = document.getElementById('ua_receives');
   const telegramEl = document.getElementById('ua_telegram');
@@ -2572,6 +2755,14 @@ async function saveUserAccess() {
   showToast('✅ تنظیمات ذخیره شد');
   closeUserAccessModal();
   loadUsersList();
+  // اگر خودِ همین ادمین محدوده جغرافیایی خودش را عوض کرده، باید از نو از دیتابیس بخواند
+  // (چون آرایه‌ی mines فعلی ممکن است طبق محدوده‌ی قبلی از قبل فیلتر شده باشد)
+  if(u.email === (document.getElementById('userEmail').textContent||'').trim() && (provinceEl || countyEl)) {
+    myAssignedProvince = update.assigned_province || '';
+    myAssignedCounty = update.assigned_county || '';
+    await loadData(u.email);
+    renderList();
+  }
 }
 
 // ── پنل اختصاصی مسئول فنی: فقط معدن(های) اختصاصی + آپلود گزارش ماهانه ──
@@ -3011,13 +3202,19 @@ function updateCounts() {
 }
 
 const MINE_CAT_COLORS = {
-  'سنگ تزئینی': {bg:'#e8f5e9',badge:'#2e7d32',border:'#4caf50'},
-  'فلزی':        {bg:'#fff3e0',badge:'#e65100',border:'#ff9800'},
-  'غیره':        {bg:'#fffde7',badge:'#f57f17',border:'#ffc107'},
-  'پوکه/شن/لاشه':{bg:'#e3f2fd',badge:'#1565c0',border:'#2196f3'},
+  'گروه ۱ - شن، ماسه و خاک رس':                              {bg:'#e3f2fd',badge:'#1565c0',border:'#2196f3'},
+  'گروه ۲ - سنگ لاشه ساختمانی':                               {bg:'#efebe9',badge:'#4e342e',border:'#8d6e63'},
+  'گروه ۳ - سایر مواد طبقه یک (آهک، گچ، نمک، مارن و ...)':     {bg:'#fff8e1',badge:'#f57f17',border:'#ffca28'},
+  'گروه ۴ - سنگ‌های تزیینی و نما':                            {bg:'#e8f5e9',badge:'#2e7d32',border:'#4caf50'},
+  'گروه ۵ - طبقه دو غیرفلزی (غیر از زغال‌سنگ)':                {bg:'#ede7f6',badge:'#5e35b1',border:'#7e57c2'},
+  'گروه ۶ - طبقه دو فلزی و زغال‌سنگ':                          {bg:'#fff3e0',badge:'#e65100',border:'#ff9800'},
+  'غیره':                                                     {bg:'#eceff1',badge:'#546e7a',border:'#90a4ae'},
 };
 
 const MINE_SECTIONS = [
+  {title:'📁 گروه ماده معدنی (ماده ۳ آیین‌نامه اجرایی قانون معادن)', keys:[
+    ['دسته','گروه ماده معدنی'],
+  ]},
   {title:'🪪 مشخصات دارنده پروانه', keys:[
     ['نام_دارنده','نام دارنده / شرکت'],['نوع_شخصیت','نوع شخصیت'],['کد_ملی','کد ملی'],
     ['شماره_شناسنامه','شماره شناسنامه'],['تاریخ_تولد','تاریخ تولد'],['تلفن_همراه','تلفن همراه (بهره‌بردار)'],
@@ -3036,7 +3233,7 @@ const MINE_SECTIONS = [
   ]},
   {title:'📋 مشخصات پروانه', keys:[
     ['شماره_پروانه','شماره پروانه'],['تاریخ_پروانه','تاریخ پروانه'],['کد_کاداستر','کد کاداستر'],
-    ['نوع_پروانه','نوع پروانه'],['مدت_بهره_برداری','مدت بهره‌برداری (سال)'],['استان','استان'],['شهرستان','شهرستان'],
+    ['نوع_پروانه','نوع پروانه'],['مدت_بهره_برداری','مدت بهره‌برداری (سال)'],['استان','استان'],['شهرستان','شهرستان'],['بخش','بخش'],
   ]},
 ];
 
@@ -3328,6 +3525,43 @@ async function confirmDeleteArchived() {
   if(currentIdx >= 0) showMine(currentIdx);
 }
 
+// ── خروجی CSV سوابق چک‌لیست ایمنی (فقط دانلود، هیچ‌چیز حذف نمی‌شود) ────────
+function csvEscape(v) {
+  const s = String(v == null ? '' : v);
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+}
+async function exportChecklistCSV() {
+  const statusEl = document.getElementById('checklistExportStatus');
+  statusEl.textContent = '⏳ در حال دریافت داده‌ها...';
+  let q = sb.from('safety_checklists').select('*').eq('department', currentDept).order('shift_date');
+  const from = document.getElementById('checklistExportFrom').value;
+  const to = document.getElementById('checklistExportTo').value;
+  if(from) q = q.gte('shift_date', from);
+  if(to) q = q.lte('shift_date', to);
+  const {data, error} = await q;
+  if(error) { statusEl.textContent = '⚠️ خطا: ' + error.message; return; }
+  if(!data || !data.length) { statusEl.textContent = 'موردی برای این بازه یافت نشد'; return; }
+
+  const rows = [['نام معدن','تاریخ نوبت','نوع نوبت','وضعیت کلی','ثبت‌کننده','آیتم','وضعیت آیتم','توضیح آیتم','توضیحات کلی','تاریخ ثبت']];
+  data.forEach(c => {
+    const items = Array.isArray(c.items) && c.items.length ? c.items : [{item:'—', status:'—', note:''}];
+    items.forEach(it => {
+      rows.push([
+        c.mine_name, c.shift_date, c.shift_type, c.overall_status==='issues'?'دارای مشکل':'سالم',
+        c.submitted_by, it.item, it.status==='issue'?'مشکل دارد':'سالم', it.note||'',
+        c.notes||'', new Date(c.created_at).toLocaleString('fa-IR')
+      ]);
+    });
+  });
+  const csvContent = '\uFEFF' + rows.map(r => r.map(csvEscape).join(',')).join('\n');
+  const blob = new Blob([csvContent], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'چک‌لیست‌های‌ایمنی' + (from?'-از-'+from:'') + (to?'-تا-'+to:'') + '.csv';
+  a.click();
+  statusEl.textContent = '✅ ' + data.length + ' چک‌لیست (' + (rows.length-1) + ' ردیف آیتم) دانلود شد';
+}
+
 let incidentMineIdx = null;
 let incidentPhotos = []; // [{file}]
 
@@ -3544,30 +3778,63 @@ function renderEquipmentAdmin() {
   );
   if(!rows.length) { box.innerHTML = '<div style="color:#90a4ae;font-size:12px;text-align:center;padding:20px">موردی یافت نشد</div>'; return; }
   const statusMeta = {
-    pending: {label:'⏳ در انتظار بررسی', color:'#f57c00', bg:'#fff8e1'},
-    approved: {label:'✅ تایید‌شده', color:'#2e7d32', bg:'#e8f5e9'},
-    rejected: {label:'❌ رد‌شده', color:'#c62828', bg:'#ffebee'},
+    pending: {label:'⏳ در انتظار', color:'#f57c00'},
+    approved: {label:'✅ تایید‌شده', color:'#2e7d32'},
+    rejected: {label:'❌ رد‌شده', color:'#c62828'},
   };
-  box.innerHTML = rows.map(r => {
-    const sm = statusMeta[r.status] || statusMeta.pending;
-    const mapLink = (r.lat && r.lon) ? '<a href="#" onclick="showPhotoLocationMap('+r.lat+','+r.lon+',&quot;'+esc(r.mine_name||'').replace(/"/g,'&quot;')+'&quot;);return false" style="color:#1565c0;font-size:11.5px">📍 مشاهده لوکیشن عکس روی نقشه</a>' : '';
-    const boundaryNote = r.inside_boundary === false
-      ? '<span style="color:#c62828;font-weight:700">⚠️ خارج از محدوده ثبت‌شده معدن</span>'
-      : (r.inside_boundary === true ? '<span style="color:#2e7d32">✅ داخل محدوده معدن</span>' : '<span style="color:#90a4ae">محدوده معدن ثبت نشده</span>');
-    return '<div style="display:flex;gap:12px;flex-wrap:wrap;padding:12px 14px;margin-bottom:8px;border-radius:10px;background:'+sm.bg+'">'+
-      '<img src="'+esc(r.photo_url||'')+'" onclick="window.open(\''+esc(r.photo_url||'')+'\',\'_blank\')" style="width:90px;height:90px;object-fit:cover;border-radius:8px;cursor:pointer;flex-shrink:0">'+
-      '<div style="flex:1;min-width:200px;font-size:12px">'+
-        '<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px">'+
-          '<b style="color:#1a3a5c">⛏️ '+esc(r.mine_name)+' — '+esc(r.machine_type||'نامشخص')+(r.plate_no?' ('+esc(r.plate_no)+')':'')+'</b>'+
-          '<span style="color:'+sm.color+';font-weight:700">'+sm.label+'</span>'+
+
+  // گروه‌بندی بر اساس نام معدن — هر معدن یک بخش جدا با عنوان مشخص
+  const byMine = {};
+  rows.forEach(r => { (byMine[r.mine_name||'—'] = byMine[r.mine_name||'—'] || []).push(r); });
+
+  function photoColumn(label, list, mineName) {
+    if(!list.length) {
+      return '<div style="flex:1;min-width:130px"><div style="font-size:11px;color:#90a4ae;margin-bottom:4px">'+label+'</div><div style="font-size:11px;color:#cfd8dc">ثبت نشده</div></div>';
+    }
+    const thumbs = list.map(r => {
+      const sm = statusMeta[r.status] || statusMeta.pending;
+      const mapBtn = (r.lat && r.lon) ? '<button class="btn-sm" style="font-size:9.5px;padding:1px 5px" onclick="showPhotoLocationMap('+r.lat+','+r.lon+',&quot;'+esc(mineName).replace(/"/g,'&quot;')+'&quot;)">📍</button>' : '';
+      return '<div style="margin-left:8px;margin-bottom:8px;display:inline-block;vertical-align:top;text-align:center">'+
+        '<img src="'+esc(r.photo_url||'')+'" onclick="window.open(\''+esc(r.photo_url||'')+'\',\'_blank\')" style="width:72px;height:72px;object-fit:cover;border-radius:8px;cursor:pointer;border:2px solid '+sm.color+';display:block">'+
+        '<div style="font-size:9.5px;color:'+sm.color+';font-weight:700;margin-top:2px">'+sm.label+'</div>'+
+        '<div style="display:flex;gap:2px;justify-content:center;margin-top:2px;flex-wrap:wrap">'+
+          (r.status==='pending'||r.status==='rejected' ? '<button class="btn-sm" style="background:#e8f5e9;color:#2e7d32;font-size:9.5px;padding:1px 5px" onclick="approveEquipment('+r.id+')">✅</button>' : '')+
+          (r.status!=='rejected' ? '<button class="btn-sm" style="background:#ffebee;color:#c62828;font-size:9.5px;padding:1px 5px" onclick="rejectEquipment('+r.id+')">❌</button>' : '')+
+          mapBtn+
         '</div>'+
-        '<div style="color:#607d8b;margin-top:2px">ارسال‌کننده: '+esc(r.submitted_by||'—')+' | '+new Date(r.created_at).toLocaleString('fa-IR')+'</div>'+
-        '<div style="margin-top:4px">'+boundaryNote+'</div>'+
-        (mapLink ? '<div style="margin-top:4px">'+mapLink+'</div>' : '')+
-        (r.reject_reason ? '<div style="margin-top:4px;color:#c62828">دلیل رد: '+esc(r.reject_reason)+'</div>' : '')+
-        (r.status === 'pending' || r.status === 'rejected' ? '<button class="btn-sm" style="background:#e8f5e9;color:#2e7d32;margin-top:8px" onclick="approveEquipment('+r.id+')">✅ تایید</button>' : '')+
-        (r.status !== 'rejected' ? '<button class="btn-sm" style="background:#ffebee;color:#c62828;margin-top:8px;margin-right:6px" onclick="rejectEquipment('+r.id+')">❌ رد</button>' : '')+
-      '</div>'+
+        (r.reject_reason ? '<div style="font-size:9px;color:#c62828;max-width:80px">'+esc(r.reject_reason)+'</div>' : '')+
+      '</div>';
+    }).join('');
+    return '<div style="flex:1;min-width:180px"><div style="font-size:11px;color:#607d8b;margin-bottom:4px;font-weight:700">'+label+'</div><div>'+thumbs+'</div></div>';
+  }
+
+  box.innerHTML = Object.keys(byMine).sort().map(mineName => {
+    const mineRows = byMine[mineName];
+    // گروه‌بندی بر اساس دستگاه (device_key)؛ ردیف‌های قدیمی/عمومی بدون device_key هرکدام گروه جدای خودشان می‌شوند
+    const byDevice = {};
+    mineRows.forEach(r => {
+      const dk = r.device_key || ('__row_' + r.id);
+      (byDevice[dk] = byDevice[dk] || []).push(r);
+    });
+    const deviceCards = Object.values(byDevice).map(deviceRows => {
+      const overview = deviceRows.filter(r => r.photo_type === 'overview' || !r.photo_type);
+      const serial = deviceRows.filter(r => r.photo_type === 'serial');
+      const general = deviceRows.filter(r => r.photo_type === 'general');
+      const first = deviceRows[0];
+      const title = first.machine_type || 'دستگاه نامشخص';
+      return '<div style="background:#f8fafa;border-radius:10px;padding:12px 14px;margin-bottom:10px">'+
+        '<b style="color:#1a3a5c;font-size:13px">🚜 '+esc(title)+(first.plate_no?' — '+esc(first.plate_no):'')+'</b>'+
+        '<div style="color:#90a4ae;font-size:10.5px;margin-bottom:6px">ارسال‌کننده: '+esc(first.submitted_by||'—')+' | '+new Date(first.created_at).toLocaleDateString('fa-IR')+'</div>'+
+        '<div style="display:flex;gap:14px;flex-wrap:wrap">'+
+          photoColumn('📷 نمای دور', overview, mineName) +
+          photoColumn('🔢 شماره سریال', serial, mineName) +
+          (general.length ? photoColumn('🧰 سایر ماشین‌آلات', general, mineName) : '') +
+        '</div>'+
+      '</div>';
+    }).join('');
+    return '<div style="margin-bottom:20px">'+
+      '<div style="font-size:14.5px;font-weight:800;color:#00695c;border-bottom:2px solid #00695c;padding-bottom:6px;margin-bottom:10px">⛏️ '+esc(mineName)+' <span style="font-size:11px;color:#90a4ae;font-weight:400">('+mineRows.length+' عکس)</span></div>'+
+      deviceCards+
     '</div>';
   }).join('');
 }
@@ -3678,6 +3945,251 @@ async function renderIdentityAdmin() {
     '</div>';
   }).join('');
 }
+
+// ── گزارش‌های تکمیلی مسئولین فنی (آموزش/تولید/پرسنل/اقدام اصلاحی/نقشه سه‌ماهه) ──
+let suppCache = { checklist: [], training: [], production: [], personnel: [], corrective: [], quarterlymaps: [] };
+let suppActiveSub = 'checklist';
+
+async function loadSupplementaryAdmin() {
+  const box = document.getElementById('suppContentBox');
+  box.innerHTML = '<div class="loading">در حال بارگذاری...</div>';
+  const [ck, tr, pr, pe, co, qm] = await Promise.all([
+    sb.from('safety_checklists').select('*').eq('department', currentDept).order('created_at', {ascending:false}),
+    sb.from('safety_trainings').select('*').eq('department', currentDept).order('created_at', {ascending:false}),
+    sb.from('production_reports').select('*').eq('department', currentDept).order('created_at', {ascending:false}),
+    sb.from('mine_personnel').select('*').eq('department', currentDept).order('created_at', {ascending:false}),
+    sb.from('corrective_actions').select('*').eq('department', currentDept).order('created_at', {ascending:false}),
+    sb.from('quarterly_maps').select('*').eq('department', currentDept).order('created_at', {ascending:false}),
+  ]);
+  suppCache.checklist = ck.data || [];
+  suppCache.training = tr.data || [];
+  suppCache.production = pr.data || [];
+  suppCache.personnel = pe.data || [];
+  suppCache.corrective = co.data || [];
+  suppCache.quarterlymaps = qm.data || [];
+  renderSuppActive();
+}
+
+function switchSuppSub(sub) {
+  suppActiveSub = sub;
+  document.querySelectorAll('.supp-subtab').forEach(b => b.classList.toggle('active', b.dataset.sub === sub));
+  document.getElementById('suppCorrectiveExportBox').style.display = (sub === 'corrective') ? 'block' : 'none';
+  renderSuppActive();
+}
+
+function suppGroupByMine(rows) {
+  const g = {};
+  rows.forEach(r => { (g[r.mine_name || '—'] = g[r.mine_name || '—'] || []).push(r); });
+  return g;
+}
+function suppMineWrap(mineName, count, innerHtml) {
+  return '<div style="margin-bottom:18px"><div style="font-size:14px;font-weight:800;color:#00695c;border-bottom:2px solid #00695c;padding-bottom:5px;margin-bottom:8px">⛏️ '+esc(mineName)+' <span style="font-size:11px;color:#90a4ae;font-weight:400">('+count+' مورد)</span></div>'+innerHtml+'</div>';
+}
+
+function renderSuppActive() {
+  const box = document.getElementById('suppContentBox');
+  const mineQ = normalizeSearchText((document.getElementById('suppFilterMine').value||'').trim());
+  const filterFn = r => !mineQ || normalizeSearchText(r.mine_name||'').includes(mineQ);
+  const renderers = {
+    checklist: renderChecklistAdmin, training: renderTrainingAdmin, production: renderProductionAdmin, personnel: renderPersonnelAdmin,
+    corrective: renderCorrectiveAdmin, quarterlymaps: renderQuarterlyMapsAdmin,
+  };
+  box.innerHTML = renderers[suppActiveSub]((suppCache[suppActiveSub]||[]).filter(filterFn));
+}
+
+// ── مدیریت آیتم‌های چک‌لیست (افزودن/ویرایش/حذف/ترتیب) — برای هر سه نقش (مسئول فنی/ایمنی/بهداشت) ──
+let checklistItemsCache = [];
+let cimActiveRole = 'tech_officer';
+async function openChecklistItemsManager() {
+  document.getElementById('checklistItemsModal').classList.add('open');
+  document.getElementById('newChecklistItemText').value = '';
+  document.getElementById('newChecklistItemPhoto').checked = false;
+  await loadChecklistItems();
+}
+function closeChecklistItemsManager() { document.getElementById('checklistItemsModal').classList.remove('open'); }
+function switchCimRole(role) {
+  cimActiveRole = role;
+  document.querySelectorAll('.cim-role-tab').forEach(b => b.classList.toggle('active', b.dataset.role === role));
+  loadChecklistItems();
+}
+async function loadChecklistItems() {
+  const box = document.getElementById('checklistItemsList');
+  box.innerHTML = '<div class="loading">در حال بارگذاری...</div>';
+  const {data, error} = await sb.from('safety_checklist_items').select('*').eq('department', currentDept).eq('role', cimActiveRole).order('sort_order');
+  if(error) { box.innerHTML = '<div style="color:#c62828;font-size:12px">خطا در بارگذاری</div>'; return; }
+  checklistItemsCache = data || [];
+  renderChecklistItemsList();
+}
+function renderChecklistItemsList() {
+  const box = document.getElementById('checklistItemsList');
+  if(!checklistItemsCache.length) { box.innerHTML = '<div style="color:#90a4ae;font-size:12px;text-align:center;padding:12px">هنوز آیتمی ثبت نشده</div>'; return; }
+  box.innerHTML = checklistItemsCache.map((it, idx) =>
+    '<div style="display:flex;align-items:center;gap:6px;padding:7px 0;border-bottom:1px solid #eee;flex-wrap:wrap">'+
+      '<div style="display:flex;flex-direction:column;gap:2px">'+
+        '<button class="btn-sm" style="padding:1px 6px;font-size:10px" '+(idx===0?'disabled':'')+' onclick="moveChecklistItem('+it.id+',-1)">▲</button>'+
+        '<button class="btn-sm" style="padding:1px 6px;font-size:10px" '+(idx===checklistItemsCache.length-1?'disabled':'')+' onclick="moveChecklistItem('+it.id+',1)">▼</button>'+
+      '</div>'+
+      '<input type="text" value="'+esc(it.item_text)+'" style="flex:1;min-width:160px;font-size:12.5px;padding:6px 8px" onchange="editChecklistItemText('+it.id+',this.value)">'+
+      '<label style="display:flex;align-items:center;gap:3px;font-size:10.5px;color:#6a1b9a;white-space:nowrap">'+
+        '<input type="checkbox" '+(it.requires_photo?'checked':'')+' onchange="toggleChecklistItemPhoto('+it.id+',this.checked)"> 📷 نیاز به عکس'+
+      '</label>'+
+      '<label style="display:flex;align-items:center;gap:3px;font-size:11px;color:'+(it.active?'#2e7d32':'#90a4ae')+';white-space:nowrap">'+
+        '<input type="checkbox" '+(it.active?'checked':'')+' onchange="toggleChecklistItemActive('+it.id+',this.checked)"> فعال'+
+      '</label>'+
+      '<button class="btn-sm" style="background:#ffebee;color:#c62828;font-size:10px;padding:4px 8px" onclick="deleteChecklistItem('+it.id+')">🗑</button>'+
+    '</div>'
+  ).join('');
+}
+async function addChecklistItem() {
+  const input = document.getElementById('newChecklistItemText');
+  const text = input.value.trim();
+  if(!text) { showToast('⚠️ متن آیتم را وارد کنید'); return; }
+  const requiresPhoto = document.getElementById('newChecklistItemPhoto').checked;
+  const maxOrder = checklistItemsCache.reduce((m,it)=>Math.max(m,it.sort_order||0), 0);
+  const {error} = await sb.from('safety_checklist_items').insert([{department: currentDept, role: cimActiveRole, item_text: text, sort_order: maxOrder+1, active: true, requires_photo: requiresPhoto}]);
+  if(error) { showToast('⚠️ ' + error.message); return; }
+  input.value = '';
+  document.getElementById('newChecklistItemPhoto').checked = false;
+  showToast('✅ آیتم اضافه شد');
+  loadChecklistItems();
+}
+async function toggleChecklistItemPhoto(id, requiresPhoto) {
+  const {error} = await sb.from('safety_checklist_items').update({requires_photo: requiresPhoto}).eq('id', id);
+  if(error) { showToast('⚠️ ' + error.message); return; }
+  loadChecklistItems();
+}
+async function editChecklistItemText(id, newText) {
+  newText = newText.trim();
+  if(!newText) { showToast('⚠️ متن نمی‌تواند خالی باشد'); loadChecklistItems(); return; }
+  const {error} = await sb.from('safety_checklist_items').update({item_text: newText}).eq('id', id);
+  if(error) { showToast('⚠️ ' + error.message); return; }
+  showToast('✅ ذخیره شد');
+  loadChecklistItems();
+}
+async function toggleChecklistItemActive(id, active) {
+  const {error} = await sb.from('safety_checklist_items').update({active}).eq('id', id);
+  if(error) { showToast('⚠️ ' + error.message); return; }
+  loadChecklistItems();
+}
+async function deleteChecklistItem(id) {
+  if(!confirm('این آیتم برای همیشه حذف شود؟ (اگر فقط نمی‌خواهید موقتاً نشان داده شود، به‌جای حذف، «فعال» را خاموش کنید)')) return;
+  const {error} = await sb.from('safety_checklist_items').delete().eq('id', id);
+  if(error) { showToast('⚠️ ' + error.message); return; }
+  showToast('✅ حذف شد');
+  loadChecklistItems();
+}
+async function moveChecklistItem(id, dir) {
+  const idx = checklistItemsCache.findIndex(it => it.id === id);
+  const swapIdx = idx + dir;
+  if(idx === -1 || swapIdx < 0 || swapIdx >= checklistItemsCache.length) return;
+  const a = checklistItemsCache[idx], b = checklistItemsCache[swapIdx];
+  const aOrder = a.sort_order, bOrder = b.sort_order;
+  await Promise.all([
+    sb.from('safety_checklist_items').update({sort_order: bOrder}).eq('id', a.id),
+    sb.from('safety_checklist_items').update({sort_order: aOrder}).eq('id', b.id),
+  ]);
+  loadChecklistItems();
+}
+
+function renderChecklistAdmin(rows) {
+  if(!rows.length) return '<div style="color:#90a4ae;font-size:12px;text-align:center;padding:16px">موردی یافت نشد</div>';
+  const roleMeta = {
+    tech_officer: {l:'🦺 مسئول فنی', c:'#1565c0'},
+    safety_officer: {l:'🦺 مسئول ایمنی', c:'#b71c1c'},
+    health_officer: {l:'⚕️ بهداشت حرفه‌ای', c:'#2e7d32'},
+  };
+  const g = suppGroupByMine(rows);
+  return Object.keys(g).sort().map(mine => suppMineWrap(mine, g[mine].length, g[mine].map(c => {
+    const items = Array.isArray(c.items) ? c.items : [];
+    const issues = items.filter(i => i.status === 'issue');
+    const rm = roleMeta[c.submitter_role] || roleMeta.tech_officer;
+    const photos = items.filter(i => i.photo_url);
+    return '<div style="background:'+(c.overall_status==='issues'?'#fff8e1':'#e8f5e9')+';border-radius:8px;padding:10px 12px;margin-bottom:6px;font-size:12px">'+
+      '<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px"><b>نوبت '+esc(c.shift_type)+' — '+new Date(c.shift_date).toLocaleDateString('fa-IR')+'</b>'+
+        '<span style="color:'+(c.overall_status==='issues'?'#f57c00':'#2e7d32')+';font-weight:700">'+(c.overall_status==='issues'?'⚠️ '+issues.length+' مورد':'✅ سالم')+'</span></div>'+
+      '<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px;margin-top:2px">'+
+        '<span style="color:#90a4ae;font-size:10.5px">ثبت‌کننده: '+esc(c.submitted_by||'—')+'</span>'+
+        '<span style="color:'+rm.c+';font-size:10.5px;font-weight:700">'+rm.l+'</span>'+
+      '</div>'+
+      (c.inside_boundary===false ? '<div style="color:#c62828;font-size:10.5px;font-weight:700;margin-top:2px">⚠️ خارج از محدوده قانونی معدن ثبت شده</div>' : (c.inside_boundary===true ? '<div style="color:#2e7d32;font-size:10.5px;margin-top:2px">✅ داخل محدوده معدن</div>' : ''))+
+      (issues.length ? '<div style="margin-top:6px">'+issues.map(i => '<div style="color:#c62828;font-size:11px">⚠️ '+esc(i.item)+(i.note?' — '+esc(i.note):'')+'</div>').join('')+'</div>' : '')+
+      (photos.length ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'+photos.map(i =>
+        '<img src="'+esc(i.photo_url)+'" title="'+esc(i.item)+'" onclick="window.open(\''+esc(i.photo_url)+'\',\'_blank\')" style="width:56px;height:56px;object-fit:cover;border-radius:6px;cursor:pointer">'
+      ).join('')+'</div>' : '')+
+      (c.notes ? '<div style="color:#607d8b;font-size:11px;margin-top:4px">'+esc(c.notes)+'</div>' : '')+
+    '</div>';
+  }).join(''))).join('');
+}
+
+function renderTrainingAdmin(rows) {
+  if(!rows.length) return '<div style="color:#90a4ae;font-size:12px;text-align:center;padding:16px">موردی یافت نشد</div>';
+  const g = suppGroupByMine(rows);
+  return Object.keys(g).sort().map(mine => suppMineWrap(mine, g[mine].length, g[mine].map(t =>
+    '<div style="background:#f8fafa;border-radius:8px;padding:10px 12px;margin-bottom:6px;font-size:12px">'+
+      '<b>'+esc(t.topic)+'</b> <span style="color:#90a4ae">— '+new Date(t.training_date).toLocaleDateString('fa-IR')+'</span>'+
+      (t.trainer_name ? '<div style="color:#607d8b">مدرس: '+esc(t.trainer_name)+'</div>' : '')+
+      '<div style="color:#607d8b">تعداد شرکت‌کننده: '+(t.attendee_count||0)+'</div>'+
+      (t.attendee_names ? '<div style="color:#607d8b;font-size:11px">شرکت‌کنندگان: '+esc(t.attendee_names)+'</div>' : '')+
+      (t.notes ? '<div style="color:#607d8b;font-size:11px">'+esc(t.notes)+'</div>' : '')+
+      (t.photo_url ? '<img src="'+esc(t.photo_url)+'" onclick="window.open(\''+esc(t.photo_url)+'\',\'_blank\')" style="width:60px;height:60px;object-fit:cover;border-radius:6px;margin-top:6px;cursor:pointer">' : '')+
+    '</div>'
+  ).join(''))).join('');
+}
+
+function renderProductionAdmin(rows) {
+  if(!rows.length) return '<div style="color:#90a4ae;font-size:12px;text-align:center;padding:16px">موردی یافت نشد</div>';
+  const g = suppGroupByMine(rows);
+  return Object.keys(g).sort().map(mine => suppMineWrap(mine, g[mine].length,
+    '<table style="width:100%;border-collapse:collapse;font-size:12px"><tr style="color:#90a4ae;text-align:right"><th style="padding:4px">دوره</th><th>ماده</th><th>تناژ (تن)</th><th>عیار٪</th></tr>'+
+    g[mine].map(p => '<tr style="border-top:1px solid #eee"><td style="padding:4px">'+esc(p.period)+'</td><td>'+esc(p.material||'—')+'</td><td>'+(p.tonnage??'—')+'</td><td>'+(p.grade_percent??'—')+'</td></tr>').join('')+
+    '</table>'
+  )).join('');
+}
+
+function renderPersonnelAdmin(rows) {
+  if(!rows.length) return '<div style="color:#90a4ae;font-size:12px;text-align:center;padding:16px">موردی یافت نشد</div>';
+  const g = suppGroupByMine(rows);
+  return Object.keys(g).sort().map(mine => suppMineWrap(mine, g[mine].length, g[mine].map(p =>
+    '<div style="padding:6px 0;border-bottom:1px solid #eee;font-size:12px">'+
+      '<b>'+esc(p.full_name)+'</b>'+(p.role?' — '+esc(p.role):'')+(p.phone?' | '+esc(p.phone):'')+
+      '<div style="font-size:10px;color:'+(p.status==='active'?'#2e7d32':'#90a4ae')+'">'+(p.status==='active'?'✅ فعال':'⏸️ غیرفعال')+'</div>'+
+    '</div>'
+  ).join(''))).join('');
+}
+
+function renderCorrectiveAdmin(rows) {
+  if(!rows.length) return '<div style="color:#90a4ae;font-size:12px;text-align:center;padding:16px">موردی یافت نشد</div>';
+  const g = suppGroupByMine(rows);
+  const srcLabel = {equipment:'⚙️ ماشین‌آلات', incident:'🚨 حادثه', report:'📋 گزارش دوره‌ای', other:'❓ سایر'};
+  return Object.keys(g).sort().map(mine => suppMineWrap(mine, g[mine].length, g[mine].map(a =>
+    '<div style="background:'+(a.status==='open'?'#fff8e1':'#e8f5e9')+';border-radius:8px;padding:10px 12px;margin-bottom:6px;font-size:12px">'+
+      '<div style="display:flex;justify-content:space-between"><b>'+(srcLabel[a.source_type]||a.source_type)+'</b><span style="color:'+(a.status==='open'?'#f57c00':'#2e7d32')+';font-weight:700">'+(a.status==='open'?'⏳ باز':'✅ بسته‌شده')+'</span></div>'+
+      '<div style="margin-top:4px">'+esc(a.description)+'</div>'+
+      '<div style="color:#90a4ae;font-size:10.5px;margin-top:2px">'+new Date(a.created_at).toLocaleDateString('fa-IR')+(a.due_date?' | مهلت: '+a.due_date:'')+'</div>'+
+      (a.closed_note ? '<div style="color:#2e7d32;font-size:11px;margin-top:2px">یادداشت بسته‌شدن: '+esc(a.closed_note)+'</div>' : '')+
+      (a.status==='open' ? '<button class="btn-sm" style="background:#e8f5e9;color:#2e7d32;margin-top:6px;font-size:10.5px" onclick="adminCloseCorrective('+a.id+')">✅ بستن این مورد</button>' : '')+
+    '</div>'
+  ).join(''))).join('');
+}
+async function adminCloseCorrective(id) {
+  const note = prompt('توضیح کوتاه درباره‌ی رفع مشکل (اختیاری):') || '';
+  const {data:{user}} = await sb.auth.getUser();
+  const {error} = await sb.from('corrective_actions').update({status:'closed', closed_note: note||null, closed_at: new Date().toISOString(), closed_by: user?user.email:''}).eq('id', id);
+  if(error) { showToast('⚠️ ' + error.message); return; }
+  showToast('✅ بسته شد');
+  loadSupplementaryAdmin();
+}
+
+function renderQuarterlyMapsAdmin(rows) {
+  if(!rows.length) return '<div style="color:#90a4ae;font-size:12px;text-align:center;padding:16px">موردی یافت نشد</div>';
+  const g = suppGroupByMine(rows);
+  return Object.keys(g).sort().map(mine => suppMineWrap(mine, g[mine].length, g[mine].map(m =>
+    '<div style="background:#f8fafa;border-radius:8px;padding:10px 12px;margin-bottom:6px;font-size:12px;display:flex;justify-content:space-between;align-items:center">'+
+      '<div><b>'+esc(m.period)+'</b><div style="color:#90a4ae;font-size:10.5px">'+new Date(m.created_at).toLocaleDateString('fa-IR')+'</div>'+(m.notes?'<div style="color:#607d8b;font-size:11px">'+esc(m.notes)+'</div>':'')+'</div>'+
+      '<a href="'+esc(m.file_url)+'" target="_blank" style="color:#1565c0">📄 مشاهده فایل</a>'+
+    '</div>'
+  ).join(''))).join('');
+}
 async function refreshIdentityBadge() {
   const {count} = await sb.from('identity_verifications').select('id', {count:'exact', head:true}).eq('department', currentDept).eq('status','pending');
   const badge = document.getElementById('identityBadge');
@@ -3742,6 +4254,34 @@ function appLinkHint(key, membership, national) {
     fuel_system: 'درخواست سهمیه گازوئیل معدن',
   };
   return hints[key] || '';
+}
+
+// ── دوره‌ی تکرار احراز هویت مسئولین فنی — قابل تنظیم توسط سوپرادمین، از طریق public_settings
+// (همان جدولی که لینک‌های سامانه‌های بیرونی را نگه می‌دارد؛ خواندنش برای اپ مسئول فنی هم آزاد است)
+const ID_SETTINGS_DEFAULTS = { identity_reverify_interval_days: 30, identity_reverify_reminder_days: 5 };
+async function loadIdentitySettings() {
+  const {data} = await sb.from('public_settings').select('key,value').in('key', Object.keys(ID_SETTINGS_DEFAULTS));
+  const map = {};
+  (data||[]).forEach(r => { map[r.key] = r.value; });
+  document.getElementById('idReverifyDays').value = map.identity_reverify_interval_days || ID_SETTINGS_DEFAULTS.identity_reverify_interval_days;
+  document.getElementById('idReminderDays').value = map.identity_reverify_reminder_days || ID_SETTINGS_DEFAULTS.identity_reverify_reminder_days;
+}
+async function saveIdentitySettings() {
+  const statusEl = document.getElementById('idSettingsStatus');
+  const days = parseInt(document.getElementById('idReverifyDays').value);
+  const reminder = parseInt(document.getElementById('idReminderDays').value);
+  if(!days || days < 1) { showToast('⚠️ فاصله‌ی تکرار احراز هویت باید حداقل ۱ روز باشد'); return; }
+  if(!reminder || reminder < 1) { showToast('⚠️ روزهای هشدار باید حداقل ۱ باشد'); return; }
+  statusEl.textContent = 'در حال ذخیره...';
+  const {data:{user}} = await sb.auth.getUser();
+  const rows = [
+    {key:'identity_reverify_interval_days', value:String(days), updated_by: user?user.email:null},
+    {key:'identity_reverify_reminder_days', value:String(reminder), updated_by: user?user.email:null},
+  ];
+  const {error} = await sb.from('public_settings').upsert(rows, {onConflict:'key'});
+  if(error) { statusEl.textContent = ''; showToast('⚠️ خطا در ذخیره: ' + error.message); return; }
+  statusEl.textContent = '✅ ذخیره شد';
+  showToast('✅ تنظیمات احراز هویت ذخیره شد');
 }
 
 async function loadAppLinksForm() {
@@ -3898,7 +4438,7 @@ function updateTabGroupVisibility() {
 }
 
 function switchTab(t) {
-  const order = ['search','list','mapview','stats','fuel','corners','users','techreports','incidents','equipment','identity','dashboard','archive','links','audit'];
+  const order = ['search','list','mapview','stats','fuel','corners','legal','users','techreports','incidents','equipment','identity','supplementary','dashboard','archive','links','audit'];
   document.querySelectorAll('#tabsBar .tab').forEach((el)=>el.classList.remove('active'));
   const idx = order.indexOf(t);
   const visibleTabs = Array.from(document.querySelectorAll('#tabsBar .tab')).filter(el=>el.style.display!=='none');
@@ -3914,12 +4454,14 @@ function switchTab(t) {
   document.getElementById('panel-'+t).classList.add('active');
   if(t==='list') { renderList(); renderLicenseWarnings(); }
   if(t==='users') loadUsersList();
+  if(t==='legal') loadLegalAdmin();
   if(t==='techreports') loadTechReportsAdmin();
   if(t==='incidents') loadIncidentsAdmin();
   if(t==='equipment') loadEquipmentAdmin();
   if(t==='identity') loadIdentityAdmin();
+  if(t==='supplementary') loadSupplementaryAdmin();
   if(t==='dashboard') loadDashboard();
-  if(t==='links') loadAppLinksForm();
+  if(t==='links') { loadAppLinksForm(); loadIdentitySettings(); }
   if(t==='audit') loadAuditLog();
   if(t==='fuel') renderFuelSummary();
   if(t==='mapview') renderMapView();
@@ -4021,6 +4563,65 @@ function computeBoundaryAreaKm2(corners) {
   return Math.abs(area2) / 2 / 1e6; // km²
 }
 
+// ── تشخیص همپوشانی/نزدیکی بیش از حد حریم معادن مجاور ──────────────────
+// نکته‌ی مهم: تعیین رسمی «حریم» طبق آیین‌نامه اجرایی قانون معادن مورد‌به‌مورد توسط وزارت انجام می‌شود؛
+// این تابع فقط یک ابزار غربالگری اولیه است که فاصله‌ی واقعی بین محدوده‌های ثبت‌شده را حساب می‌کند
+// تا مواردی که به بررسی کارشناسی نیاز دارند زودتر شناسایی شوند، نه یک تصمیم نهایی حریم.
+function pointInPolygonXY(pt, poly) {
+  let inside = false;
+  for(let i=0, j=poly.length-1; i<poly.length; j=i++) {
+    const xi=poly[i][0], yi=poly[i][1], xj=poly[j][0], yj=poly[j][1];
+    const intersect = ((yi>pt[1]) !== (yj>pt[1])) && (pt[0] < (xj-xi)*(pt[1]-yi)/(yj-yi)+xi);
+    if(intersect) inside = !inside;
+  }
+  return inside;
+}
+function segmentsIntersectXY(p1,p2,p3,p4) {
+  function ccw(a,b,c){ return (c[1]-a[1])*(b[0]-a[0]) > (b[1]-a[1])*(c[0]-a[0]); }
+  return (ccw(p1,p3,p4) !== ccw(p2,p3,p4)) && (ccw(p1,p2,p3) !== ccw(p1,p2,p4));
+}
+function pointToSegmentDistXY(p, a, b) {
+  const dx=b[0]-a[0], dy=b[1]-a[1];
+  const len2 = dx*dx+dy*dy;
+  let t = len2 ? ((p[0]-a[0])*dx + (p[1]-a[1])*dy) / len2 : 0;
+  t = Math.max(0, Math.min(1, t));
+  const cx = a[0]+t*dx, cy = a[1]+t*dy;
+  return Math.hypot(p[0]-cx, p[1]-cy);
+}
+// حداقل فاصله بین دو چندضلعی به متر (۰ یعنی همپوشانی یا تماس دارند)؛ ورودی‌ها آرایه‌ای از [x,y] به متر هستند
+function minPolygonDistanceXY(polyA, polyB) {
+  for(let i=0;i<polyA.length;i++) for(let j=0;j<polyB.length;j++) {
+    if(segmentsIntersectXY(polyA[i], polyA[(i+1)%polyA.length], polyB[j], polyB[(j+1)%polyB.length])) return 0;
+  }
+  if(pointInPolygonXY(polyA[0], polyB) || pointInPolygonXY(polyB[0], polyA)) return 0;
+  let minD = Infinity;
+  polyA.forEach(p => polyB.forEach((a,i) => { minD = Math.min(minD, pointToSegmentDistXY(p, a, polyB[(i+1)%polyB.length])); }));
+  polyB.forEach(p => polyA.forEach((a,i) => { minD = Math.min(minD, pointToSegmentDistXY(p, a, polyA[(i+1)%polyA.length])); }));
+  return minD;
+}
+// فهرست جفت‌معدن‌هایی که فاصله‌ی محدوده‌شان کمتر از آستانه‌ی داده‌شده (متر) است، به‌همراه فاصله‌ی دقیق
+function findBoundaryProximityIssues(mineList, thresholdMeters) {
+  const withCorners = mineList.map((m,i) => ({m, i, corners: getMineCorners(m)})).filter(x => x.corners.length >= 3);
+  const results = [];
+  for(let a=0; a<withCorners.length; a++) {
+    for(let b=a+1; b<withCorners.length; b++) {
+      const A = withCorners[a], B = withCorners[b];
+      // فقط اگر مرکز دو محدوده در فاصله‌ی معقولی (کمتر از ۵ کیلومتر) باشند بررسی کن — برای کارایی بهتر
+      const latRef = (A.corners.reduce((s,c)=>s+c[0],0)/A.corners.length + B.corners.reduce((s,c)=>s+c[0],0)/B.corners.length) / 2;
+      const mPerDegLat = 111320, mPerDegLon = 111320*Math.cos(latRef*Math.PI/180);
+      const toXY = pts => pts.map(c => [c[1]*mPerDegLon, c[0]*mPerDegLat]);
+      const polyA = toXY(A.corners), polyB = toXY(B.corners);
+      const cA = polyA.reduce((s,p)=>[s[0]+p[0]/polyA.length, s[1]+p[1]/polyA.length],[0,0]);
+      const cB = polyB.reduce((s,p)=>[s[0]+p[0]/polyB.length, s[1]+p[1]/polyB.length],[0,0]);
+      if(Math.hypot(cA[0]-cB[0], cA[1]-cB[1]) > 5000 + thresholdMeters) continue;
+      const dist = minPolygonDistanceXY(polyA, polyB);
+      if(dist < thresholdMeters) results.push({mineA: A.m, iA: A.i, mineB: B.m, iB: B.i, distanceM: Math.round(dist)});
+    }
+  }
+  results.sort((x,y) => x.distanceM - y.distanceM);
+  return results;
+}
+
 // HTML مقایسه‌ی مساحت محاسبه‌شده از گوشه‌ها با مساحت مندرج در پروانه (فیلد «مساحت») —
 // برای کمک به تشخیص اختلاف احتمالی بین محدوده‌ی واقعی ثبت‌شده و آنچه در پروانه آمده
 function buildBoundaryAreaCompareHTML(m) {
@@ -4119,6 +4720,14 @@ function showMine(idx) {
       const val=m[k]||'';
       if(editMode && isAdmin()) {
         const isDateField = /تاریخ/.test(k);
+        if(k === 'دسته') {
+          const catOptions = Object.keys(catColors).map(c=>'<option value="'+esc(c)+'"'+(c===val?' selected':'')+'>'+esc(c)+'</option>').join('');
+          fHTML+='<div class="field-item" style="background:'+c.bg+'">'+
+            '<div class="field-edit-lbl">'+l+'</div>'+
+            '<select class="field-edit-inp" data-key="'+k+'"><option value="">— انتخاب نشده —</option>'+catOptions+'</select>'+
+            '</div>';
+          return;
+        }
         fHTML+='<div class="field-item" style="background:'+c.bg+'">'+
           '<button class="field-del-btn" onclick="clearField(\''+k+'\')" title="پاک کردن">🗑</button>'+
           '<div class="field-edit-lbl">'+l+'</div>'+
@@ -4561,16 +5170,25 @@ function renderList() {
   const prevCat = catSelect.value;
   catSelect.innerHTML = '<option value="">همه دسته‌ها</option>' + cats.map(c=>'<option value="'+esc(c)+'"'+(c===prevCat?' selected':'')+'>'+esc(c)+'</option>').join('');
 
+  // پر کردن گزینه‌های «بخش» (تقسیمات اداری داخل شهرستان) به‌صورت پویا از مقادیر موجود در داده‌های همین بخش (department)
+  const bakhshSelect = document.getElementById('listFilterBakhsh');
+  const bakhshList = [...new Set(mines.map(m=>m['بخش']).filter(Boolean))].sort();
+  const prevBakhsh = bakhshSelect.value;
+  bakhshSelect.innerHTML = '<option value="">همه بخش‌ها</option>' + bakhshList.map(b=>'<option value="'+esc(b)+'"'+(b===prevBakhsh?' selected':'')+'>'+esc(b)+'</option>').join('');
+  bakhshSelect.style.display = bakhshList.length ? '' : 'none'; // اگر هیچ رکوردی «بخش» ثبت‌شده نداشت، فیلتر خالی نمایش داده نمی‌شود
+
   const catFilter = catSelect.value;
+  const bakhshFilter = bakhshSelect.value;
   const onlyExpiring = document.getElementById('listFilterExpiring').checked;
   const onlyNoCoords = document.getElementById('listFilterNoCoords').checked;
 
   let rows = mines.map((m,i)=>({m,i}));
   if(catFilter) rows = rows.filter(r => r.m['دسته'] === catFilter);
+  if(bakhshFilter) rows = rows.filter(r => (r.m['بخش']||'').trim() === bakhshFilter);
   if(onlyExpiring) rows = rows.filter(r => { const info = licenseExpiryInfo(r.m); return info && info.monthsLeft <= 3; });
   if(onlyNoCoords) rows = rows.filter(r => !(r.m._lat && r.m._lon));
 
-  document.getElementById('listFilterCount').textContent = (catFilter||onlyExpiring||onlyNoCoords) ? (rows.length+' از '+mines.length+' مورد') : '';
+  document.getElementById('listFilterCount').textContent = (catFilter||bakhshFilter||onlyExpiring||onlyNoCoords) ? (rows.length+' از '+mines.length+' مورد') : '';
 
   document.getElementById('mineList').innerHTML = rows.length ? rows.map(({m,i})=>{
     const c=catColors[m['دسته']]||(catColors['غیره']||{bg:'#eceff1',badge:'#546e7a',border:'#90a4ae'});
@@ -4598,6 +5216,46 @@ function exportJSON() {
   const b=new Blob([JSON.stringify(mines,null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='معادن_قروه.json';a.click();
 }
+// خروجی گزارش تخلفات/موارد نامطلوب ثبت‌شده، آماده برای ارسال رسمی («رونوشت به») به سازمان نظام مهندسی معدن استان.
+// این گزارش صرفاً موارد ثبت‌شده در بازدید/چک‌لیست‌های میدانی صمت است؛ تشخیص نهایی تخلف مهندسی و اقدام انضباطی
+// بر عهده‌ی سازمان نظام مهندسی استان طبق آیین‌نامه اجرایی مربوطه است.
+async function exportCorrectiveActionsForEngineeringOrg() {
+  const filter = (document.getElementById('suppFilterMine').value||'').trim();
+  let rows = suppCache.corrective || [];
+  if(filter) rows = rows.filter(r => (r.mine_name||'').includes(filter));
+  if(!rows.length) { showToast('⚠️ موردی برای خروجی گرفتن یافت نشد'); return; }
+
+  showToast('⏳ در حال آماده‌سازی گزارش...');
+  const {data: officers} = await sb.from('user_roles').select('full_name, email, license_no, membership_no, role, assigned_mines').in('role', ['tech_officer','safety_officer','health_officer']);
+  const roleFa = {tech_officer:'مسئول فنی', safety_officer:'مسئول ایمنی', health_officer:'مسئول بهداشت حرفه‌ای'};
+  function findOfficer(mineName) {
+    const list = (officers||[]).filter(o => (o.assigned_mines||[]).includes(mineName));
+    if(!list.length) return null;
+    return list.map(o => (o.full_name||o.email)+' ('+roleFa[o.role]+' — پروانه/عضویت: '+(o.license_no||o.membership_no||'ثبت‌نشده')+')').join(' | ');
+  }
+
+  const headers = ['ردیف','نام معدن','تاریخ ثبت','منبع','شرح مورد','مسئول(ین) فنی/ایمنی/بهداشت مرتبط با معدن','وضعیت','تاریخ بسته‌شدن','توضیح بسته‌شدن'];
+  const sourceFa = {checklist:'چک‌لیست نوبت‌کاری', inspection:'بازدید بازرس', other:'سایر'};
+  const statusFa = {open:'باز', closed:'بسته‌شده'};
+  const csvRows = [headers.join(',')];
+  rows.forEach((r,idx) => {
+    const cells = [
+      idx+1, r.mine_name||'', r.created_at ? new Date(r.created_at).toLocaleDateString('fa-IR') : '',
+      sourceFa[r.source_type]||r.source_type||'', r.description||'',
+      findOfficer(r.mine_name) || 'مشخص نشد',
+      statusFa[r.status]||r.status||'', r.closed_at ? new Date(r.closed_at).toLocaleDateString('fa-IR') : '',
+      r.closed_note||''
+    ];
+    csvRows.push(cells.map(c => '"'+String(c).replace(/"/g,'""')+'"').join(','));
+  });
+  const b = new Blob(['\uFEFF'+csvRows.join('\n')], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(b);
+  a.download = 'گزارش_موارد_ثبت‌شده_برای_نظام‌مهندسی_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+  showToast('✅ فایل دانلود شد — '+rows.length+' مورد');
+}
+
 function exportCSV() {
   const keys=[...new Set(mines.flatMap(m=>Object.keys(m)))];
   const rows=[keys.join(','),...mines.map(m=>keys.map(k=>'"'+String(m[k]||'').replace(/"/g,'""')+'"').join(','))];
@@ -4663,52 +5321,495 @@ function openImageLightbox(src) {
 }
 function closeImageLightbox() { document.getElementById('imgLightbox').style.display = 'none'; }
 
-// ── CORNERS (محدوده) BULK IMPORT ──────────────────────────
-let parsedCornersRows = [];
-let parsedCornersHeaders = [];
+// ── CORNERS (محدوده) AUTOMATIC IMPORT از فایل «مشخصات محدوده» سامانه کاداستر ──
+// این فایل (Rpt_MineInfo و مشابه آن) قالب ثابتی دارد: ردیفی با متن «راس» عنوان ستون‌
+// شماره گوشه است و درست یک ردیف بالاتر، دو ستون با برچسب «DD» مقادیر طول/عرض جغرافیایی
+// به درجه اعشاری (به ترتیب Long سپس Lat) را نگه می‌دارند. کد شناسایی محدوده هم از متن
+// توضیحات («... با کد شناسایی 1250812 ...») استخراج می‌شود. به همین دلیل نیازی به این‌که
+// کاربر ستون‌ها را دستی معرفی کند نیست.
+let pendingBoundaryUnmatched = []; // موارد فایل‌هایی که تطبیق خودکار برایشان پیدا نشد
 
-function handleCornersFile(e) {
-  if(e.target.files.length) processCornersFile(e.target.files[0]);
+function handleBoundaryReportFile(e) {
+  const files = Array.from(e.target.files || []);
+  e.target.value = '';
+  if(files.length) processBoundaryReportFiles(files);
 }
 
-async function processCornersFile(file) {
-  const ext = file.name.split('.').pop().toLowerCase();
-  document.getElementById('cornersStatus').textContent = 'در حال بارگذاری ابزار خواندن فایل...';
-  if(ext === 'csv') {
-    await ensurePapaParse();
-    document.getElementById('cornersStatus').textContent = 'در حال خواندن فایل ' + file.name + ' ...';
-    Papa.parse(file, { header:true, skipEmptyLines:true, complete: (res)=>{
-      parsedCornersRows = res.data;
-      parsedCornersHeaders = res.meta.fields;
-      openCornersMapModal();
-    }});
-  } else {
-    await ensureXLSX();
-    document.getElementById('cornersStatus').textContent = 'در حال خواندن فایل ' + file.name + ' ...';
-    const reader = new FileReader();
-    reader.onload = (e2) => {
-      const wb = XLSX.read(e2.target.result, {type:'array'});
+async function processBoundaryReportFiles(files) {
+  await ensureXLSX();
+  document.getElementById('cornersStatus').textContent = 'در حال خواندن ' + files.length + ' فایل ...';
+  document.getElementById('cornersSummary').innerHTML = '';
+  const results = [];
+  for(const file of files) {
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, {type:'array'});
       const ws = wb.Sheets[wb.SheetNames[0]];
-      const json = XLSX.utils.sheet_to_json(ws, {defval:''});
-      parsedCornersRows = json;
-      parsedCornersHeaders = json.length ? Object.keys(json[0]) : [];
-      openCornersMapModal();
-    };
-    reader.readAsArrayBuffer(file);
+      const grid = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+      const parsed = parseBoundaryReportGrid(grid);
+      if(!parsed) results.push({fileName:file.name, error:'⚠️ قالب فایل شناخته نشد (ستون «راس» یا مقادیر DD پیدا نشد)'});
+      else results.push(Object.assign({fileName:file.name}, parsed));
+    } catch(err) {
+      results.push({fileName:file.name, error:'⚠️ خطا در خواندن فایل'});
+    }
+  }
+  document.getElementById('cornersStatus').textContent = '';
+  await applyBoundaryReportResults(results);
+}
+
+// خواندن آرایه دو‌بعدی یک شیت و استخراج گوشه‌های محدوده + کد شناسایی/مساحت، بدون فرض هیچ نگاشت دستی
+function parseBoundaryReportGrid(grid) {
+  let headerRow = -1, cornerCol = -1;
+  for(let r = 0; r < grid.length && headerRow < 0; r++) {
+    const row = grid[r] || [];
+    for(let c = 0; c < row.length; c++) {
+      if(String(row[c]).trim() === 'راس') { headerRow = r; cornerCol = c; break; }
+    }
+  }
+  if(headerRow < 0) return null;
+
+  const groupRow = grid[headerRow - 1] || [];
+  const ddCols = [];
+  groupRow.forEach((v, c) => { if(String(v).trim().toUpperCase() === 'DD') ddCols.push(c); });
+  if(ddCols.length < 2) return null;
+  ddCols.sort((a,b)=>a-b);
+  const lonCol = ddCols[0], latCol = ddCols[1];
+
+  const points = [];
+  for(let r = headerRow + 1; r < grid.length; r++) {
+    const row = grid[r] || [];
+    const label = String(row[cornerCol] ?? '').trim();
+    const lon = parseFloat(row[lonCol]), lat = parseFloat(row[latCol]);
+    if(!label && (isNaN(lon) || isNaN(lat))) break;
+    if(isNaN(lon) || isNaN(lat)) continue;
+    points.push({lat, lon});
+  }
+  if(!points.length) return null;
+
+  const fullText = grid.map(row => (row||[]).join(' ')).join(' \n ');
+  const codeMatch = fullText.match(/کد\s*شناسایی\s+(\d+)/);
+  const areaMatch = fullText.match(/مساحت\s+([\d.]+)\s*کیلومتر/);
+  return { codeId: codeMatch ? codeMatch[1] : '', area: areaMatch ? areaMatch[1] : '', points };
+}
+
+function findMineByBoundaryCode(codeId) {
+  if(!codeId) return -1;
+  let idx = mines.findIndex(m => String(m['کد_کاداستر']||'').trim() === codeId);
+  if(idx < 0) idx = mines.findIndex(m => String(m['شماره_پروانه']||'').trim() === codeId);
+  return idx;
+}
+
+const BOUNDARY_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+function applyCornersToMine(mine, points, area) {
+  BOUNDARY_LETTERS.forEach(l => { delete mine['طول_'+l]; delete mine['عرض_'+l]; });
+  points.forEach((p,i) => {
+    const letter = BOUNDARY_LETTERS[i] || ('#'+(i+1));
+    mine['عرض_'+letter] = decToDMS(p.lat);
+    mine['طول_'+letter] = decToDMS(p.lon);
+  });
+  mine['تعداد_ضلع'] = String(points.length);
+  mine['_lat'] = points.reduce((s,p)=>s+p.lat,0) / points.length;
+  mine['_lon'] = points.reduce((s,p)=>s+p.lon,0) / points.length;
+  if(area && !mine['مساحت']) mine['مساحت'] = area;
+}
+
+async function applyBoundaryReportResults(results) {
+  const touchedIndices = [];
+  const okList = [];
+  pendingBoundaryUnmatched = [];
+
+  results.forEach(r => {
+    if(r.error) { pendingBoundaryUnmatched.push(r); return; }
+    const idx = findMineByBoundaryCode(r.codeId);
+    if(idx < 0) { pendingBoundaryUnmatched.push(r); return; }
+    applyCornersToMine(mines[idx], r.points, r.area);
+    if(!mines[idx]['کد_کاداستر'] && r.codeId) mines[idx]['کد_کاداستر'] = r.codeId;
+    touchedIndices.push(idx);
+    okList.push(r.fileName + ' → ' + esc(mines[idx]['نام_معدن']||mines[idx]['نام_دارنده']||('کد '+r.codeId)));
+  });
+
+  if(okList.length) {
+    document.getElementById('cornersSummary').innerHTML =
+      '<div style="color:#fff;font-size:13px;text-align:center;margin-bottom:8px">✅ '+okList.length+' فایل خودکار تطبیق شد:<br>'+okList.join('<br>')+'</div>';
+  }
+
+  if(touchedIndices.length) {
+    const {data:{user}} = await sb.auth.getUser();
+    await saveMineRows(touchedIndices, user ? user.email : '');
+    showToast('✅ مختصات '+touchedIndices.length+' معدن ذخیره شد');
+    if(currentIdx >= 0 && touchedIndices.includes(currentIdx)) showMine(currentIdx);
+  }
+
+  if(pendingBoundaryUnmatched.length) {
+    openBoundaryResolveModal();
+  } else if(!touchedIndices.length) {
+    showToast('⚠️ هیچ فایلی پردازش نشد');
   }
 }
 
-function openCornersMapModal() {
-  if(!parsedCornersHeaders.length){ showToast('⚠️ ستونی در فایل یافت نشد'); return; }
-  const ids = ['mapCornersLicenseCol','mapCornersNameCol','mapCornersOrderCol','mapCornersLatCol','mapCornersLonCol'];
-  ids.forEach(id=>{
-    const sel = document.getElementById(id);
-    sel.innerHTML = '<option value="">— انتخاب کنید —</option>' + parsedCornersHeaders.map(h=>'<option value="'+h+'">'+h+'</option>').join('');
+function openBoundaryResolveModal() {
+  const options = '<option value="">— انتخاب معدن —</option>' +
+    mines.map((m,i)=>'<option value="'+i+'">'+esc((m['نام_معدن']||m['نام_دارنده']||'بدون نام')+' — '+(m['شماره_پروانه']||m['کد_کاداستر']||'—'))+'</option>').join('');
+  document.getElementById('boundaryUnmatchedRows').innerHTML = pendingBoundaryUnmatched.map((r,i) =>
+    '<div style="margin-bottom:10px;border-bottom:1px solid #eceff1;padding-bottom:8px">'+
+      '<div style="font-size:12px;font-weight:700;color:#1a3a5c">'+esc(r.fileName)+'</div>'+
+      '<div style="font-size:11px;color:#90a4ae;margin-bottom:4px">'+(r.error ? r.error : (r.codeId ? 'کد شناسایی: '+esc(r.codeId)+' — معدنی با این کد پیدا نشد' : 'کد شناسایی در فایل یافت نشد'))+'</div>'+
+      (r.error ? '' : '<select id="boundaryResolveSel'+i+'">'+options+'</select>')+
+    '</div>'
+  ).join('');
+  document.getElementById('boundaryUnmatchedModal').classList.add('open');
+}
+function closeBoundaryResolveModal() { document.getElementById('boundaryUnmatchedModal').classList.remove('open'); }
+
+async function confirmBoundaryResolve() {
+  const touchedIndices = [];
+  pendingBoundaryUnmatched.forEach((r,i) => {
+    if(r.error) return;
+    const sel = document.getElementById('boundaryResolveSel'+i);
+    const idx = sel ? parseInt(sel.value) : NaN;
+    if(isNaN(idx) || !mines[idx]) return;
+    applyCornersToMine(mines[idx], r.points, r.area);
+    if(!mines[idx]['کد_کاداستر'] && r.codeId) mines[idx]['کد_کاداستر'] = r.codeId;
+    touchedIndices.push(idx);
   });
-  document.getElementById('cornersMapModal').classList.add('open');
+  closeBoundaryResolveModal();
+  if(touchedIndices.length) {
+    const {data:{user}} = await sb.auth.getUser();
+    await saveMineRows(touchedIndices, user ? user.email : '');
+    showToast('✅ مختصات '+touchedIndices.length+' معدن ذخیره شد');
+    if(currentIdx >= 0 && touchedIndices.includes(currentIdx)) showMine(currentIdx);
+  } else {
+    showToast('⚠️ هیچ معدنی انتخاب نشد');
+  }
 }
 
-function closeCornersMapModal() { document.getElementById('cornersMapModal').classList.remove('open'); }
+// ── الزامات قانونی: حقوق دولتی (رویالتی)، تضمین مالی دوره‌ای، حقوق کاشف، اعتبار پروانه مسئول فنی ──
+// جدول‌های royalty_records / financial_guarantees / discoverer_rights_payments از قبل در Supabase ساخته شده‌اند
+// (با RLS مشابه سایر جدول‌های مدیریتی) — این بخش فقط رابط کاربری آن‌ها را می‌سازد.
+let legalCache = { royalty: [], guarantee: [], kashef: [], reclamation: [], transfer: [], disqualification: [] };
+let boundaryProximityThresholdM = 200; // آستانه‌ی پیش‌فرض غربالگری حریم (متر) — قابل تغییر از داشبورد؛ عدد رسمی حریم را وزارت مورد‌به‌مورد تعیین می‌کند
+let legalDigestItems = []; // آخرین فهرست الزامات قانونی معوق، محاسبه‌شده در loadDashboard — برای دکمه‌ی ارسال هشدار
+let legalActiveSub = 'royalty';
+let legalEditId = null;
+const LEGAL_TABLES = { royalty: 'royalty_records', guarantee: 'financial_guarantees', kashef: 'discoverer_rights_payments', reclamation: 'environmental_reclamation', transfer: 'license_transfers', disqualification: 'disqualification_cases' };
+const LEGAL_TITLES = { royalty: '💰 حقوق دولتی (رویالتی)', guarantee: '🏦 تضمین مالی', kashef: '👤 حقوق کاشف', reclamation: '🌱 بازسازی محیط زیست', transfer: '🔄 انتقال پروانه', disqualification: '⚠️ سلب صلاحیت' };
+
+function numOrNull(v) { const n = parseFloat(v); return isNaN(n) ? null : n; }
+function fmtDate(d) { return d ? new Date(d).toLocaleDateString('fa-IR') : '—'; }
+
+// وضعیت نزدیک‌بودن یک تاریخ میلادی (YYYY-MM-DD) به امروز — برای هشدارهایی مثل تعدیل تضمین یا اعتبار پروانه
+function simpleDateStatus(dateStr, warnDays) {
+  if(!dateStr) return null;
+  const d = new Date(dateStr + 'T00:00:00');
+  if(isNaN(d.getTime())) return null;
+  const daysLeft = Math.round((d.getTime() - Date.now()) / 86400000);
+  return { daysLeft, expired: daysLeft < 0, soon: daysLeft >= 0 && daysLeft <= (warnDays||60) };
+}
+
+function techLicenseExpiryBadge(dateStr) {
+  if(!dateStr) return '<span style="background:#eceff1;color:#607d8b;border-radius:10px;padding:2px 9px;font-size:11px;font-weight:700">تاریخ انقضا ثبت نشده</span>';
+  const s = simpleDateStatus(dateStr, 60);
+  if(!s) return '—';
+  if(s.expired) return '<span style="background:#ffebee;color:#c62828;border-radius:10px;padding:2px 9px;font-size:11px;font-weight:700">⏰ منقضی شده ('+fmtDate(dateStr)+')</span>';
+  if(s.soon) return '<span style="background:#fff3e0;color:#e65100;border-radius:10px;padding:2px 9px;font-size:11px;font-weight:700">⚠️ '+s.daysLeft+' روز مانده تا انقضا</span>';
+  return '<span style="background:#e8f5e9;color:#2e7d32;border-radius:10px;padding:2px 9px;font-size:11px;font-weight:700">✅ معتبر تا '+fmtDate(dateStr)+'</span>';
+}
+
+async function loadLegalAdmin() {
+  const box = document.getElementById('legalContentBox');
+  box.innerHTML = '<div class="loading">در حال بارگذاری...</div>';
+  const [ro, gu, ka, rc, tr, dq] = await Promise.all([
+    sb.from('royalty_records').select('*').eq('department', currentDept).order('created_at', {ascending:false}),
+    sb.from('financial_guarantees').select('*').eq('department', currentDept).order('created_at', {ascending:false}),
+    sb.from('discoverer_rights_payments').select('*').eq('department', currentDept).order('created_at', {ascending:false}),
+    sb.from('environmental_reclamation').select('*').eq('department', currentDept).order('created_at', {ascending:false}),
+    sb.from('license_transfers').select('*').eq('department', currentDept).order('created_at', {ascending:false}),
+    sb.from('disqualification_cases').select('*').eq('department', currentDept).order('created_at', {ascending:false}),
+  ]);
+  legalCache.royalty = ro.data || [];
+  legalCache.guarantee = gu.data || [];
+  legalCache.kashef = ka.data || [];
+  legalCache.reclamation = rc.data || [];
+  legalCache.transfer = tr.data || [];
+  legalCache.disqualification = dq.data || [];
+  // اگر ادمین محدوده جغرافیایی خاصی دارد، فقط رکوردهای معادن همان محدوده را نگه دار
+  if(myAssignedProvince || myAssignedCounty) {
+    const scopedNames = new Set(mines.map(m => m['نام_معدن']));
+    ['royalty','guarantee','kashef','reclamation','transfer','disqualification'].forEach(k => {
+      legalCache[k] = legalCache[k].filter(r => scopedNames.has(r.mine_name));
+    });
+  }
+  renderLegalActive();
+}
+
+function switchLegalSub(sub) {
+  legalActiveSub = sub;
+  document.querySelectorAll('.legal-subtab').forEach(b => b.classList.toggle('active', b.dataset.sub === sub));
+  renderLegalActive();
+}
+
+const LEGAL_STATUS_META = {
+  pending:  {l:'در انتظار', c:'#e65100', bg:'#fff3e0'},
+  partial:  {l:'پرداخت جزئی', c:'#f57f17', bg:'#fff8e1'},
+  paid:     {l:'پرداخت‌شده', c:'#2e7d32', bg:'#e8f5e9'},
+  overdue:  {l:'معوق', c:'#c62828', bg:'#ffebee'},
+  active:   {l:'فعال', c:'#2e7d32', bg:'#e8f5e9'},
+  expired:  {l:'منقضی', c:'#c62828', bg:'#ffebee'},
+  released: {l:'مسترد شده', c:'#5e35b1', bg:'#ede7f6'},
+  reported: {l:'پرداخت و اعلام به وزارت شده', c:'#2e7d32', bg:'#e8f5e9'},
+  not_submitted: {l:'ثبت نشده', c:'#c62828', bg:'#ffebee'},
+  pending_approval: {l:'در انتظار تایید', c:'#e65100', bg:'#fff3e0'},
+  approved: {l:'تاییدشده', c:'#2e7d32', bg:'#e8f5e9'},
+  not_started: {l:'شروع نشده', c:'#c62828', bg:'#ffebee'},
+  in_progress: {l:'در حال اجرا', c:'#e65100', bg:'#fff3e0'},
+  completed: {l:'تکمیل‌شده', c:'#2e7d32', bg:'#e8f5e9'},
+  // گردش‌کار انتقال پروانه (ماده ۴۷ آیین‌نامه)
+  submitted: {l:'ثبت درخواست', c:'#607d8b', bg:'#eceff1'},
+  clearance_pending: {l:'در انتظار مفاصا حساب', c:'#e65100', bg:'#fff3e0'},
+  review: {l:'بررسی توان فنی/مالی', c:'#1565c0', bg:'#e3f2fd'},
+  transfer_approved: {l:'موافقت شده — در انتظار ظهرنویسی', c:'#2e7d32', bg:'#e8f5e9'},
+  finalized: {l:'ظهرنویسی و نهایی شد', c:'#2e7d32', bg:'#e8f5e9'},
+  rejected: {l:'رد شد', c:'#c62828', bg:'#ffebee'},
+  // گردش‌کار سلب صلاحیت (ماده ۲۰ قانون معادن)
+  warned: {l:'اخطار صادر شد', c:'#e65100', bg:'#fff3e0'},
+  deadline_passed: {l:'مهلت رفع تخلف گذشته', c:'#c62828', bg:'#ffebee'},
+  committee_review: {l:'در دست بررسی کمیسیون ماده ۲۰', c:'#1565c0', bg:'#e3f2fd'},
+  disqualified: {l:'سلب صلاحیت شد', c:'#c62828', bg:'#ffebee'},
+  resolved: {l:'رفع تخلف — پرونده بسته شد', c:'#2e7d32', bg:'#e8f5e9'},
+};
+function legalStatusBadge(status) {
+  const s = LEGAL_STATUS_META[status] || {l:status||'—', c:'#607d8b', bg:'#eceff1'};
+  return '<span style="background:'+s.bg+';color:'+s.c+';border-radius:10px;padding:2px 9px;font-size:11px;font-weight:700">'+s.l+'</span>';
+}
+
+function renderLegalActive() {
+  const box = document.getElementById('legalContentBox');
+  const filter = (document.getElementById('legalFilterMine').value||'').trim();
+  let rows = legalCache[legalActiveSub] || [];
+  if(filter) rows = rows.filter(r => (r.mine_name||'').includes(filter));
+  if(!rows.length) { box.innerHTML = '<div style="color:#90a4ae;font-size:12px;text-align:center;padding:16px">موردی یافت نشد</div>'; return; }
+  const g = suppGroupByMine(rows);
+  box.innerHTML = Object.keys(g).sort().map(mine => suppMineWrap(mine, g[mine].length,
+    g[mine].map(r => renderLegalRow(r)).join('')
+  )).join('');
+}
+
+function renderLegalRow(r) {
+  const editBtn = '<button class="btn-sm" style="background:#e3f2fd;color:#1565c0" onclick="editLegalRecord(\''+legalActiveSub+'\','+r.id+')">✏️ ویرایش</button> ';
+  const delBtn = '<button class="btn-sm" style="background:#ffebee;color:#c62828" onclick="deleteLegalRecord(\''+LEGAL_TABLES[legalActiveSub]+'\','+r.id+')">🗑 حذف</button>';
+  if(legalActiveSub === 'royalty') {
+    return '<div style="padding:8px 0;border-bottom:1px solid #eee;font-size:12px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center"><b>دوره '+esc(r.period)+'</b>'+legalStatusBadge(r.status)+'</div>'+
+      '<div style="color:#607d8b;margin-top:3px">تناژ اعلامی: '+(r.tonnage??'—')+' تن | نرخ: '+(r.rate_per_ton??'—')+' | مبلغ محاسبه‌شده: '+(r.calculated_amount??'—')+' | پرداخت‌شده: '+(r.paid_amount??0)+'</div>'+
+      '<div style="color:#607d8b">سررسید: '+fmtDate(r.due_date)+' | تاریخ پرداخت: '+fmtDate(r.paid_date)+'</div>'+
+      (r.notes ? '<div style="color:#90a4ae;font-size:11px;margin-top:2px">'+esc(r.notes)+'</div>' : '')+
+      '<div style="margin-top:5px">'+editBtn+delBtn+'</div>'+
+    '</div>';
+  }
+  if(legalActiveSub === 'guarantee') {
+    const adj = simpleDateStatus(r.next_adjustment_date, 60);
+    return '<div style="padding:8px 0;border-bottom:1px solid #eee;font-size:12px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center"><b>'+esc(r.guarantee_type||'تضمین مالی')+'</b>'+legalStatusBadge(r.status)+'</div>'+
+      '<div style="color:#607d8b;margin-top:3px">مبلغ: '+(r.amount??'—')+' | تاریخ صدور: '+fmtDate(r.issue_date)+'</div>'+
+      '<div style="color:#607d8b">تعدیل بعدی: '+fmtDate(r.next_adjustment_date)+
+        (adj && adj.expired ? ' <b style="color:#c62828">(موعد تعدیل گذشته)</b>' : (adj && adj.soon ? ' <b style="color:#e65100">('+adj.daysLeft+' روز مانده)</b>' : ''))+
+      '</div>'+
+      (r.notes ? '<div style="color:#90a4ae;font-size:11px;margin-top:2px">'+esc(r.notes)+'</div>' : '')+
+      '<div style="margin-top:5px">'+editBtn+delBtn+'</div>'+
+    '</div>';
+  }
+  if(legalActiveSub === 'reclamation') {
+    return '<div style="padding:8px 0;border-bottom:1px solid #eee;font-size:12px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap"><b>طرح بازسازی</b>'+legalStatusBadge(r.plan_status)+legalStatusBadge(r.restoration_status)+'</div>'+
+      '<div style="color:#607d8b;margin-top:3px">تاریخ تایید طرح: '+fmtDate(r.approval_date)+'</div>'+
+      (r.doc_url ? '<div><a href="'+esc(r.doc_url)+'" target="_blank" style="color:#1565c0">📎 مستندات</a></div>' : '')+
+      (r.notes ? '<div style="color:#90a4ae;font-size:11px;margin-top:2px">'+esc(r.notes)+'</div>' : '')+
+      '<div style="margin-top:5px">'+editBtn+delBtn+'</div>'+
+    '</div>';
+  }
+  if(legalActiveSub === 'transfer') {
+    return '<div style="padding:8px 0;border-bottom:1px solid #eee;font-size:12px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center"><b>'+esc(r.transferor_name||'—')+' ← '+esc(r.transferee_name||'—')+'</b>'+legalStatusBadge(r.status)+'</div>'+
+      '<div style="color:#607d8b;margin-top:3px">تاریخ درخواست: '+fmtDate(r.request_date)+' | ظهرنویسی: '+fmtDate(r.finalization_date)+'</div>'+
+      (r.notes ? '<div style="color:#90a4ae;font-size:11px;margin-top:2px">'+esc(r.notes)+'</div>' : '')+
+      '<div style="margin-top:5px">'+editBtn+delBtn+'</div>'+
+    '</div>';
+  }
+  if(legalActiveSub === 'disqualification') {
+    return '<div style="padding:8px 0;border-bottom:1px solid #eee;font-size:12px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center"><b>'+esc((r.violation_description||'').slice(0,60)||'—')+'</b>'+legalStatusBadge(r.status)+'</div>'+
+      '<div style="color:#607d8b;margin-top:3px">اخطار: '+fmtDate(r.warning_date)+' | مهلت: '+fmtDate(r.deadline)+' | تصمیم کمیسیون: '+fmtDate(r.committee_decision_date)+'</div>'+
+      (r.document_url ? '<div><a href="'+esc(r.document_url)+'" target="_blank" style="color:#1565c0">📎 مستندات</a></div>' : '')+
+      (r.notes ? '<div style="color:#90a4ae;font-size:11px;margin-top:2px">'+esc(r.notes)+'</div>' : '')+
+      '<div style="margin-top:5px">'+editBtn+delBtn+'</div>'+
+    '</div>';
+  }
+  return '<div style="padding:8px 0;border-bottom:1px solid #eee;font-size:12px">'+
+    '<div style="display:flex;justify-content:space-between;align-items:center"><b>سال '+esc(r.year)+'</b>'+legalStatusBadge(r.status)+'</div>'+
+    '<div style="color:#607d8b;margin-top:3px">مبلغ: '+(r.amount??'—')+' | تاریخ پرداخت: '+fmtDate(r.payment_date)+'</div>'+
+    (r.document_url ? '<div><a href="'+esc(r.document_url)+'" target="_blank" style="color:#1565c0">📎 مستندات</a></div>' : '')+
+    (r.notes ? '<div style="color:#90a4ae;font-size:11px;margin-top:2px">'+esc(r.notes)+'</div>' : '')+
+    '<div style="margin-top:5px">'+editBtn+delBtn+'</div>'+
+  '</div>';
+}
+
+function openLegalRecordModal(existing) {
+  legalEditId = existing ? existing.id : null;
+  document.getElementById('legalRecordModalTitle').textContent = (legalEditId ? '✏️ ویرایش — ' : '➕ ثبت جدید — ') + LEGAL_TITLES[legalActiveSub];
+  const mineSel = document.getElementById('lr_mine');
+  mineSel.innerHTML = mines.map(m => '<option value="'+esc(m['نام_معدن']||'')+'">'+esc(m['نام_معدن']||'بدون نام')+'</option>').join('');
+  if(existing) mineSel.value = existing.mine_name || '';
+
+  const f = document.getElementById('legalRecordFields');
+  const v = existing || {};
+  if(legalActiveSub === 'royalty') {
+    f.innerHTML =
+      '<label>دوره (مثال: سال ۱۴۰۴)</label><input id="lr_period" type="text" value="'+esc(v.period||'')+'">'+
+      '<div class="fp-grid"><div><label>تناژ اعلامی (تن)</label><input id="lr_tonnage" type="number" step="any" value="'+(v.tonnage??'')+'"></div>'+
+      '<div><label>نرخ (به ازای هر تن)</label><input id="lr_rate" type="number" step="any" value="'+(v.rate_per_ton??'')+'"></div></div>'+
+      '<div class="fp-grid"><div><label>مبلغ محاسبه‌شده</label><input id="lr_calc" type="number" step="any" value="'+(v.calculated_amount??'')+'"></div>'+
+      '<div><label>مبلغ پرداخت‌شده</label><input id="lr_paid_amount" type="number" step="any" value="'+(v.paid_amount??0)+'"></div></div>'+
+      '<div class="fp-grid"><div><label>تاریخ سررسید</label><input id="lr_due" type="date" value="'+(v.due_date||'')+'"></div>'+
+      '<div><label>تاریخ پرداخت</label><input id="lr_paiddate" type="date" value="'+(v.paid_date||'')+'"></div></div>'+
+      '<label>وضعیت</label><select id="lr_status">'+
+        ['pending','partial','paid','overdue'].map(s=>'<option value="'+s+'"'+(v.status===s?' selected':'')+'>'+LEGAL_STATUS_META[s].l+'</option>').join('')+
+      '</select>'+
+      '<label>یادداشت</label><textarea id="lr_notes" rows="2">'+esc(v.notes||'')+'</textarea>';
+  } else if(legalActiveSub === 'guarantee') {
+    f.innerHTML =
+      '<label>نوع تضمین</label><input id="lr_gtype" type="text" placeholder="ضمانت‌نامه بانکی، سپرده نقدی، ..." value="'+esc(v.guarantee_type||'')+'">'+
+      '<div class="fp-grid"><div><label>مبلغ</label><input id="lr_amount" type="number" step="any" value="'+(v.amount??'')+'"></div>'+
+      '<div><label>تاریخ صدور</label><input id="lr_issue" type="date" value="'+(v.issue_date||'')+'"></div></div>'+
+      '<label>تاریخ تعدیل بعدی <span style="font-weight:400;color:#90a4ae">(طبق ماده ۴۳ آیین‌نامه، معمولاً هر ۳ سال یک‌بار)</span></label><input id="lr_nextadj" type="date" value="'+(v.next_adjustment_date||'')+'">'+
+      '<label style="display:flex;align-items:center;gap:5px;margin-top:8px"><input type="checkbox" id="lr_linkedreclaim" style="width:auto" '+(v.linked_to_reclamation?'checked':'')+'> این تضمین بابت تعهد بازسازی محیط‌زیست (ماده ۶ ضوابط زیست‌محیطی) است</label>'+
+      '<label>وضعیت</label><select id="lr_status">'+
+        ['active','expired','released'].map(s=>'<option value="'+s+'"'+(v.status===s?' selected':'')+'>'+LEGAL_STATUS_META[s].l+'</option>').join('')+
+      '</select>'+
+      '<label>یادداشت</label><textarea id="lr_notes" rows="2">'+esc(v.notes||'')+'</textarea>';
+  } else if(legalActiveSub === 'kashef') {
+    f.innerHTML =
+      '<label>سال</label><input id="lr_year" type="text" placeholder="۱۴۰۴" value="'+esc(v.year||'')+'">'+
+      '<div class="fp-grid"><div><label>مبلغ</label><input id="lr_amount" type="number" step="any" value="'+(v.amount??'')+'"></div>'+
+      '<div><label>تاریخ پرداخت</label><input id="lr_paiddate" type="date" value="'+(v.payment_date||'')+'"></div></div>'+
+      '<label>لینک مستندات (اختیاری)</label><input id="lr_docurl" type="text" dir="ltr" value="'+esc(v.document_url||'')+'">'+
+      '<label>وضعیت</label><select id="lr_status">'+
+        ['pending','paid','reported'].map(s=>'<option value="'+s+'"'+(v.status===s?' selected':'')+'>'+({pending:'در انتظار پرداخت',paid:'پرداخت‌شده - در انتظار اعلام به وزارت',reported:LEGAL_STATUS_META.reported.l})[s]+'</option>').join('')+
+      '</select>'+
+      '<label>یادداشت</label><textarea id="lr_notes" rows="2">'+esc(v.notes||'')+'</textarea>';
+  } else if(legalActiveSub === 'reclamation') {
+    f.innerHTML =
+      '<div class="fp-grid"><div><label>وضعیت طرح بازسازی</label><select id="lr_planstatus">'+
+        ['not_submitted','pending_approval','approved'].map(s=>'<option value="'+s+'"'+(v.plan_status===s?' selected':'')+'>'+LEGAL_STATUS_META[s].l+'</option>').join('')+
+      '</select></div>'+
+      '<div><label>تاریخ تایید طرح</label><input id="lr_approvaldate" type="date" value="'+(v.approval_date||'')+'"></div></div>'+
+      '<label>وضعیت اجرای بازسازی</label><select id="lr_reststatus">'+
+        ['not_started','in_progress','completed'].map(s=>'<option value="'+s+'"'+(v.restoration_status===s?' selected':'')+'>'+LEGAL_STATUS_META[s].l+'</option>').join('')+
+      '</select>'+
+      (legalCache.guarantee.some(g=>g.mine_name===mineSel.value && g.linked_to_reclamation && g.status==='active')
+        ? '<div style="font-size:11px;color:#2e7d32;margin-top:6px">✅ تضمین مالی بازسازی برای این معدن ثبت و فعال است (تب «تضمین مالی»)</div>'
+        : '<div style="font-size:11px;color:#e65100;margin-top:6px">⚠️ هنوز تضمین مالی فعالی برای بازسازی این معدن (در تب «تضمین مالی») علامت‌گذاری نشده</div>')+
+      '<label>لینک مستندات (اختیاری)</label><input id="lr_docurl2" type="text" dir="ltr" value="'+esc(v.doc_url||'')+'">'+
+      '<label>یادداشت</label><textarea id="lr_notes" rows="2">'+esc(v.notes||'')+'</textarea>';
+  } else if(legalActiveSub === 'transfer') {
+    f.innerHTML =
+      '<div class="fp-grid"><div><label>انتقال‌دهنده</label><input id="lr_transferor" type="text" value="'+esc(v.transferor_name||'')+'"></div>'+
+      '<div><label>انتقال‌گیرنده</label><input id="lr_transferee" type="text" value="'+esc(v.transferee_name||'')+'"></div></div>'+
+      '<div class="fp-grid"><div><label>تاریخ ثبت درخواست</label><input id="lr_reqdate" type="date" value="'+(v.request_date||'')+'"></div>'+
+      '<div><label>تاریخ ظهرنویسی (ماده ۴۷ تبصره ۱)</label><input id="lr_finaldate" type="date" value="'+(v.finalization_date||'')+'"></div></div>'+
+      (legalCache.royalty.some(rr=>rr.mine_name===mineSel.value && (rr.status==='overdue'||rr.status==='pending'||rr.status==='partial'))
+        ? '<div style="font-size:11px;color:#c62828;margin-top:4px">⚠️ این معدن رویالتی معوق/تسویه‌نشده دارد — طبق ماده ۴۷ باید پیش از انتقال، مفاصا حساب حقوق دولتی ارائه شود</div>'
+        : '<div style="font-size:11px;color:#2e7d32;margin-top:4px">✅ رویالتی معوقی برای این معدن ثبت نشده</div>')+
+      '<label style="margin-top:8px">وضعیت</label><select id="lr_status">'+
+        ['submitted','clearance_pending','review','transfer_approved','finalized','rejected'].map(s=>'<option value="'+s+'"'+(v.status===s?' selected':'')+'>'+LEGAL_STATUS_META[s].l+'</option>').join('')+
+      '</select>'+
+      '<label>یادداشت (توان فنی/مالی انتقال‌گیرنده و غیره)</label><textarea id="lr_notes" rows="2">'+esc(v.notes||'')+'</textarea>';
+  } else {
+    f.innerHTML =
+      '<label>شرح تخلف</label><textarea id="lr_violation" rows="2">'+esc(v.violation_description||'')+'</textarea>'+
+      '<div class="fp-grid"><div><label>تاریخ اخطار</label><input id="lr_warndate" type="date" value="'+(v.warning_date||'')+'"></div>'+
+      '<div><label>مهلت رفع تخلف</label><input id="lr_deadline" type="date" value="'+(v.deadline||'')+'"></div></div>'+
+      '<label>تاریخ بررسی/تصمیم کمیسیون ماده ۲۰</label><input id="lr_committeedate" type="date" value="'+(v.committee_decision_date||'')+'">'+
+      '<label style="margin-top:8px">وضعیت</label><select id="lr_status">'+
+        ['warned','deadline_passed','committee_review','disqualified','resolved'].map(s=>'<option value="'+s+'"'+(v.status===s?' selected':'')+'>'+LEGAL_STATUS_META[s].l+'</option>').join('')+
+      '</select>'+
+      '<label>لینک مستندات (اختیاری)</label><input id="lr_docurl3" type="text" dir="ltr" value="'+esc(v.document_url||'')+'">'+
+      '<label>یادداشت</label><textarea id="lr_notes" rows="2">'+esc(v.notes||'')+'</textarea>';
+  }
+  document.getElementById('legalRecordModal').classList.add('open');
+}
+function closeLegalRecordModal() { document.getElementById('legalRecordModal').classList.remove('open'); }
+
+function editLegalRecord(sub, id) {
+  legalActiveSub = sub;
+  document.querySelectorAll('.legal-subtab').forEach(b => b.classList.toggle('active', b.dataset.sub === sub));
+  const row = (legalCache[sub]||[]).find(r => r.id === id);
+  openLegalRecordModal(row);
+}
+
+async function saveLegalRecord() {
+  const mine_name = document.getElementById('lr_mine').value;
+  if(!mine_name) { showToast('⚠️ معدن را انتخاب کنید'); return; }
+  const {data:{user}} = await sb.auth.getUser();
+  const payload = { mine_name, department: currentDept, notes: document.getElementById('lr_notes').value.trim() || null };
+  if(legalActiveSub === 'royalty') {
+    payload.status = document.getElementById('lr_status').value;
+    payload.period = document.getElementById('lr_period').value.trim();
+    payload.tonnage = numOrNull(document.getElementById('lr_tonnage').value);
+    payload.rate_per_ton = numOrNull(document.getElementById('lr_rate').value);
+    payload.calculated_amount = numOrNull(document.getElementById('lr_calc').value);
+    payload.paid_amount = numOrNull(document.getElementById('lr_paid_amount').value) ?? 0;
+    payload.due_date = document.getElementById('lr_due').value || null;
+    payload.paid_date = document.getElementById('lr_paiddate').value || null;
+    if(!payload.period) { showToast('⚠️ دوره را وارد کنید'); return; }
+  } else if(legalActiveSub === 'guarantee') {
+    payload.status = document.getElementById('lr_status').value;
+    payload.guarantee_type = document.getElementById('lr_gtype').value.trim() || null;
+    payload.amount = numOrNull(document.getElementById('lr_amount').value);
+    payload.issue_date = document.getElementById('lr_issue').value || null;
+    payload.next_adjustment_date = document.getElementById('lr_nextadj').value || null;
+    payload.linked_to_reclamation = document.getElementById('lr_linkedreclaim').checked;
+  } else if(legalActiveSub === 'kashef') {
+    payload.status = document.getElementById('lr_status').value;
+    payload.year = document.getElementById('lr_year').value.trim();
+    payload.amount = numOrNull(document.getElementById('lr_amount').value);
+    payload.payment_date = document.getElementById('lr_paiddate').value || null;
+    payload.document_url = document.getElementById('lr_docurl').value.trim() || null;
+    if(!payload.year) { showToast('⚠️ سال را وارد کنید'); return; }
+  } else if(legalActiveSub === 'reclamation') {
+    payload.plan_status = document.getElementById('lr_planstatus').value;
+    payload.restoration_status = document.getElementById('lr_reststatus').value;
+    payload.approval_date = document.getElementById('lr_approvaldate').value || null;
+    payload.doc_url = document.getElementById('lr_docurl2').value.trim() || null;
+  } else if(legalActiveSub === 'transfer') {
+    payload.status = document.getElementById('lr_status').value;
+    payload.transferor_name = document.getElementById('lr_transferor').value.trim() || null;
+    payload.transferee_name = document.getElementById('lr_transferee').value.trim() || null;
+    payload.request_date = document.getElementById('lr_reqdate').value || null;
+    payload.finalization_date = document.getElementById('lr_finaldate').value || null;
+  } else {
+    payload.status = document.getElementById('lr_status').value;
+    payload.violation_description = document.getElementById('lr_violation').value.trim() || null;
+    payload.warning_date = document.getElementById('lr_warndate').value || null;
+    payload.deadline = document.getElementById('lr_deadline').value || null;
+    payload.committee_decision_date = document.getElementById('lr_committeedate').value || null;
+    payload.document_url = document.getElementById('lr_docurl3').value.trim() || null;
+  }
+  if(!legalEditId) payload.created_by = user ? user.email : null;
+  const table = LEGAL_TABLES[legalActiveSub];
+  const {error} = legalEditId ? await sb.from(table).update(payload).eq('id', legalEditId) : await sb.from(table).insert([payload]);
+  if(error) { showToast('⚠️ خطا در ذخیره'); return; }
+  closeLegalRecordModal();
+  showToast('✅ ذخیره شد');
+  await loadLegalAdmin();
+}
+
+async function deleteLegalRecord(table, id) {
+  if(!confirm('این رکورد حذف شود؟')) return;
+  await sb.from(table).delete().eq('id', id);
+  showToast('✅ حذف شد');
+  await loadLegalAdmin();
+}
 
 function decToDMS(deg) {
   const num = parseFloat(deg);
@@ -4799,76 +5900,6 @@ async function saveCornersEdit() {
   closeCornersEditModal();
   showMine(idx);
   showToast('✅ گوشه‌های محدوده ذخیره شد');
-}
-
-async function confirmCornersImport() {
-  const licenseCol = document.getElementById('mapCornersLicenseCol').value;
-  const nameCol = document.getElementById('mapCornersNameCol').value;
-  const orderCol = document.getElementById('mapCornersOrderCol').value;
-  const latCol = document.getElementById('mapCornersLatCol').value;
-  const lonCol = document.getElementById('mapCornersLonCol').value;
-
-  if(!licenseCol && !nameCol) { showToast('⚠️ حداقل یکی از ستون شماره پروانه یا نام معدن را انتخاب کنید'); return; }
-  if(!latCol || !lonCol) { showToast('⚠️ ستون‌های عرض و طول جغرافیایی را انتخاب کنید'); return; }
-
-  // گروه‌بندی ردیف‌های اکسل بر اساس معدن (کلید: شماره پروانه یا نام معدن)
-  const groups = new Map(); // key -> [{order, lat, lon}]
-  parsedCornersRows.forEach((row, rowIdx) => {
-    const license = licenseCol ? String(row[licenseCol]||'').trim() : '';
-    const name = nameCol ? String(row[nameCol]||'').trim() : '';
-    const key = license || name;
-    if(!key) return;
-    const latNum = parseFloat(row[latCol]), lonNum = parseFloat(row[lonCol]);
-    if(isNaN(latNum) || isNaN(lonNum)) return;
-    const order = orderCol && row[orderCol] !== '' && !isNaN(parseFloat(row[orderCol])) ? parseFloat(row[orderCol]) : rowIdx;
-    if(!groups.has(key)) groups.set(key, {license, name, points:[]});
-    groups.get(key).points.push({order, lat:latNum, lon:lonNum});
-  });
-
-  const letters = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T'];
-  let updated = 0;
-  const notFound = [];
-  const touchedIndices = [];
-
-  groups.forEach(group => {
-    let mineIdx = -1;
-    if(group.license) mineIdx = mines.findIndex(m => String(m['شماره_پروانه']||'').trim() === group.license);
-    if(mineIdx < 0 && group.name) mineIdx = mines.findIndex(m => String(m['نام_معدن']||'').trim() === group.name);
-    if(mineIdx < 0) { notFound.push(group.license || group.name); return; }
-    const mine = mines[mineIdx];
-    touchedIndices.push(mineIdx);
-
-    group.points.sort((a,b)=>a.order-b.order);
-
-    // پاک کردن گوشه‌های قبلی (تا اگر تعداد کم شده، باقیمانده‌های قدیمی نمونند)
-    letters.forEach(l => { delete mine['طول_'+l]; delete mine['عرض_'+l]; });
-
-    group.points.forEach((p, i) => {
-      const letter = letters[i] || ('#'+(i+1));
-      mine['عرض_'+letter] = decToDMS(p.lat);
-      mine['طول_'+letter] = decToDMS(p.lon);
-    });
-    mine['تعداد_ضلع'] = String(group.points.length);
-    mine['_lat'] = group.points.reduce((s,p)=>s+p.lat,0) / group.points.length;
-    mine['_lon'] = group.points.reduce((s,p)=>s+p.lon,0) / group.points.length;
-    updated++;
-  });
-
-  document.getElementById('cornersSummary').innerHTML =
-    '<div style="color:#fff;font-size:13px;text-align:center;margin-bottom:8px">✅ '+updated+' معدن به‌روزرسانی شد'+
-    (notFound.length ? '<br>⚠️ '+notFound.length+' مورد معدن متناظر پیدا نشد: '+notFound.slice(0,10).join('، ')+(notFound.length>10?' ...':'') : '')+
-    '</div>';
-
-  closeCornersMapModal();
-
-  if(updated > 0) {
-    const {data:{user}} = await sb.auth.getUser();
-    await saveMineRows(touchedIndices, user ? user.email : '');
-    showToast('✅ مختصات '+updated+' معدن ذخیره شد');
-    if(currentIdx >= 0) showMine(currentIdx);
-  } else {
-    showToast('⚠️ هیچ معدنی به‌روزرسانی نشد');
-  }
 }
 
 // ── LICENSE (پروانه) BULK IMPORT از اکسل سامانه کاداستر ────
@@ -5022,7 +6053,7 @@ async function finalizeLicenseImport(ev) {
     const row = parsedLicenseRows[rowIdx];
     let idx = mineIdx;
     if(idx < 0) {
-      const rec = { 'نام_معدن': name || ('معدن پروانه '+license), 'شهرستان':'قروه', 'استان':'کردستان', 'دسته':'غیره' };
+      const rec = { 'نام_معدن': name || ('معدن پروانه '+license), 'شهرستان': myAssignedCounty || 'قروه', 'استان': myAssignedProvince || 'کردستان', 'دسته':'غیره' };
       if(license) rec['شماره_پروانه'] = license;
       mines.push(rec);
       idx = mines.length - 1;
@@ -6621,12 +7652,20 @@ function closeSatModal() { document.getElementById('satModal').classList.remove(
 
 const SENTINEL_PROXY_URL = SUPA_URL + '/functions/v1/sentinel-proxy';
 
+// نکته‌ی امنیتی: باید توکن نشست واقعی کاربر (نه کلید anon) فرستاده شود، چون سرور با همین توکن
+// هویت و نقش ادمین را تایید می‌کند (requireAdmin) — همان الگویی که در loadSavedCopernicusCreds/saveCopernicusCreds استفاده شده.
+async function getAuthBearer() {
+  const {data: sessionData} = await sb.auth.getSession();
+  return sessionData && sessionData.session ? sessionData.session.access_token : SUPA_KEY;
+}
+
 async function getCopernicusToken(clientId, clientSecret) {
   let res;
   try {
+    const jwt = await getAuthBearer();
     res = await fetch(SENTINEL_PROXY_URL, {
       method: 'POST',
-      headers: {'Content-Type':'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY},
+      headers: {'Content-Type':'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + jwt},
       body: JSON.stringify({ action: 'token', clientId, clientSecret })
     });
   } catch(e) {
@@ -6638,9 +7677,10 @@ async function getCopernicusToken(clientId, clientSecret) {
 }
 
 async function fetchSentinelImage(token, bbox, dateStr, evalscript, width, height, collection, dayWindow) {
+  const jwt = await getAuthBearer();
   const res = await fetch(SENTINEL_PROXY_URL, {
     method: 'POST',
-    headers: { 'Content-Type':'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY },
+    headers: { 'Content-Type':'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + jwt },
     body: JSON.stringify({ action: 'image', token, bbox, date: dateStr, evalscript, width, height, collection: collection || 'sentinel-2-l2a', dayWindow: dayWindow || 15 })
   });
   if(!res.ok) {
@@ -6652,9 +7692,10 @@ async function fetchSentinelImage(token, bbox, dateStr, evalscript, width, heigh
 
 async function searchActualDate(token, bbox, dateStr, collection, dayWindow) {
   try {
+    const jwt = await getAuthBearer();
     const res = await fetch(SENTINEL_PROXY_URL, {
       method: 'POST',
-      headers: { 'Content-Type':'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY },
+      headers: { 'Content-Type':'application/json', 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + jwt },
       body: JSON.stringify({ action: 'search', token, bbox, date: dateStr, collection: collection || 'sentinel-2-l2a', dayWindow: dayWindow || 15 })
     });
     if(!res.ok) return null;
@@ -6879,12 +7920,31 @@ let _threeLoaded = false;
 function ensureThreeJS() {
   return new Promise((resolve, reject)=>{
     if(_threeLoaded && window.THREE) { resolve(); return; }
-    const s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r150/three.min.js';
-    const timer = setTimeout(()=>reject(new Error('زمان بارگذاری نمای سه‌بعدی به پایان رسید — اتصال اینترنت را بررسی کنید')), 12000);
-    s.onload = () => { clearTimeout(timer); _threeLoaded = true; resolve(); };
-    s.onerror = () => { clearTimeout(timer); reject(new Error('بارگذاری کتابخانه سه‌بعدی ناموفق بود')); };
-    document.head.appendChild(s);
+    // نکته: cdnjs از نسخه‌ی r150 به بعد دیگر فایل کلاسیک three.min.js را منتشر/نگه‌داری نمی‌کند
+    // (طبق اعلام رسمی three.js، این build از r150 منسوخ و در r160 حذف شده) — همین چیزی بود که
+    // باعث خطای «بارگذاری کتابخانه سه‌بعدی ناموفق بود» می‌شد. jsDelivr برخلاف cdnjs، تمام
+        // نسخه‌های قدیمی پکیج‌های npm را برای همیشه نگه می‌دارد، پس منبع اصلی را به آن تغییر دادیم.
+    const sources = [
+      'https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js', // نسخه‌ی پشتیبان در صورت در دسترس نبودن jsDelivr
+    ];
+    let idx = 0;
+    function tryLoad() {
+      const s = document.createElement('script');
+      s.src = sources[idx];
+      const timer = setTimeout(onFail, 12000);
+      function onFail() {
+        clearTimeout(timer);
+        s.remove();
+        idx++;
+        if(idx < sources.length) { tryLoad(); }
+        else { reject(new Error('بارگذاری کتابخانه سه‌بعدی ناموفق بود — اتصال اینترنت را بررسی کنید')); }
+      }
+      s.onload = () => { clearTimeout(timer); _threeLoaded = true; resolve(); };
+      s.onerror = onFail;
+      document.head.appendChild(s);
+    }
+    tryLoad();
   });
 }
 
@@ -7561,14 +8621,14 @@ function openFuelPrintModal(idx) {
       '<div class="fp-readonly-lbl">نام معدن</div><div class="fp-readonly-val">'+(m['نام_معدن']||'')+'</div>'+
       '<div class="fp-readonly-lbl" style="margin-top:6px">نام دارنده / شرکت بهره‌بردار</div><div class="fp-readonly-val">'+(m['نام_دارنده']||'')+'</div>'+
       '<div class="fp-readonly-lbl" style="margin-top:6px">شماره و تاریخ پروانه</div><div class="fp-readonly-val">'+(m['شماره_پروانه']||'')+' &nbsp;|&nbsp; '+(m['تاریخ_پروانه']||'')+'</div>'+
-      '<div class="fp-readonly-lbl" style="margin-top:6px">شهرستان</div><div class="fp-readonly-val">'+(m['شهرستان']||'قروه')+'</div>'+
+      '<div class="fp-readonly-lbl" style="margin-top:6px">شهرستان</div><div class="fp-readonly-val">'+(m['شهرستان']||myAssignedCounty||'قروه')+'</div>'+
       '<div class="fp-readonly-lbl" style="margin-top:6px">میزان استخراج اسمی سالیانه</div><div class="fp-readonly-val">'+(m['استخراج_سالیانه']||'')+' '+(m['واحد']||'تن')+'</div>';
   } else {
     document.getElementById('fpReadonlyBox').innerHTML =
       '<div class="fp-readonly-lbl">نام واحد صنعتی</div><div class="fp-readonly-val">'+(m['نام_واحد']||'')+'</div>'+
       '<div class="fp-readonly-lbl" style="margin-top:6px">گروه کالایی</div><div class="fp-readonly-val">'+(m['گروه_کالایی']||'')+'</div>'+
       '<div class="fp-readonly-lbl" style="margin-top:6px">شماره و تاریخ مجوز</div><div class="fp-readonly-val">'+(m['شماره_مجوز']||'')+' &nbsp;|&nbsp; '+(m['تاریخ_مجوز']||'')+'</div>'+
-      '<div class="fp-readonly-lbl" style="margin-top:6px">شهرستان</div><div class="fp-readonly-val">'+(m['شهرستان']||'قروه')+'</div>'+
+      '<div class="fp-readonly-lbl" style="margin-top:6px">شهرستان</div><div class="fp-readonly-val">'+(m['شهرستان']||myAssignedCounty||'قروه')+'</div>'+
       '<div class="fp-readonly-lbl" style="margin-top:6px">محصول و ظرفیت اسمی</div><div class="fp-readonly-val">'+(m['نام_محصول']||'')+' — '+(m['ظرفیت']||'')+' '+(m['واحد_سنجش']||'')+'</div>';
   }
 
@@ -7682,7 +8742,7 @@ function doPrintFuelForm() {
   const mainOre = document.getElementById('fpMainOre').value.trim();
   const waste = document.getElementById('fpWaste').value.trim();
   const cols = FUEL_EQUIP_COLS[type];
-  const county = m['شهرستان'] || 'قروه';
+  const county = m['شهرستان'] || myAssignedCounty || 'قروه';
 
   const bodyText = currentDept === 'معدن'
     ? 'احتراماً اینجانب '+esc(rep)+' نماینده '+esc(m['نام_دارنده']||'')+' بهره بردار معدن '+esc(m['نام_معدن']||'')+
@@ -7828,6 +8888,13 @@ function jalaliMonthsBetween(pastYMD, nowYMD) {
   return months;
 }
 
+function recomputeBoundaryProximity() {
+  const input = document.getElementById('boundaryProximityInput');
+  const v = parseFloat(input.value);
+  boundaryProximityThresholdM = isNaN(v) ? 200 : Math.max(0, v);
+  loadDashboard();
+}
+
 async function loadDashboard() {
   const kpiBox = document.getElementById('dashboardKpiGrid');
   const secBox = document.getElementById('dashboardSections');
@@ -7843,6 +8910,89 @@ async function loadDashboard() {
   mines.forEach((m,i) => { const info = licenseExpiryInfo(m); if(info) expiryRows.push({m, i, info}); });
   const expired = expiryRows.filter(r=>r.info.expired);
   const soon = expiryRows.filter(r=>!r.info.expired && r.info.monthsLeft<=3);
+
+  // ۱ب) اعتبار پروانه اشتغال مسئولین فنی (ماده ۴ قانون نظام مهندسی معدن)
+  const {data: techUsers} = await sb.from('user_roles').select('email, full_name, license_no, license_expiry_date, employment_capacity, assigned_mines, role').in('role', ['tech_officer','safety_officer','health_officer']);
+  const techExpiryRows = (techUsers||[]).filter(u => u.license_no).map(u => ({u, info: simpleDateStatus(u.license_expiry_date, 60)}));
+  const techExpired = techExpiryRows.filter(r => !r.info || r.info.expired);
+  const techSoon = techExpiryRows.filter(r => r.info && !r.info.expired && r.info.soon);
+
+  // ۱ب‍) ظرفیت اشتغال (ماده ۱۲ آیین‌نامه نظام مهندسی معدن) — این فقط راستی‌آزمایی بر مبنای عدد ثبت‌شده در SAMAT است؛
+  // ظرفیت رسمی و اعتبار آن را باید سازمان نظام مهندسی استان تایید کند.
+  const capacityExceeded = (techUsers||[]).filter(u => u.employment_capacity && (u.assigned_mines||[]).length > u.employment_capacity);
+
+  // ۱ج) الزامات قانونی مالی: رویالتی معوق، تعدیل تضمین نزدیک/گذشته، حقوق کاشف پرداخت‌نشده
+  const [royRes, gRes, kRes, trRes, dqRes] = await Promise.all([
+    sb.from('royalty_records').select('*').eq('department', currentDept),
+    sb.from('financial_guarantees').select('*').eq('department', currentDept),
+    sb.from('discoverer_rights_payments').select('*').eq('department', currentDept),
+    sb.from('license_transfers').select('*').eq('department', currentDept),
+    sb.from('disqualification_cases').select('*').eq('department', currentDept),
+  ]);
+  const scopedMineNames = (myAssignedProvince || myAssignedCounty) ? new Set(mines.map(m => m['نام_معدن'])) : null;
+  const inScope = r => !scopedMineNames || scopedMineNames.has(r.mine_name);
+  const royaltyOverdue = (royRes.data||[]).filter(inScope).filter(r => r.status === 'overdue' || r.status === 'pending' || r.status === 'partial');
+  const guaranteeRows = (gRes.data||[]).filter(inScope).map(r => ({r, info: simpleDateStatus(r.next_adjustment_date, 60)})).filter(x => x.r.status !== 'released' && x.info && (x.info.expired || x.info.soon));
+  const kashefPending = (kRes.data||[]).filter(inScope).filter(r => r.status === 'pending' || r.status === 'paid');
+  const transfersPending = (trRes.data||[]).filter(inScope).filter(r => !['finalized','rejected'].includes(r.status));
+  const disqualOpen = (dqRes.data||[]).filter(inScope).filter(r => !['resolved'].includes(r.status));
+  const disqualDeadlinePassed = disqualOpen.filter(r => r.deadline && new Date(r.deadline) < new Date() && r.status !== 'committee_review' && r.status !== 'disqualified');
+
+  // ۱د) عدم انطباق استخراج واقعی با طرح بهره‌برداری مصوب (ماده ۵۵ بند ۴ آیین‌نامه — از موجبات سلب صلاحیت)
+  // فقط برای آخرین سال جلالی «کامل‌شده» بررسی می‌شود (نه سال جاری که هنوز تمام نشده)
+  const prodShortfall = [];
+  if(currentDept === 'معدن') {
+    const {data: prodRows} = await sb.from('production_reports').select('mine_name, period, tonnage').eq('department', currentDept);
+    const prevJalaliYear = getCurrentJalaliYMD().y - 1;
+    const actualByMine = {};
+    (prodRows||[]).forEach(p => {
+      const yMatch = String(p.period||'').match(/1[34]\d{2}/);
+      if(!yMatch || parseInt(yMatch[0]) !== prevJalaliYear) return;
+      const t = parseFloat(p.tonnage);
+      if(isNaN(t)) return;
+      actualByMine[p.mine_name] = (actualByMine[p.mine_name] || 0) + t;
+    });
+    mines.forEach((m,i) => {
+      const plan = parseFloat(m['استخراج_سالیانه']);
+      if(isNaN(plan) || plan <= 0) return;
+      const actual = actualByMine[m['نام_معدن']] || 0;
+      const ratio = actual / plan;
+      if(ratio < 0.7) prodShortfall.push({m, i, plan, actual, ratio, year: prevJalaliYear});
+    });
+    prodShortfall.sort((a,b)=>a.ratio-b.ratio);
+  }
+
+  // ۱ه) تعهد بازسازی محیط زیست (ماده ۶ ضوابط زیست‌محیطی فعالیت‌های معدنی) — طرحی که ثبت نشده یا تاییدنشده
+  const reclamationGaps = [];
+  // ۱و) مسئول ایمنی و بهداشت حرفه‌ای برای معادن با حداقل ۲۵ نفر کارگر (ماده ۱ آیین‌نامه ایمنی معادن)
+  const safetyGaps = [];
+  if(currentDept === 'معدن') {
+    const [{data: rcRows}, {data: personnelRows}] = await Promise.all([
+      sb.from('environmental_reclamation').select('mine_name, plan_status').eq('department', currentDept),
+      sb.from('mine_personnel').select('mine_name, role').eq('department', currentDept).eq('status', 'active'),
+    ]);
+    const reclamationByMine = {};
+    (rcRows||[]).forEach(r => { reclamationByMine[r.mine_name] = r.plan_status; });
+    const personnelByMine = {};
+    (personnelRows||[]).forEach(p => {
+      (personnelByMine[p.mine_name] ||= []).push(String(p.role||''));
+    });
+    mines.forEach((m,i) => {
+      const name = m['نام_معدن'];
+      const planStatus = reclamationByMine[name];
+      if(!planStatus || planStatus === 'not_submitted') reclamationGaps.push({m, i});
+
+      const roles = personnelByMine[name] || [];
+      if(roles.length >= 25) {
+        const hasSafety = roles.some(r => r.includes('ایمنی'));
+        const hasHealth = roles.some(r => r.includes('بهداشت'));
+        const missing = [];
+        if(!hasSafety) missing.push('مسئول ایمنی');
+        if(!hasHealth) missing.push('مسئول بهداشت حرفه‌ای');
+        if(missing.length) safetyGaps.push({m, i, count: roles.length, missing});
+      }
+    });
+  }
 
   // ۲) وضعیت تجهیزات مسئولین فنی
   const eqApproved = equipmentAdminCache.filter(r=>r.status==='approved').length;
@@ -7892,9 +9042,23 @@ async function loadDashboard() {
     }
   }
 
+  // ۱ه‍) نزدیکی/همپوشانی محدوده معادن مجاور (بررسی حریم — ابزار غربالگری، نه تصمیم نهایی)
+  const boundaryProximityIssues = (currentDept === 'معدن') ? findBoundaryProximityIssues(mines, boundaryProximityThresholdM) : [];
+
   kpiBox.innerHTML = [
-    {n: expired.length, l:'⏰ پروانه منقضی‌شده', bg:'#ffebee', c:'#c62828'},
     {n: soon.length, l:'⚠️ نزدیک به انقضا (≤۳ ماه)', bg:'#fff3e0', c:'#e65100'},
+    {n: techExpired.length, l:'🦺 پروانه اشتغال مسئول فنی منقضی/فاقد تاریخ', bg:'#ffebee', c:'#c62828'},
+    {n: techSoon.length, l:'🦺 پروانه اشتغال نزدیک به انقضا', bg:'#fff3e0', c:'#e65100'},
+    {n: capacityExceeded.length, l:'🦺 بیش از ظرفیت اشتغال مجاز (ماده ۱۲ آیین‌نامه)', bg:'#ffebee', c:'#c62828'},
+    {n: royaltyOverdue.length, l:'💰 حقوق دولتی معوق/تسویه‌نشده', bg:'#ffebee', c:'#c62828'},
+    {n: guaranteeRows.length, l:'🏦 تضمین مالی نیازمند تعدیل', bg:'#fff3e0', c:'#e65100'},
+    {n: kashefPending.length, l:'👤 حقوق کاشف پرداخت/اعلام‌نشده', bg:'#fff3e0', c:'#e65100'},
+    {n: prodShortfall.length, l:'⛏️ کسری استخراج نسبت به طرح مصوب (ماده ۵۵)', bg:'#ffebee', c:'#c62828'},
+    {n: reclamationGaps.length, l:'🌱 طرح بازسازی محیط زیست ثبت/تایید‌نشده', bg:'#ffebee', c:'#c62828'},
+    {n: transfersPending.length, l:'🔄 انتقال پروانه در جریان', bg:'#ede7f6', c:'#5e35b1'},
+    {n: disqualDeadlinePassed.length, l:'⚠️ سلب صلاحیت — مهلت رفع تخلف گذشته', bg:'#ffebee', c:'#c62828'},
+    {n: boundaryProximityIssues.length, l:'🗺️ نزدیکی/همپوشانی محدوده با معدن مجاور (≤'+boundaryProximityThresholdM+'م)', bg:'#fff3e0', c:'#e65100'},
+    {n: safetyGaps.length, l:'🦺 فاقد مسئول ایمنی/بهداشت حرفه‌ای (≥۲۵ کارگر)', bg:'#ffebee', c:'#c62828'},
     {n: eqPending, l:'🚜 تجهیزات در انتظار بررسی', bg:'#fff8e1', c:'#f57c00'},
     {n: incTotal, l:'🚨 مجموع حوادث ثبت‌شده', bg:'#fce4ec', c:'#ad1457'},
     {n: inc30, l:'🚨 حوادث ۳۰ روز اخیر', bg:'#ffebee', c:'#c62828'},
@@ -7912,6 +9076,58 @@ async function loadDashboard() {
       rowsHTML([...expired,...soon].sort((a,b)=>a.info.monthsLeft-b.info.monthsLeft),
         r => r.info.expired ? '<b style="color:#c62828">منقضی شده</b>' : '<b style="color:#e65100">'+r.info.monthsLeft+' ماه مانده</b>')+
     '</div>'+
+    '<div class="dash-section"><h4>🦺 پروانه اشتغال مسئولین فنی (ماده ۴ قانون نظام مهندسی معدن)</h4>'+
+      (!techExpired.length && !techSoon.length ? '<div style="color:#90a4ae;font-size:12px;text-align:center;padding:10px">موردی نیست</div>' :
+        [...techExpired,...techSoon].map(r => '<div class="dash-row" onclick="switchTab(\'users\')"><span>'+esc(r.u.full_name||r.u.email)+'</span><span>'+techLicenseExpiryBadge(r.u.license_expiry_date)+'</span></div>').join(''))+
+    '</div>'+
+    '<div class="dash-section"><h4>🦺 ظرفیت اشتغال (ماده ۱۲ آیین‌نامه نظام مهندسی معدن)</h4>'+
+      '<div style="font-size:10.5px;color:#90a4ae;margin-bottom:6px">مقایسه‌ی تعداد معادن اختصاص‌یافته با «ظرفیت اشتغال مجاز» ثبت‌شده برای هر نفر (قابل ویرایش از «🔐 دسترسی و تنظیمات» در تب کاربران). عدد ظرفیت رسمی را باید سازمان نظام مهندسی استان تایید کند.</div>'+
+      (!capacityExceeded.length ? '<div style="color:#90a4ae;font-size:12px;text-align:center;padding:10px">موردی نیست</div>' :
+        capacityExceeded.map(u => '<div class="dash-row" onclick="switchTab(\'users\')"><span>'+esc(u.full_name||u.email)+' ('+({tech_officer:'مسئول فنی',safety_officer:'مسئول ایمنی',health_officer:'مسئول بهداشت حرفه‌ای'})[u.role]+')</span><b style="color:#c62828">'+(u.assigned_mines||[]).length+' معدن از '+u.employment_capacity+' ظرفیت مجاز</b></div>').join(''))+
+    '</div>'+
+    '<div class="dash-section"><h4>💰 حقوق دولتی (رویالتی) معوق یا تسویه‌نشده</h4>'+
+      (!royaltyOverdue.length ? '<div style="color:#90a4ae;font-size:12px;text-align:center;padding:10px">موردی نیست</div>' :
+        royaltyOverdue.map(r => '<div class="dash-row" onclick="switchTab(\'legal\')"><span>'+esc(r.mine_name)+' — دوره '+esc(r.period)+'</span>'+legalStatusBadge(r.status)+'</div>').join(''))+
+    '</div>'+
+    '<div class="dash-section"><h4>🏦 تضمین مالی نیازمند تعدیل (ماده ۴۳ آیین‌نامه)</h4>'+
+      (!guaranteeRows.length ? '<div style="color:#90a4ae;font-size:12px;text-align:center;padding:10px">موردی نیست</div>' :
+        guaranteeRows.map(x => '<div class="dash-row" onclick="switchTab(\'legal\')"><span>'+esc(x.r.mine_name)+'</span><span>'+(x.info.expired ? '<b style="color:#c62828">موعد گذشته</b>' : '<b style="color:#e65100">'+x.info.daysLeft+' روز مانده</b>')+'</span></div>').join(''))+
+    '</div>'+
+    '<div class="dash-section"><h4>👤 حقوق کاشف پرداخت/اعلام‌نشده (تبصره ۲ ماده ۹ قانون معادن)</h4>'+
+      (!kashefPending.length ? '<div style="color:#90a4ae;font-size:12px;text-align:center;padding:10px">موردی نیست</div>' :
+        kashefPending.map(r => '<div class="dash-row" onclick="switchTab(\'legal\')"><span>'+esc(r.mine_name)+' — سال '+esc(r.year)+'</span>'+legalStatusBadge(r.status)+'</div>').join(''))+
+    '</div>'+
+    '<div class="dash-section"><h4>⛏️ کسری استخراج نسبت به طرح بهره‌برداری مصوب (ماده ۵۵ بند ۴ آیین‌نامه — ریسک سلب صلاحیت)</h4>'+
+      '<div style="font-size:11px;color:#90a4ae;margin-bottom:6px">مقایسه‌ی مجموع تناژ ثبت‌شده در «تولید و عیار» برای سال '+(prodShortfall.length?prodShortfall[0].year:'')+' با «استخراج سالیانه» مصوب — فقط سال‌های کامل‌شده بررسی می‌شوند و صرفاً یک هشدار برای بررسی بیشتر است</div>'+
+      (!prodShortfall.length ? '<div style="color:#90a4ae;font-size:12px;text-align:center;padding:10px">موردی نیست</div>' :
+        prodShortfall.map(r => '<div class="dash-row" onclick="goToMine('+r.i+')"><span>'+esc(r.m['نام_معدن']||'')+'</span><b style="color:#c62828">'+Math.round(r.ratio*100)+'٪ از طرح مصوب ('+r.actual+' از '+r.plan+' تن)</b></div>').join(''))+
+    '</div>'+
+    '<div class="dash-section"><h4>🌱 طرح بازسازی محیط زیست (ماده ۶ ضوابط زیست‌محیطی)</h4>'+
+      (!reclamationGaps.length ? '<div style="color:#90a4ae;font-size:12px;text-align:center;padding:10px">موردی نیست</div>' :
+        reclamationGaps.map(r => '<div class="dash-row" onclick="switchTab(\'legal\')"><span>'+esc(r.m['نام_معدن']||'')+'</span><b style="color:#c62828">طرح ثبت/تایید نشده</b></div>').join(''))+
+    '</div>'+
+    '<div class="dash-section"><h4>🔄 انتقال پروانه در جریان (ماده ۴۷)</h4>'+
+      (!transfersPending.length ? '<div style="color:#90a4ae;font-size:12px;text-align:center;padding:10px">موردی نیست</div>' :
+        transfersPending.map(r => '<div class="dash-row" onclick="switchTab(\'legal\')"><span>'+esc(r.mine_name)+' — '+esc(r.transferor_name||'—')+' ← '+esc(r.transferee_name||'—')+'</span>'+legalStatusBadge(r.status)+'</div>').join(''))+
+    '</div>'+
+    '<div class="dash-section"><h4>⚠️ پرونده‌های سلب صلاحیت (ماده ۲۰ قانون معادن)</h4>'+
+      (!disqualOpen.length ? '<div style="color:#90a4ae;font-size:12px;text-align:center;padding:10px">موردی نیست</div>' :
+        disqualOpen.map(r => '<div class="dash-row" onclick="switchTab(\'legal\')"><span>'+esc(r.mine_name)+' — '+esc((r.violation_description||'').slice(0,40))+(r.deadline && new Date(r.deadline)<new Date() && r.status!=='committee_review' && r.status!=='disqualified' ? ' <b style="color:#c62828">(مهلت گذشته)</b>':'')+'</span>'+legalStatusBadge(r.status)+'</div>').join(''))+
+    '</div>'+
+    (currentDept === 'معدن' ? (
+    '<div class="dash-section" id="boundaryProximitySection"><h4>🗺️ نزدیکی/همپوشانی محدوده با معدن مجاور</h4>'+
+      '<div style="font-size:10.5px;color:#90a4ae;margin-bottom:8px">صرفاً بر اساس مختصات گوشه‌های ثبت‌شده در سامانه محاسبه می‌شود؛ حریم رسمی طبق آیین‌نامه اجرایی قانون معادن مورد‌به‌مورد توسط وزارت تعیین می‌شود — این فقط ابزار غربالگری اولیه برای بررسی کارشناسی است.</div>'+
+      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;font-size:11.5px">آستانه بررسی: <input id="boundaryProximityInput" type="number" value="'+boundaryProximityThresholdM+'" style="width:80px;padding:4px 6px" min="0" step="10"> متر '+
+        '<button class="btn-sm" style="background:#e3f2fd;color:#1565c0" onclick="recomputeBoundaryProximity()">🔄 بررسی مجدد</button></div>'+
+      (!boundaryProximityIssues.length ? '<div style="color:#90a4ae;font-size:12px;text-align:center;padding:10px">موردی در این آستانه یافت نشد</div>' :
+        boundaryProximityIssues.map(r => '<div class="dash-row"><span onclick="goToMine('+r.iA+')" style="cursor:pointer">'+esc(r.mineA['نام_معدن']||'')+'</span> ↔ '+
+          '<span onclick="goToMine('+r.iB+')" style="cursor:pointer">'+esc(r.mineB['نام_معدن']||'')+'</span>'+
+          '<b style="color:'+(r.distanceM===0?'#c62828':'#e65100')+'">'+(r.distanceM===0?'⚠️ همپوشانی دارند':r.distanceM+' متر فاصله')+'</b></div>').join(''))+
+    '</div>') : '')+
+    '<div class="dash-section"><h4>🦺 مسئول ایمنی/بهداشت حرفه‌ای (ماده ۱ آیین‌نامه ایمنی معادن — معادن با ≥۲۵ کارگر)</h4>'+
+      (!safetyGaps.length ? '<div style="color:#90a4ae;font-size:12px;text-align:center;padding:10px">موردی نیست</div>' :
+        safetyGaps.map(r => '<div class="dash-row" onclick="goToMine('+r.i+')"><span>'+esc(r.m['نام_معدن']||'')+' ('+r.count+' نفر کارگر)</span><b style="color:#c62828">فاقد '+r.missing.join(' و ')+'</b></div>').join(''))+
+    '</div>'+
     '<div class="dash-section"><h4>📅 معادن بدون بازدید اخیر</h4>'+
       rowsHTML(staleRows, r => r.monthsSince==null ? '<b style="color:#5e35b1">هیچ‌وقت بازدید نشده</b>' : '<b style="color:#5e35b1">'+r.monthsSince+' ماه پیش</b>')+
     '</div>'+
@@ -7926,6 +9142,44 @@ async function loadDashboard() {
       '<div class="dash-row"><span>⏳ در انتظار بررسی</span><span>'+eqPending+'</span></div>'+
       '<div class="dash-row"><span>❌ رد‌شده</span><span>'+eqRejected+'</span></div>'+
     '</div>';
+
+  // فهرست یکپارچه‌ی الزامات قانونی معوق/نزدیک‌به‌سررسید، برای دکمه‌ی «ارسال هشدار به تلگرام/روبیکا»
+  legalDigestItems = [
+    ...techExpired.map(r => ({category:'techLicense', mineName: r.u.full_name||r.u.email, label:'پروانه اشتغال منقضی/فاقد تاریخ'})),
+    ...techSoon.map(r => ({category:'techLicense', mineName: r.u.full_name||r.u.email, label:'پروانه اشتغال نزدیک به انقضا ('+r.info.daysLeft+' روز)'})),
+    ...capacityExceeded.map(u => ({category:'capacity', mineName: u.full_name||u.email, label:(u.assigned_mines||[]).length+' معدن از '+u.employment_capacity+' ظرفیت اشتغال مجاز'})),
+    ...royaltyOverdue.map(r => ({category:'royalty', mineName: r.mine_name, label:'دوره '+(r.period||'')+' — '+(LEGAL_STATUS_META[r.status]||{l:r.status}).l})),
+    ...guaranteeRows.map(x => ({category:'guarantee', mineName: x.r.mine_name, label: x.info.expired ? 'موعد تعدیل گذشته' : (x.info.daysLeft+' روز تا موعد تعدیل')})),
+    ...kashefPending.map(r => ({category:'kashef', mineName: r.mine_name, label:'سال '+(r.year||'')+' — '+(LEGAL_STATUS_META[r.status]||{l:r.status}).l})),
+    ...reclamationGaps.map(r => ({category:'reclamation', mineName: r.m['نام_معدن']||'', label:'طرح بازسازی ثبت/تایید نشده'})),
+    ...transfersPending.filter(r=>r.status==='clearance_pending').map(r => ({category:'transfer', mineName: r.mine_name, label:'انتقال پروانه در انتظار مفاصا حساب'})),
+    ...disqualDeadlinePassed.map(r => ({category:'disqualification', mineName: r.mine_name, label:'مهلت رفع تخلف (ماده ۲۰) گذشته'})),
+    ...safetyGaps.map(r => ({category:'safety', mineName: r.m['نام_معدن']||'', label:'فاقد '+r.missing.join(' و ')+' ('+r.count+' نفر کارگر)'})),
+  ];
+}
+
+async function sendLegalComplianceDigest() {
+  const btn = document.getElementById('legalDigestBtn');
+  if(!legalDigestItems.length) {
+    // اگر داشبورد هنوز بارگذاری نشده یا تازه‌سازی لازم است
+    await loadDashboard();
+  }
+  if(!legalDigestItems.length) { showToast('✅ در حال حاضر هیچ الزام قانونی معوق/نزدیک‌به‌سررسیدی ثبت نشده است'); return; }
+  if(!confirm('هشدار '+legalDigestItems.length+' مورد الزام قانونی معوق/نزدیک‌به‌سررسید به تلگرام/روبیکای سوپرادمین‌ها ارسال شود؟')) return;
+  btn.disabled = true; btn.textContent = '⏳ در حال ارسال...';
+  try {
+    const {data:{session}} = await sb.auth.getSession();
+    const res = await fetch(SUPA_URL + '/functions/v1/notify-relay', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json', 'Authorization':'Bearer '+session.access_token},
+      body: JSON.stringify({ action: 'legalComplianceDigest', items: legalDigestItems })
+    });
+    const j = await res.json();
+    showToast(j.notified ? '✅ هشدار ارسال شد' : '⚠️ ارسال ناموفق — گیرنده‌ای با تلگرام/روبیکای تنظیم‌شده یافت نشد');
+  } catch(e) {
+    showToast('⚠️ خطا در ارسال هشدار');
+  }
+  btn.disabled = false; btn.textContent = '🔔 ارسال هشدار به تلگرام/روبیکا';
 }
 
 function renderLicenseWarnings() {
@@ -8314,7 +9568,7 @@ async function confirmNewRecord() {
   const defaultCat = {'معدن':'غیره', 'اکتشاف':'در حال اکتشاف', 'فرآوری':'فعال'}[currentDept] || 'فعال';
   const rec = {};
   rec[dupField] = name;
-  rec['شهرستان'] = 'قروه'; rec['استان'] = 'کردستان'; rec['دسته'] = defaultCat;
+  rec['شهرستان'] = myAssignedCounty || 'قروه'; rec['استان'] = myAssignedProvince || 'کردستان'; rec['دسته'] = defaultCat;
 
   mines.push(rec);
   const newIdx = mines.length - 1;
@@ -8332,8 +9586,9 @@ async function confirmNewRecord() {
   enterEdit();
   // اگر کاربر خواسته همین الان مختصات گوشه‌های محدوده را وارد کند، مستقیم همان ابزار مدیریت
   // گوشه‌ها (مدخل دستی lat/lon) را باز می‌کنیم — همان چیزی که برای رکوردهای موجود هم استفاده می‌شود.
-  // ورود از طریق فایل اکسل هم همیشه از تب «📥 ورود اطلاعات → مختصات چهارگوش» ممکن است،
-  // چون آن ابزار با شماره پروانه/نام معدن تطبیق می‌دهد و برای رکورد تازه‌ساخته هم کار می‌کند.
+  // ورود از طریق فایل اکسل هم همیشه از تب «📥 ورود اطلاعات → آپلود فایل مختصات محدوده» ممکن است،
+  // چون آن ابزار با کد شناسایی/کاداستر یا شماره پروانه تطبیق می‌دهد و برای رکورد تازه‌ساخته هم کار می‌کند
+  // (در صورت نبود تطبیق خودکار، معدن مقصد را در همان‌جا به‌صورت دستی انتخاب می‌کند).
   const boundaryDept = (currentDept === 'معدن' || currentDept === 'اکتشاف' || currentDept === 'فرآوری');
   if(addCornersNow && boundaryDept) {
     openCornersEditModal(newIdx);
@@ -8343,7 +9598,8 @@ async function confirmNewRecord() {
 document.getElementById('newRecordModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeNewRecordModal();});
 document.getElementById('backupsModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeBackupsModal();});
 document.getElementById('helpModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeHelpModal();});
-document.getElementById('cornersMapModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeCornersMapModal();});
+document.getElementById('boundaryUnmatchedModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeBoundaryResolveModal();});
+document.getElementById('legalRecordModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeLegalRecordModal();});
 document.getElementById('licenseMapModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeLicenseMapModal();});
 document.getElementById('licenseConfirmModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeLicenseConfirmModal();});
 
