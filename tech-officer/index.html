@@ -329,6 +329,25 @@ setTimeout(function(){
   </div>
 </div>
 
+<!-- ── پیش‌نمایش عکس (سینه‌کار/ماشین‌آلات) در اندازه‌ی واقعی، پیش از تایید نهایی ── -->
+<div class="gate-screen" id="techPhotoPreviewModal" style="display:none;z-index:1300;background:rgba(0,0,0,.9)">
+  <div style="width:100%;max-width:520px;display:flex;flex-direction:column;align-items:center;padding:12px">
+    <img id="techPhotoPreviewImg" style="width:100%;max-height:70vh;object-fit:contain;border-radius:8px;background:#000">
+    <div style="display:flex;gap:8px;margin-top:14px;width:100%">
+      <button class="btn" style="flex:1;background:#455a64;color:#fff" onclick="retakeTechPhotoPreview()">🔁 گرفتن مجدد</button>
+      <button class="btn btn-save" style="flex:1" onclick="confirmTechPhotoPreview()">✅ تایید و ذخیره</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── مشاهده‌ی عکس ثبت‌شده در اندازه‌ی واقعی (فقط نمایش) ── -->
+<div class="gate-screen" id="photoViewModal" style="display:none;z-index:1300;background:rgba(0,0,0,.9)" onclick="closePhotoViewModal()">
+  <div style="width:100%;max-width:520px;display:flex;flex-direction:column;align-items:center;padding:12px">
+    <img id="photoViewImg" style="width:100%;max-height:80vh;object-fit:contain;border-radius:8px;background:#000">
+    <button class="btn" style="margin-top:14px;background:#455a64;color:#fff;width:100%" onclick="closePhotoViewModal()">بستن</button>
+  </div>
+</div>
+
 <!-- ── چک‌لیست ایمنی نوبت‌کاری ── -->
 <div class="gate-screen" id="safetyChecklistModal" style="display:none;z-index:1000">
   <div class="gate-box" style="max-width:460px;max-height:88vh;overflow-y:auto;text-align:right">
@@ -621,15 +640,29 @@ setTimeout(function(){
   </div>
 
   <div class="panel-card">
+    <h3>⛏️ انتخاب معدن</h3>
+    <select id="torMine" onchange="renderEquipmentChecklist()"></select>
+  </div>
+
+  <div class="panel-card">
+    <h3>📋 چک‌لیست ایمنی و گزارش‌های تکمیلی</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">
+      <button type="button" class="btn-sm" style="background:#e8f5e9;color:#1b5e20;padding:10px;grid-column:1/3" onclick="openStakeout()">🎯 پیاده کردن نقاط پروانه (استیک‌اوت GPS)</button>
+      <button class="btn-sm" style="background:#ffebee;color:#b71c1c;padding:10px;grid-column:1/3" onclick="openSafetyChecklistModal()">✅ چک‌لیست ایمنی نوبت‌کاری</button>
+      <button class="btn-sm" style="background:#e8f5e9;color:#2e7d32;padding:10px" onclick="openTrainingModal()">🎓 آموزش ایمنی کارکنان</button>
+      <button class="btn-sm" style="background:#e3f2fd;color:#1565c0;padding:10px" onclick="openProductionModal()">⚖️ تولید و عیار</button>
+      <button class="btn-sm" style="background:#fff3e0;color:#e65100;padding:10px" onclick="openPersonnelModal()">👥 پرسنل تحت سرپرستی</button>
+      <button class="btn-sm" style="background:#ffebee;color:#c62828;padding:10px" onclick="openCorrectiveModal()">🛠️ اقدام اصلاحی</button>
+      <button class="btn-sm" style="background:#f3e5f5;color:#6a1b9a;padding:10px;grid-column:1/3" onclick="openQuarterlyMapModal()">🗺️ نقشه سه‌ماهه وضعیت معدن</button>
+    </div>
+  </div>
+
+  <div class="panel-card">
     <h3>📤 آپلود گزارش ماهانه</h3>
     <div style="font-size:11.5px;color:#55707d;margin-bottom:8px">گزارش و عکس‌ها مستقیماً برای مسئولین اداره ارسال می‌شود.</div>
 
-    <label>معدن</label>
-    <select id="torMine" onchange="renderEquipmentChecklist()"></select>
-    <button type="button" class="btn-sm" style="margin-top:8px;background:#e8f5e9;color:#1b5e20;width:100%" onclick="openStakeout()">🎯 پیاده کردن نقاط پروانه (استیک‌اوت GPS)</button>
-
-    <label>دوره گزارش (مثلاً مرداد ۱۴۰۵)</label>
-    <input id="torPeriod" type="text" placeholder="دوره گزارش">
+    <label>دوره گزارش</label>
+    <select id="torPeriod"></select>
 
     <label>فایل گزارش ماهانه (PDF/Word/عکس)</label>
     <input id="torReportFile" type="file" accept=".pdf,.doc,.docx,image/*">
@@ -657,18 +690,6 @@ setTimeout(function(){
 
     <button class="btn btn-save" id="torSubmitBtn" style="width:100%;margin-top:14px" onclick="submitTechReport()">📤 ارسال گزارش</button>
     <div id="torStatus" style="margin-top:10px;font-size:12.5px"></div>
-  </div>
-
-  <div class="panel-card">
-    <h3>📋 گزارش‌های تکمیلی</h3>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">
-      <button class="btn-sm" style="background:#ffebee;color:#b71c1c;padding:10px;grid-column:1/3" onclick="openSafetyChecklistModal()">✅ چک‌لیست ایمنی نوبت‌کاری</button>
-      <button class="btn-sm" style="background:#e8f5e9;color:#2e7d32;padding:10px" onclick="openTrainingModal()">🎓 آموزش ایمنی کارکنان</button>
-      <button class="btn-sm" style="background:#e3f2fd;color:#1565c0;padding:10px" onclick="openProductionModal()">⚖️ تولید و عیار</button>
-      <button class="btn-sm" style="background:#fff3e0;color:#e65100;padding:10px" onclick="openPersonnelModal()">👥 پرسنل تحت سرپرستی</button>
-      <button class="btn-sm" style="background:#ffebee;color:#c62828;padding:10px" onclick="openCorrectiveModal()">🛠️ اقدام اصلاحی</button>
-      <button class="btn-sm" style="background:#f3e5f5;color:#6a1b9a;padding:10px;grid-column:1/3" onclick="openQuarterlyMapModal()">🗺️ نقشه سه‌ماهه وضعیت معدن</button>
-    </div>
   </div>
 
   <div class="panel-card">
@@ -2068,6 +2089,7 @@ async function showTechOfficerPanel(email, mines, identityVerifiedAt, myRoleRow)
     ? myMines.map(m => '<option value="'+esc(m[meta.nameField])+'">'+esc(m[meta.nameField])+'</option>').join('')
     : '<option value="">— موردی اختصاص نیافته —</option>';
   renderEquipmentChecklist();
+  populatePeriodDropdown();
   loadTechOfficerHistory(myMines.map(m => m[meta.nameField]));
 }
 
@@ -2496,7 +2518,7 @@ async function openSafetyChecklistModal() {
   document.getElementById('safetyChecklistErr').textContent = '';
   document.getElementById('scItemsBox').innerHTML = '<div style="text-align:center;color:#90a4ae;font-size:12px;padding:10px">در حال بارگذاری آیتم‌ها...</div>';
   document.getElementById('safetyChecklistModal').style.display = 'flex';
-  const {data, error} = await sb.from('safety_checklist_items').select('item_text').eq('department', myTechOfficerDept).eq('active', true).order('sort_order');
+  const {data, error} = await sb.from('safety_checklist_items').select('item_text').eq('department', myTechOfficerDept).eq('role', 'tech_officer').eq('active', true).order('sort_order');
   if(error || !data || !data.length) {
     document.getElementById('scItemsBox').innerHTML = '<div style="color:#c62828;font-size:12px">⚠️ آیتم‌های چک‌لیست بارگذاری نشد. اتصال اینترنت را بررسی کنید.</div>';
     return;
@@ -3013,7 +3035,8 @@ async function sendIdentityVerificationPayload(p) {
   if(upErr) throw new Error('آپلود عکس ناموفق بود: '+upErr.message);
   const {error: rpcErr} = await sb.rpc('submit_identity_verification', {
     mine_name_in: p.mineName, kind_in: p.kind, photo_url_in: path,
-    lat_in: p.lat, lon_in: p.lon, inside_boundary_in: true, device_id_in: p.deviceId
+    lat_in: p.lat, lon_in: p.lon, inside_boundary_in: true, device_id_in: p.deviceId,
+    credential_id_in: p.credentialId || null, public_key_in: p.publicKey || null, credential_counter_in: p.credentialCounter || null
   });
   if(rpcErr) throw new Error(rpcErr.message);
 }
@@ -3026,10 +3049,16 @@ async function submitIdentityCapture() {
   if(!mineName) { errEl.textContent = 'معدن را انتخاب کنید'; return; }
   const btn = document.getElementById('identitySubmitBtn');
   btn.disabled = true; btn.textContent = '⏳ در حال ارسال...';
+  // اگر گوشی سنسور اثرانگشت/Face ID دارد، همین‌جا یک passkey سخت‌افزاری تازه ثبت می‌شود تا پس از
+  // تایید ادمین، «گوشی مورد اعتماد» بعدی بر مبنای کلید واقعی سخت‌افزار باشد، نه رشته‌ی ساده‌ی قابل‌کپی
+  const passkey = navigator.onLine ? await registerTrustedPasskey() : null;
   const payload = {
     email: identityGateCtx.email, mineName, kind: identityGateCtx.kind,
     blob: identityCapturedBlob, lat: identityCapturedCoords.latitude, lon: identityCapturedCoords.longitude,
-    deviceId: getOrCreateDeviceId()
+    deviceId: getOrCreateDeviceId(),
+    credentialId: passkey ? passkey.credentialId : null,
+    publicKey: passkey ? passkey.publicKey : null,
+    credentialCounter: passkey ? passkey.counter : null,
   };
   try {
     if(!navigator.onLine) throw new Error('offline');
@@ -3060,11 +3089,21 @@ async function submitIdentityCapture() {
 async function trySilentDeviceEntry(email) {
   try {
     const {data: rows} = await sb.from('user_roles')
-      .select('role, trusted_device_id, identity_status, tech_officer_specialty, assigned_mines')
+      .select('role, trusted_device_id, trusted_credential_id, identity_status, tech_officer_specialty, assigned_mines')
       .eq('email', email).limit(1);
     const row = (rows && rows[0]) || {};
-    if(row.role !== 'tech_officer' || row.identity_status !== 'approved' || !row.trusted_device_id) return false;
-    if(row.trusted_device_id !== getOrCreateDeviceId()) return false;
+    if(row.role !== 'tech_officer' || row.identity_status !== 'approved') return false;
+
+    let deviceOk = false;
+    if(row.trusted_credential_id) {
+      // روش جدید و امن‌تر: تایید واقعی با اثرانگشت/Face ID روی کلید سخت‌افزاری ثبت‌شده
+      deviceOk = await verifyTrustedPasskey();
+    } else if(row.trusted_device_id) {
+      // سازگاری با تاییدهای قدیمی‌تر که هنوز passkey ثبت نکرده‌اند (مثلاً گوشی بدون سنسور بیومتریک)
+      deviceOk = row.trusted_device_id === getOrCreateDeviceId();
+    }
+    if(!deviceOk) return false;
+
     const mines = await fetchAssignedMines(row.tech_officer_specialty, row.assigned_mines || []);
     if(!mines.length) return false;
     const coords = await getGeoLocation();
@@ -3072,6 +3111,34 @@ async function trySilentDeviceEntry(email) {
   } catch(e) {
     return false;
   }
+}
+
+// ── دوره گزارش به‌صورت کشویی (قبلاً یک input متنی آزاد بود که باعث ثبت اسم ماه‌های نادرست/بدون سال می‌شد) ──
+const JALALI_MONTHS = ['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
+function gregorianToJalali(gy, gm, gd) {
+  const date = new Date(gy, gm-1, gd, 12, 0, 0);
+  const fmt = new Intl.DateTimeFormat('en-US-u-ca-persian', {year:'numeric', month:'numeric', day:'numeric'});
+  const parts = fmt.formatToParts(date);
+  const y = parseInt(parts.find(p=>p.type==='year').value);
+  const mo = parseInt(parts.find(p=>p.type==='month').value);
+  const d = parseInt(parts.find(p=>p.type==='day').value);
+  return [y, mo, d];
+}
+// دوره‌ی جاری و ۵ ماه قبل از آن را در کشویی می‌گذارد (کافی برای اینکه مسئول فنی هیچ‌وقت گزارش
+// عقب‌افتاده را هم نتواند به‌اشتباه با اسم ماه غلط ثبت کند) — ماه جاری همیشه اول لیست است
+function populatePeriodDropdown() {
+  const sel = document.getElementById('torPeriod');
+  if(!sel) return;
+  const now = new Date();
+  const [jy, jm] = gregorianToJalali(now.getFullYear(), now.getMonth()+1, now.getDate());
+  const opts = [];
+  for(let i = 0; i < 6; i++) {
+    let mo = jm - i, yr = jy;
+    while(mo <= 0) { mo += 12; yr -= 1; }
+    const label = JALALI_MONTHS[mo-1] + ' ' + yr;
+    opts.push('<option value="'+label+'">'+label+'</option>');
+  }
+  sel.innerHTML = opts.join('');
 }
 
 let torEquipItemCaptures = {}; // key: "field__index" -> {overview:[{blob,previewUrl}], serial:[{blob,previewUrl}]}
@@ -3105,6 +3172,29 @@ function buildEquipWorkingList() {
   torEquipWorkingList = mine ? getMineEquipmentList(mine) : [];
   torEquipWorkingMine = mineName;
   torEquipEditingKey = null;
+  mergeApprovedEquipmentIntoWorkingList(mineName);
+}
+
+// ماشین‌آلاتی که قبلاً عکسشان گرفته و توسط مدیر سامانه (یا خودکار داخل محدوده) تایید شده‌اند
+// ولی هیچ‌وقت در لیست پیش‌فرض این معدن («تجهیزات_نفت‌گاز/گاز‌مایع/نفت‌سفید») ذخیره نشده‌اند را
+// هم به‌صورت خودکار به چک‌لیست اضافه می‌کند — دقیقاً همان کاری که سمت ادمین با دکمه‌ی
+// «وارد کردن ماشین‌آلات تایید‌شده» در فرم چاپ سوخت انجام می‌دهد؛ بدون این، مسئول فنی هر بار
+// باید ماشین‌آلاتی که قبلاً خودش تایید گرفته را دوباره دستی اضافه می‌کرد.
+async function mergeApprovedEquipmentIntoWorkingList(mineName) {
+  if(!mineName) return;
+  const {data, error} = await sb.from('mine_equipment').select('*').eq('mine_name', mineName).eq('status', 'approved');
+  if(error || !data || !data.length) return;
+  if(document.getElementById('torMine').value !== mineName || torEquipWorkingMine !== mineName) return; // کاربر معدن را عوض کرده
+  const existingNames = new Set(torEquipWorkingList.map(r => (r.name || '').trim()).filter(Boolean));
+  let added = false;
+  data.forEach(eq => {
+    const name = (eq.machine_type || '').trim();
+    if(!name || existingNames.has(name)) return;
+    existingNames.add(name);
+    torEquipWorkingList.push({ key: 'approved_' + eq.id, field: 'تجهیزات_نفت_گاز', name, model: eq.plate_no || '', type: 'نفت‌گاز', count: '1', isNew: true });
+    added = true;
+  });
+  if(added && document.getElementById('torMine').value === mineName) renderEquipmentChecklist();
 }
 
 function addTechEquipRow() {
@@ -3274,9 +3364,17 @@ function renderEquipItemThumbs(key, photoType) {
 }
 function removeEquipItemPhoto(key, photoType, i) {
   if(!confirm('این عکس حذف شود؟')) return;
-  torEquipItemCaptures[key][photoType].splice(i,1);
+  const removed = torEquipItemCaptures[key][photoType].splice(i,1)[0];
+  if(removed && removed.previewUrl) URL.revokeObjectURL(removed.previewUrl);
   renderEquipItemThumbs(key, photoType);
 }
+
+// ── گرفتن عکس سینه‌کار/ماشین‌آلات: قبل از این تغییر، عکس بلافاصله در حد یک بندانگشتی کوچک
+// ذخیره می‌شد و مسئول فنی نمی‌توانست آن را در اندازه‌ی واقعی ببیند و تایید کند. حالا بعد از گرفتن
+// عکس، در اندازه‌ی واقعی نمایش داده می‌شود تا تایید یا دوباره گرفته شود؛ و به‌محض تایید، اگر
+// اینترنت وصل باشد، بارگذاری آن همان لحظه در پس‌زمینه شروع می‌شود (نه موقع زدن دکمه‌ی «ارسال
+// گزارش») تا وقتی گزارش نهایی ارسال می‌شود طولانی نشود.
+let techPhotoPreviewCtx = null;
 
 async function captureTechPhoto(inputEl, category) {
   const file = inputEl.files[0];
@@ -3289,28 +3387,65 @@ async function captureTechPhoto(inputEl, category) {
   try {
     const coords = await getGeoLocation();
     const watermarked = await watermarkPhoto(file, coords, mine, category === 'face' ? 'سینه‌کار' : 'سایر ماشین‌آلات');
-    const arr = category === 'face' ? torFaceCaptures : torEquipCaptures;
-    arr.push({ blob: watermarked, previewUrl: URL.createObjectURL(watermarked) });
-    renderTechPhotoThumbs(category);
-    // عکس «سایر ماشین‌آلات» (دکمه‌ی کلی، خارج از چک‌لیست) علاوه بر ضمیمه‌شدن به گزارش دوره‌ای،
-    // همین الان برای تایید مدیر سامانه در جدول mine_equipment هم ثبت می‌شود — دقیقاً مثل عکس
-    // «نمای دور» چک‌لیست ماشین‌آلات — تا در تب «ماشین‌آلات» ادمین و دکمه‌ی «دریافت ماشین‌آلات
-    // تایید‌شده» در چاپ سوخت هم دیده شود. قبل از این تغییر این عکس‌ها فقط داخل گزارش دوره‌ای
-    // (tech_reports) می‌ماندند و هیچ‌وقت به بخش ماشین‌آلات/چاپ سوخت وصل نمی‌شدند.
-    if(category === 'equip') {
-      try {
-        await submitGeneralEquipmentForApproval(mine, coords, watermarked);
-        showToast('✅ عکس ماشین برای تایید مدیر سامانه ارسال شد');
-      } catch(subErr) {
-        console.warn('mine_equipment insert failed', subErr);
-        showToast('⚠️ عکس ذخیره شد ولی ارسال برای تایید ماشین‌آلات ناموفق بود: ' + subErr.message);
-      }
-    }
+    techPhotoPreviewCtx = { category, blob: watermarked, mine, coords, inputEl };
+    document.getElementById('techPhotoPreviewImg').src = URL.createObjectURL(watermarked);
+    document.getElementById('techPhotoPreviewModal').style.display = 'flex';
   } catch(err) {
     showToast('⚠️ ' + err.message);
+    inputEl.value = '';
   }
-  inputEl.value = '';
 }
+
+function retakeTechPhotoPreview() {
+  document.getElementById('techPhotoPreviewModal').style.display = 'none';
+  const ctx = techPhotoPreviewCtx;
+  techPhotoPreviewCtx = null;
+  if(ctx && ctx.inputEl) {
+    ctx.inputEl.value = '';
+    setTimeout(()=>ctx.inputEl.click(), 50);
+  }
+}
+
+async function confirmTechPhotoPreview() {
+  const ctx = techPhotoPreviewCtx;
+  if(!ctx) return;
+  document.getElementById('techPhotoPreviewModal').style.display = 'none';
+  techPhotoPreviewCtx = null;
+  const { category, blob, mine, coords, inputEl } = ctx;
+
+  const arr = category === 'face' ? torFaceCaptures : torEquipCaptures;
+  const item = { blob, previewUrl: URL.createObjectURL(blob), uploadedUrl: null, uploading: false, uploadFailed: false };
+  arr.push(item);
+  renderTechPhotoThumbs(category);
+
+  // بارگذاری پیش‌زمینه‌ای همین الان — تا لحظه‌ی زدن دکمه‌ی «ارسال گزارش» عکس‌ها از قبل آپلود شده باشند
+  if(navigator.onLine) {
+    item.uploading = true;
+    renderTechPhotoThumbs(category);
+    const mineNameNow = document.getElementById('torMine').value;
+    const periodNow = document.getElementById('torPeriod').value.trim() || 'نامشخص';
+    uploadTechFile(blob, (category==='face'?'face':'equip')+'.jpg', mineNameNow, periodNow, category)
+      .then(url => { item.uploadedUrl = url; item.uploading = false; renderTechPhotoThumbs(category); })
+      .catch(() => { item.uploading = false; item.uploadFailed = true; renderTechPhotoThumbs(category); });
+  }
+
+  if(category === 'equip') {
+    try {
+      await submitGeneralEquipmentForApproval(mine, coords, blob);
+      showToast('✅ عکس ماشین برای تایید مدیر سامانه ارسال شد');
+    } catch(subErr) {
+      console.warn('mine_equipment insert failed', subErr);
+      showToast('⚠️ عکس ذخیره شد ولی ارسال برای تایید ماشین‌آلات ناموفق بود: ' + subErr.message);
+    }
+  }
+  if(inputEl) inputEl.value = '';
+}
+
+function viewPhotoFullSize(url) {
+  document.getElementById('photoViewImg').src = url;
+  document.getElementById('photoViewModal').style.display = 'flex';
+}
+function closePhotoViewModal() { document.getElementById('photoViewModal').style.display = 'none'; }
 
 // مشابه submitEquipmentForApproval ولی برای عکس‌های «سایر ماشین‌آلات» که نام/مدل مشخصی از چک‌لیست ندارند —
 // در پنل ادمین با عنوان کلی ثبت می‌شود تا ادمین بعداً نام دقیق را در تب «ماشین‌آلات» تکمیل/تایید کند.
@@ -3333,18 +3468,36 @@ async function submitGeneralEquipmentForApproval(mine, coords, watermarkedBlob) 
 function renderTechPhotoThumbs(category) {
   const arr = category === 'face' ? torFaceCaptures : torEquipCaptures;
   const box = document.getElementById(category === 'face' ? 'torFaceThumbs' : 'torEquipThumbs');
-  box.innerHTML = arr.map((c, i) =>
-    '<div style="position:relative;width:80px;height:80px">'+
-    '<img src="'+c.previewUrl+'" style="width:100%;height:100%;object-fit:cover;border-radius:8px;border:1px solid #cfd8dc">'+
+  box.innerHTML = arr.map((c, i) => {
+    const badge = c.uploading ? '<div style="position:absolute;bottom:2px;right:2px;left:2px;background:rgba(0,0,0,.6);color:#fff;font-size:9px;text-align:center;border-radius:4px;padding:1px 0">⏳ آپلود</div>'
+      : c.uploadedUrl ? '<div style="position:absolute;bottom:2px;right:2px;background:#2e7d32;color:#fff;font-size:11px;border-radius:50%;width:16px;height:16px;text-align:center;line-height:16px">✓</div>'
+      : c.uploadFailed ? '<div style="position:absolute;bottom:2px;right:2px;left:2px;background:#c62828;color:#fff;font-size:9px;text-align:center;border-radius:4px;padding:1px 0">⚠️ خطا</div>' : '';
+    return '<div style="position:relative;width:80px;height:80px">'+
+    '<img src="'+c.previewUrl+'" onclick="viewPhotoFullSize(\''+c.previewUrl+'\')" style="width:100%;height:100%;object-fit:cover;border-radius:8px;border:1px solid #cfd8dc;cursor:pointer">'+
+    badge+
     '<button onclick="removeTechPhoto(\''+category+'\','+i+')" style="position:absolute;top:-6px;left:-6px;background:#e53935;color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;cursor:pointer">✕</button>'+
-    '</div>'
-  ).join('');
+    '</div>';
+  }).join('');
 }
 function removeTechPhoto(category, i) {
   if(!confirm('این عکس حذف شود؟')) return;
   const arr = category === 'face' ? torFaceCaptures : torEquipCaptures;
-  arr.splice(i, 1);
+  const removed = arr.splice(i, 1)[0];
+  if(removed && removed.previewUrl) URL.revokeObjectURL(removed.previewUrl);
   renderTechPhotoThumbs(category);
+}
+
+// بعد از ارسال موفق (یا ذخیره در صف آفلاین) همه‌ی URLهای موقت عکس‌ها را آزاد می‌کند تا روی
+// گوشی‌های ضعیف‌تر، بعد از چند گزارش پشت‌سرهم، حافظه پر نشود — قبلاً این URLها هیچ‌وقت آزاد نمی‌شدند.
+function clearTechCaptures() {
+  torFaceCaptures.forEach(c => c.previewUrl && URL.revokeObjectURL(c.previewUrl));
+  torEquipCaptures.forEach(c => c.previewUrl && URL.revokeObjectURL(c.previewUrl));
+  Object.values(torEquipItemCaptures).forEach(caps => {
+    (caps.overview||[]).forEach(c => c.previewUrl && URL.revokeObjectURL(c.previewUrl));
+    (caps.serial||[]).forEach(c => c.previewUrl && URL.revokeObjectURL(c.previewUrl));
+  });
+  torFaceCaptures = []; torEquipCaptures = [];
+  torEquipItemCaptures = {};
 }
 
 // نام‌ها (مثلاً نام معدن فارسی) را به یک بخش امن برای مسیر فایل در Supabase Storage تبدیل می‌کند.
@@ -3363,13 +3516,16 @@ async function uploadTechFile(fileOrBlob, fileName, mineName, period, category) 
 }
 
 // منطق واقعی ارسال گزارش دوره‌ای — هم مسیر آنلاین مستقیم و هم sync بعدی از صف آفلاین از این استفاده می‌کنند.
-// ورودی: { mineName, period, note, submittedBy, reportBlob:{blob,name}|null, faceBlobs:[Blob], equipBlobs:[Blob],
+// ورودی: { mineName, period, note, submittedBy, reportBlob:{blob,name}|null,
+//          faceBlobs:[{blob,uploadedUrl}], equipBlobs:[{blob,uploadedUrl}],
 //          equipmentDetail: [{name,type,model, overviewBlobs:[Blob], serialBlobs:[Blob]}] }
+// عکس‌های سینه‌کار/ماشین‌آلات معمولاً همان لحظه‌ی تایید توسط مسئول فنی (نه اینجا) در پس‌زمینه
+// آپلود شده‌اند؛ اگر uploadedUrl از قبل موجود باشد، دوباره آپلود نمی‌شود — فقط لینک آماده استفاده می‌شود.
 async function sendTechReportPayload(p) {
   const fileUrls = { report: [], face: [], equip: [], equipmentDetail: [] };
   if(p.reportBlob) fileUrls.report.push(await uploadTechFile(p.reportBlob.blob, p.reportBlob.name, p.mineName, p.period, 'report'));
-  for(const blob of p.faceBlobs)  fileUrls.face.push(await uploadTechFile(blob, 'face.jpg', p.mineName, p.period, 'face'));
-  for(const blob of p.equipBlobs) fileUrls.equip.push(await uploadTechFile(blob, 'equip.jpg', p.mineName, p.period, 'equip'));
+  for(const item of p.faceBlobs)  fileUrls.face.push(item.uploadedUrl || await uploadTechFile(item.blob, 'face.jpg', p.mineName, p.period, 'face'));
+  for(const item of p.equipBlobs) fileUrls.equip.push(item.uploadedUrl || await uploadTechFile(item.blob, 'equip.jpg', p.mineName, p.period, 'equip'));
   for(const eq of p.equipmentDetail) {
     const overviewUrls = [];
     for(const blob of eq.overviewBlobs) overviewUrls.push(await uploadTechFile(blob, 'overview.jpg', p.mineName, p.period, 'equip_'+eq.key));
@@ -3425,8 +3581,8 @@ async function submitTechReport() {
   const payload = {
     mineName, period, note, submittedBy: user?user.email:'',
     reportBlob: reportFile ? {blob: reportFile, name: reportFile.name} : null,
-    faceBlobs: torFaceCaptures.map(c=>c.blob),
-    equipBlobs: torEquipCaptures.map(c=>c.blob),
+    faceBlobs: torFaceCaptures.map(c=>({blob:c.blob, uploadedUrl:c.uploadedUrl})),
+    equipBlobs: torEquipCaptures.map(c=>({blob:c.blob, uploadedUrl:c.uploadedUrl})),
     equipmentDetail
   };
 
@@ -3441,11 +3597,10 @@ async function submitTechReport() {
     } else {
       statusBox.innerHTML = '<span style="color:#2e7d32">✅ گزارش با موفقیت ذخیره و برای مسئولین ارسال شد.</span>';
     }
-    document.getElementById('torPeriod').value='';
+    populatePeriodDropdown();
     document.getElementById('torReportFile').value='';
     document.getElementById('torNote').value='';
-    torFaceCaptures = []; torEquipCaptures = [];
-    torEquipItemCaptures = {};
+    clearTechCaptures();
     renderTechPhotoThumbs('face'); renderTechPhotoThumbs('equip');
     renderEquipmentChecklist();
     loadTechOfficerHistory(techOfficerMinesCache.map(m => m[m._nameField || 'نام_معدن']));
@@ -3455,11 +3610,10 @@ async function submitTechReport() {
         type: 'techReport', payload, queuedAt: Date.now() });
       updateOfflineBadge();
       statusBox.innerHTML = '<span style="color:#e65100">📴 اینترنت وصل نیست — گزارش ذخیره شد و به‌محض اتصال خودکار ارسال می‌شود.</span>';
-      document.getElementById('torPeriod').value='';
+      populatePeriodDropdown();
       document.getElementById('torReportFile').value='';
       document.getElementById('torNote').value='';
-      torFaceCaptures = []; torEquipCaptures = [];
-      torEquipItemCaptures = {};
+      clearTechCaptures();
       renderTechPhotoThumbs('face'); renderTechPhotoThumbs('equip');
       renderEquipmentChecklist();
     } else {
@@ -3470,6 +3624,7 @@ async function submitTechReport() {
 }
 
 let _techHistoryData = [];
+let _techHistoryExpanded = new Set(); // شناسه‌ی گزارش‌هایی که در همین لحظه باز/کشویی هستند
 async function loadTechOfficerHistory(mineNames) {
   const box = document.getElementById('techOfficerHistory');
   if(!mineNames || !mineNames.length) { box.innerHTML = ''; return; }
@@ -3478,6 +3633,9 @@ async function loadTechOfficerHistory(mineNames) {
   _techHistoryData = data || [];
   renderTechHistoryList();
 }
+// هر گزارش به‌صورت یک ردیف کشویی/آکاردئونی نمایش داده می‌شود: با لمس عنوان باز/بسته می‌شود
+// و جزئیات (توضیحات + لینک فایل گزارش + عکس‌های سینه‌کار/ماشین‌آلات) داخلش دیده می‌شود —
+// قبلاً همه‌چیز به‌صورت باز و بدون هیچ لینکی به فایل‌ها نمایش داده می‌شد.
 function renderTechHistoryList() {
   const box = document.getElementById('techOfficerHistory');
   const searchEl = document.getElementById('techHistorySearch');
@@ -3486,12 +3644,34 @@ function renderTechHistoryList() {
     (r.mine_name||'').toLowerCase().includes(q) || (r.period||'').toLowerCase().includes(q));
   if(!_techHistoryData.length) { box.innerHTML = '<div style="color:#6b8291;font-size:12px">هنوز گزارشی ارسال نشده</div>'; return; }
   if(!rows.length) { box.innerHTML = '<div style="color:#6b8291;font-size:12px">موردی با این جست‌وجو پیدا نشد</div>'; return; }
-  box.innerHTML = rows.map(r =>
-    '<div style="background:#f8fafd;border-radius:10px;padding:10px 12px;margin-bottom:6px;font-size:12px">'+
-    '<b>'+esc(r.mine_name)+'</b> — '+esc(r.period||'')+' <span style="color:#6b8291">('+new Date(r.created_at).toLocaleDateString('fa-IR')+')</span>'+
-    (r.note ? '<div style="color:#55707d;margin-top:4px">'+esc(r.note)+'</div>' : '')+
-    '</div>'
-  ).join('');
+  box.innerHTML = rows.map(r => {
+    const key = String(r.id);
+    const open = _techHistoryExpanded.has(key);
+    const fu = r.file_urls || {};
+    const linkList = (urls, label) => (urls||[]).map((u,i) =>
+      '<a href="'+esc(u)+'" target="_blank" rel="noopener" style="color:#1565c0;display:inline-block;margin-left:10px">'+label+((urls.length>1)?(' '+(i+1)):'')+'</a>').join('');
+    const equipDetailHtml = (fu.equipmentDetail||[]).map(eq => {
+      const links = linkList(eq.overview, '🔍 نمای دور') + linkList(eq.serial, '🔢 سریال/پلاک');
+      return '<div style="margin-top:6px;padding-top:6px;border-top:1px dashed #dde5ea"><b>'+esc(eq.name||'')+'</b>'+(eq.model?(' — '+esc(eq.model)):'')+(links?('<div style="margin-top:2px">'+links+'</div>'):'')+'</div>';
+    }).join('');
+    const bodyParts = [];
+    if(r.note) bodyParts.push('<div style="color:#55707d">'+esc(r.note)+'</div>');
+    const topLinks = linkList(fu.report, '📄 فایل گزارش') + linkList(fu.face, '📷 سینه‌کار') + linkList(fu.equip, '📷 ماشین‌آلات');
+    if(topLinks) bodyParts.push('<div style="margin-top:6px">'+topLinks+'</div>');
+    if(equipDetailHtml) bodyParts.push(equipDetailHtml);
+    const body = bodyParts.length ? bodyParts.join('') : '<div style="color:#90a4ae">جزئیات بیشتری ثبت نشده</div>';
+    return '<div style="background:#f8fafd;border-radius:10px;margin-bottom:6px;font-size:12px;overflow:hidden">'+
+      '<div onclick="toggleTechHistoryItem(\''+key+'\')" style="padding:10px 12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px">'+
+        '<div><b>'+esc(r.mine_name)+'</b> — '+esc(r.period||'')+' <span style="color:#6b8291">('+new Date(r.created_at).toLocaleDateString('fa-IR')+')</span></div>'+
+        '<span style="color:#6b8291;flex-shrink:0">'+(open?'▲':'▼')+'</span>'+
+      '</div>'+
+      (open ? '<div style="padding:0 12px 12px;line-height:1.9">'+body+'</div>' : '')+
+    '</div>';
+  }).join('');
+}
+function toggleTechHistoryItem(key) {
+  if(_techHistoryExpanded.has(key)) _techHistoryExpanded.delete(key); else _techHistoryExpanded.add(key);
+  renderTechHistoryList();
 }
 
 // ── ورود با اثر انگشت/Face ID (WebAuthn، به‌عنوان قفل محلی روی نشست ذخیره‌شده) ──
@@ -3515,6 +3695,86 @@ function setBiometricCred(email, credIdB64) {
   localStorage.setItem(bioStorageKey(email), JSON.stringify({credId: credIdB64}));
 }
 function removeBiometricCred(email) { localStorage.removeItem(bioStorageKey(email)); }
+
+// ── «گوشی مورد اعتماد» با passkey سخت‌افزاری (جایگزین امن‌تر برای مقایسه‌ی ساده‌ی device_id) ──
+// device_id قبلی فقط یک رشته‌ی تصادفی داخل localStorage بود که از خود گوشی قابل کپی‌شدن به
+// گوشی دیگر بود. اینجا به‌جایش یک کلید WebAuthn واقعی (داخل سخت‌افزار امن گوشی) ثبت می‌شود که
+// اصلاً قابل استخراج/کپی نیست؛ فقط با اثرانگشت/Face ID همان گوشی قابل استفاده است.
+async function callWebAuthn(action, extra) {
+  try {
+    const {data: sessionData} = await sb.auth.getSession();
+    const jwt = sessionData && sessionData.session ? sessionData.session.access_token : SUPA_KEY;
+    const res = await fetch(SUPA_URL + '/functions/v1/webauthn-verify', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+jwt},
+      body: JSON.stringify(Object.assign({action}, extra||{}))
+    });
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok) return null;
+    return data;
+  } catch(e) { return null; }
+}
+
+// همراه با ارسال هر عکس احراز هویت (اولیه/تمدید ماهانه) صدا زده می‌شود تا در صورت وجود سنسور
+// بیومتریک، یک passkey تازه روی همین گوشی ثبت شود؛ نتیجه همراه عکس برای تایید ادمین فرستاده می‌شود.
+async function registerTrustedPasskey() {
+  if(!bioSupported()) return null;
+  try {
+    const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+    if(!available) return null;
+    const opts = await callWebAuthn('reg-options', {});
+    if(!opts || opts.error) return null;
+    const publicKey = Object.assign({}, opts, {
+      challenge: b64decode(opts.challenge),
+      user: Object.assign({}, opts.user, {id: b64decode(opts.user.id)}),
+      excludeCredentials: (opts.excludeCredentials||[]).map(c => Object.assign({}, c, {id: b64decode(c.id)})),
+    });
+    const cred = await navigator.credentials.create({publicKey});
+    if(!cred) return null;
+    const r = cred.response;
+    const credentialJSON = {
+      id: cred.id, rawId: b64encode(cred.rawId), type: cred.type,
+      response: {
+        clientDataJSON: b64encode(r.clientDataJSON),
+        attestationObject: b64encode(r.attestationObject),
+        transports: (r.getTransports && r.getTransports()) || [],
+      },
+      clientExtensionResults: cred.getClientExtensionResults ? cred.getClientExtensionResults() : {},
+    };
+    const verify = await callWebAuthn('reg-verify', {credential: credentialJSON});
+    if(!verify || !verify.verified) return null;
+    return {credentialId: verify.credentialId, publicKey: verify.publicKey, counter: verify.counter};
+  } catch(e) { return null; }
+}
+
+// در ورود بی‌صدا صدا زده می‌شود — به‌جای مقایسه‌ی رشته‌ای device_id، یک تایید واقعی
+// اثرانگشت/Face ID از کاربر می‌گیرد و امضای آن را سمت سرور در برابر کلید عمومی ذخیره‌شده بررسی می‌کند.
+async function verifyTrustedPasskey() {
+  if(!bioSupported()) return false;
+  try {
+    const opts = await callWebAuthn('auth-options', {});
+    if(!opts || !opts.available) return false;
+    const publicKey = Object.assign({}, opts, {
+      challenge: b64decode(opts.challenge),
+      allowCredentials: (opts.allowCredentials||[]).map(c => Object.assign({}, c, {id: b64decode(c.id)})),
+    });
+    const assertion = await navigator.credentials.get({publicKey});
+    if(!assertion) return false;
+    const r = assertion.response;
+    const credentialJSON = {
+      id: assertion.id, rawId: b64encode(assertion.rawId), type: assertion.type,
+      response: {
+        clientDataJSON: b64encode(r.clientDataJSON),
+        authenticatorData: b64encode(r.authenticatorData),
+        signature: b64encode(r.signature),
+        userHandle: r.userHandle ? b64encode(r.userHandle) : undefined,
+      },
+      clientExtensionResults: assertion.getClientExtensionResults ? assertion.getClientExtensionResults() : {},
+    };
+    const verify = await callWebAuthn('auth-verify', {credential: credentialJSON});
+    return !!(verify && verify.verified);
+  } catch(e) { return false; }
+}
 
 function renderBiometricBanner(email) {
   const box = document.getElementById('biometricBanner');

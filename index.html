@@ -338,7 +338,7 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
     <div class="gate-box">
       <div class="gate-logo">🚫</div>
       <h2>دسترسی از این طریق مجاز نیست</h2>
-      <p>حساب شما با نقش «مسئول فنی» ثبت شده. لطفاً از اپلیکیشن مخصوص مسئولین فنی وارد شوید.</p>
+      <p id="techOfficerBlockedMsg">حساب شما با نقش «مسئول فنی» ثبت شده. لطفاً از اپلیکیشن مخصوص مسئولین فنی/ایمنی/بهداشت وارد شوید.</p>
       <button class="btn btn-cancel" style="width:100%;margin-top:14px" onclick="showAuthGate()">بازگشت به صفحه ورود</button>
     </div>
   </div>
@@ -521,6 +521,7 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
         <label class="list-filter-chk"><input type="checkbox" id="listFilterExpiring" onchange="renderList()"> فقط نزدیک به انقضا/منقضی</label>
         <label class="list-filter-chk"><input type="checkbox" id="listFilterNoCoords" onchange="renderList()"> فقط بدون مختصات</label>
         <span id="listFilterCount" style="font-size:11.5px;color:#90a4ae"></span>
+        <button class="btn-export" id="reclassifyMinesBtn" style="display:none;background:#ef6c00" onclick="openReclassifyMinesModal()">🗂 دسته‌بندی معادن قدیمی<span id="reclassifyMinesBadge" style="display:none;background:#fff;color:#ef6c00;border-radius:10px;font-size:10px;padding:1px 6px;margin-right:5px;font-weight:700"></span></button>
       </div>
       <div id="mineList"><div class="loading">در حال بارگذاری...</div></div>
     </div>
@@ -1008,6 +1009,8 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
     <h3 id="newRecordTitle">➕ افزودن رکورد جدید</h3>
     <label id="newRecordLabel">نام معدن</label>
     <input id="newRecordName" type="text" placeholder="نام را وارد کنید" onkeydown="if(event.key==='Enter')confirmNewRecord()">
+    <label id="newRecordGroupLabel">گروه ماده معدنی (ماده ۳ آیین‌نامه اجرایی قانون معادن)</label>
+    <select id="newRecordGroup"></select>
     <label style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:12.5px;color:#455a64;cursor:pointer">
       <input type="checkbox" id="newRecordAddCorners" style="width:auto" checked>
       همین الان مختصات گوشه‌های محدوده (نقاط پروانه) را هم وارد کنم
@@ -1015,6 +1018,20 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
     <div class="modal-btns">
       <button class="btn btn-save" onclick="confirmNewRecord()">افزودن</button>
       <button class="btn btn-cancel" onclick="closeNewRecordModal()">انصراف</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="reclassifyMinesModal">
+  <div class="modal" style="max-width:640px">
+    <h3>🗂 دسته‌بندی معادن قدیمی در قالب شش گروه</h3>
+    <div style="font-size:12px;color:#607d8b;margin-bottom:10px">
+      معادن زیر روی دسته «غیره» یا بدون دسته ثبت شده‌اند. برای هرکدام یکی از شش گروه ماده معدنی (ماده ۳ آیین‌نامه) را انتخاب و ذخیره کنید.
+    </div>
+    <div id="reclassifyMinesBody" style="max-height:55vh;overflow-y:auto"></div>
+    <div class="modal-btns">
+      <button class="btn btn-save" onclick="saveAllReclassifiedMines()">💾 ذخیره همه</button>
+      <button class="btn btn-cancel" onclick="closeReclassifyMinesModal()">بستن</button>
     </div>
   </div>
 </div>
@@ -1893,20 +1910,6 @@ function showPendingGate(email) {
   if(email) renderBiometricBanner(email, 'pendingBiometricBanner');
 }
 
-function toggleTechSignupFields() {
-  const on = document.getElementById('signupIsTech').checked;
-  document.getElementById('techSignupFields').style.display = on ? 'block' : 'none';
-}
-
-function toggleSignupMessengerHint() {
-  const m = document.getElementById('signupMessenger').value;
-  const hints = {
-    telegram: 'آیدی چت تلگرام', bale: 'شماره موبایل یا آیدی چت بله', eitaa: 'آیدی چت/کانال ایتا',
-    rubika: 'شناسه چت روبیکا', whatsapp: 'شماره موبایل واتساپ (با کد کشور)',
-  };
-  document.getElementById('signupMessengerIdLabel').textContent = hints[m] || 'شناسه چت';
-}
-
 async function doSignup() {
   const firstName = document.getElementById('signupFirstName').value.trim();
   const lastName = document.getElementById('signupLastName').value.trim();
@@ -2075,7 +2078,11 @@ async function onLogin() {
 
   if(myRole === 'pending') {
     showPendingGate(user.email);
-  } else if(myRole === 'tech_officer') {
+  } else if(myRole === 'tech_officer' || myRole === 'safety_officer' || myRole === 'health_officer') {
+    // مهم برای امنیت: این سه نقش فقط باید از اپلیکیشن مخصوص خودشان وارد شوند، نه داشبورد ادمین.
+    // قبلاً فقط tech_officer اینجا مسدود می‌شد؛ safety_officer/health_officer از این چک رد می‌شدند و
+    // چون myPermissions برایشان تنظیم نشده (null)، تابع hasPerm برای آن‌ها true برمی‌گرداند —
+    // یعنی دسترسی کامل و نامحدود به داشبورد ادمین (همه‌ی معادن، اطلاعات مالی و حقوقی و غیره).
     await sb.auth.signOut();
     hideAllGates();
     showTechOfficerBlockedGate();
@@ -5164,6 +5171,7 @@ async function confirmAddField() {
 }
 
 function renderList() {
+  updateReclassifyMinesButton();
   // پر کردن گزینه‌های دسته به‌صورت پویا از مقادیر موجود در داده‌های همین بخش (معدن/اکتشاف/فرآوری/صنعت)
   const catSelect = document.getElementById('listFilterCategory');
   const cats = [...new Set(mines.map(m=>m['دسته']).filter(Boolean))];
@@ -5223,7 +5231,6 @@ async function exportCorrectiveActionsForEngineeringOrg() {
   const filter = (document.getElementById('suppFilterMine').value||'').trim();
   let rows = suppCache.corrective || [];
   if(filter) rows = rows.filter(r => (r.mine_name||'').includes(filter));
-  if(!rows.length) { showToast('⚠️ موردی برای خروجی گرفتن یافت نشد'); return; }
 
   showToast('⏳ در حال آماده‌سازی گزارش...');
   const {data: officers} = await sb.from('user_roles').select('full_name, email, license_no, membership_no, role, assigned_mines').in('role', ['tech_officer','safety_officer','health_officer']);
@@ -5234,11 +5241,38 @@ async function exportCorrectiveActionsForEngineeringOrg() {
     return list.map(o => (o.full_name||o.email)+' ('+roleFa[o.role]+' — پروانه/عضویت: '+(o.license_no||o.membership_no||'ثبت‌نشده')+')').join(' | ');
   }
 
+  // ── موارد جدید: معادنی که مسئول فنی‌شان گزارش دوره‌ای ماه جاری را ارسال نکرده ──
+  // (یعنی کاری که طبق تعهد مسئول فنی باید انجام می‌شد ولی انجام نشده — قبلاً این خروجی
+  // فقط شامل تخلفات ثبت‌شده در چک‌لیست/بازدید بود، نه «انجام‌ندادن» یک وظیفه)
+  if(!techReportsAdminCache.length) await loadTechReportsAdmin();
+  const now = new Date();
+  const [jy, jm] = gregorianToJalali(now.getFullYear(), now.getMonth()+1, now.getDate());
+  const curMonthName = JALALI_MONTHS[jm-1];
+  const missingRows = [];
+  (officers||[]).filter(o => o.role === 'tech_officer').forEach(o => {
+    (o.assigned_mines||[]).forEach(mineName => {
+      if(!mineName) return;
+      if(filter && !mineName.includes(filter)) return;
+      const hasReport = techReportsAdminCache.some(r => r.mine_name === mineName &&
+        String(r.period||'').includes(curMonthName) && String(r.period||'').includes(String(jy)));
+      if(!hasReport) {
+        missingRows.push({
+          mine_name: mineName, created_at: null, source_type: 'missing_report',
+          description: 'گزارش دوره‌ای ماه '+curMonthName+' '+jy+' توسط مسئول فنی («'+(o.full_name||o.email)+'») هنوز ارسال نشده است',
+          status: 'open', closed_at: null, closed_note: ''
+        });
+      }
+    });
+  });
+
+  const allRows = [...rows, ...missingRows];
+  if(!allRows.length) { showToast('⚠️ موردی برای خروجی گرفتن یافت نشد'); return; }
+
   const headers = ['ردیف','نام معدن','تاریخ ثبت','منبع','شرح مورد','مسئول(ین) فنی/ایمنی/بهداشت مرتبط با معدن','وضعیت','تاریخ بسته‌شدن','توضیح بسته‌شدن'];
-  const sourceFa = {checklist:'چک‌لیست نوبت‌کاری', inspection:'بازدید بازرس', other:'سایر'};
+  const sourceFa = {checklist:'چک‌لیست نوبت‌کاری', inspection:'بازدید بازرس', other:'سایر', missing_report:'عدم ارسال گزارش دوره‌ای مسئول فنی'};
   const statusFa = {open:'باز', closed:'بسته‌شده'};
   const csvRows = [headers.join(',')];
-  rows.forEach((r,idx) => {
+  allRows.forEach((r,idx) => {
     const cells = [
       idx+1, r.mine_name||'', r.created_at ? new Date(r.created_at).toLocaleDateString('fa-IR') : '',
       sourceFa[r.source_type]||r.source_type||'', r.description||'',
@@ -5253,7 +5287,7 @@ async function exportCorrectiveActionsForEngineeringOrg() {
   a.href = URL.createObjectURL(b);
   a.download = 'گزارش_موارد_ثبت‌شده_برای_نظام‌مهندسی_'+new Date().toISOString().slice(0,10)+'.csv';
   a.click();
-  showToast('✅ فایل دانلود شد — '+rows.length+' مورد');
+  showToast('✅ فایل دانلود شد — '+allRows.length+' مورد ('+missingRows.length+' مورد عدم ارسال گزارش)');
 }
 
 function exportCSV() {
@@ -7862,7 +7896,7 @@ function build3DTerrain(heights, W, H, bbox, photoImg) {
   dirLight.position.set(1,1,1);
   scene.add(dirLight);
 
-  const w = canvas.clientWidth || 560, h = 420;
+  const w = Math.max(280, canvas.clientWidth || 560), h = 420;
   const camera = new THREE.PerspectiveCamera(45, w/h, 1, 5000);
   const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
   renderer.setSize(w, h, false);
@@ -7896,6 +7930,32 @@ function build3DTerrain(heights, W, H, bbox, photoImg) {
     terrain3D.dist = Math.max(50, Math.min(wMeters*4, terrain3D.dist * (1 + e.deltaY*0.001)));
     updateCamera();
   };
+
+  // پشتیبانی از لمس (گوشی/تبلت) — قبلاً فقط رویدادهای موس تعریف شده بود، پس روی گوشی
+  // (که کاربر اصلی این اپلیکیشن است) مدل اصلاً قابل چرخاندن/زوم نبود؛ با یک انگشت می‌چرخد،
+  // با دو انگشت (پینچ) زوم می‌شود — دقیقاً معادل درگ موس و اسکرول‌ویل بالا.
+  let pinchDist = null;
+  function touchDist(t0, t1) { return Math.hypot(t1.clientX-t0.clientX, t1.clientY-t0.clientY); }
+  canvas.addEventListener('touchstart', (e)=>{
+    if(e.touches.length === 1) { dragging=true; lastX=e.touches[0].clientX; lastY=e.touches[0].clientY; }
+    else if(e.touches.length === 2) { dragging=false; pinchDist = touchDist(e.touches[0], e.touches[1]); }
+  }, {passive:true});
+  canvas.addEventListener('touchmove', (e)=>{
+    e.preventDefault();
+    if(e.touches.length === 1 && dragging) {
+      const t = e.touches[0];
+      terrain3D.rotY += (t.clientX-lastX)*0.008;
+      terrain3D.rotX = Math.max(0.15, Math.min(1.5, terrain3D.rotX - (t.clientY-lastY)*0.006));
+      lastX=t.clientX; lastY=t.clientY;
+      updateCamera();
+    } else if(e.touches.length === 2 && pinchDist) {
+      const d = touchDist(e.touches[0], e.touches[1]);
+      terrain3D.dist = Math.max(50, Math.min(wMeters*4, terrain3D.dist * (1 + (pinchDist-d)*0.004)));
+      pinchDist = d;
+      updateCamera();
+    }
+  }, {passive:false});
+  canvas.addEventListener('touchend', ()=>{ dragging=false; pinchDist=null; }, {passive:true});
 
   function animate() {
     terrain3D.raf = requestAnimationFrame(animate);
@@ -9520,6 +9580,35 @@ function renderStatsTab() {
   }, 50);
 }
 
+// ماشین‌آلات/تجهیزات ثبت‌شده‌ی معدن (از فرم درخواست سوخت — تجهیزات_نفت_گاز/گاز_مایع/نفت_سفید)
+// را به‌صورت یک جدول جدا برمی‌گرداند. قبلاً این فیلدها هیچ‌جای «کارت شناسایی» چاپ نمی‌شدند
+// چون در MINE_SECTIONS/INDUSTRY_SECTIONS/... تعریف نشده بودند (و چون مقدارشان آرایه است، نه
+// رشته‌ی ساده، نمی‌توانستند مثل بقیه‌ی فیلدها با esc(m[k]) ساده چاپ شوند).
+function mineEquipmentRowsHTML(m) {
+  const groups = [
+    {key:'تجهیزات_نفت_گاز', label:'نفت‌گاز'},
+    {key:'تجهیزات_گاز_مایع', label:'گاز مایع'},
+    {key:'تجهیزات_نفت_سفید', label:'نفت سفید'},
+  ];
+  let rows = '';
+  let n = 0;
+  groups.forEach(g => {
+    const list = Array.isArray(m[g.key]) ? m[g.key] : [];
+    list.forEach(eq => {
+      const name = eq['نام'] || eq['نام ماشین'] || eq['نام تجهیز'] || '';
+      if(!name && !eq['مدل'] && !eq['تعداد']) return;
+      n++;
+      rows += '<tr><td>'+n+'</td><td>'+esc(name)+'</td><td>'+esc(eq['مدل']||eq['نوع']||'')+'</td>'+
+        '<td>'+esc(eq['تعداد']||'')+'</td><td>'+esc(g.label)+'</td></tr>';
+    });
+  });
+  if(!rows) return '';
+  return '<div class="pf-title" style="font-size:14px;margin-top:18px;text-align:right">🚜 ماشین‌آلات و تجهیزات ثبت‌شده</div>'+
+    '<table class="pf-table" style="margin-top:8px"><thead><tr>'+
+    '<th>ردیف</th><th>نام</th><th>مدل/نوع</th><th>تعداد</th><th>مصرف سوخت</th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table>';
+}
+
 // ── کارت شناسایی قابل چاپ ────────────────────────────────────
 function printIDCard(idx) {
   const m = mines[idx];
@@ -9535,6 +9624,7 @@ function printIDCard(idx) {
     '<div class="pf-title pf-underline">کارت شناسایی '+(currentDept==='معدن'?'معدن':'واحد')+'</div>'+
     '<div class="pf-title" style="font-size:18px;margin-top:8px">'+esc(m[nameField()]||'')+'</div>'+
     '<table class="pf-table" style="margin-top:16px"><tbody>'+rows+'</tbody></table>'+
+    mineEquipmentRowsHTML(m)+
     '<div class="vr-footer">آدرس: کردستان- شهرستان قروه- خیابان شهید چمران<br>تلفن: 35225750- 35224945 دورنگار: 35226200<br>تاریخ صدور کارت: '+new Date().toLocaleDateString('fa-IR')+'</div>';
   setTimeout(()=>window.print(), 200);
 }
@@ -9551,10 +9641,95 @@ function openNewRecordModal() {
   const cornersRow = document.getElementById('newRecordAddCorners').closest('label');
   cornersRow.style.display = boundaryDept ? 'flex' : 'none';
   document.getElementById('newRecordAddCorners').checked = true;
+  // فقط برای معادن، دسته‌بندی شش‌گانه‌ی ماده معدنی (ماده ۳ آیین‌نامه) از همین‌جا انتخاب می‌شود —
+  // قبلاً همیشه به‌صورت ثابت روی «غیره» تنظیم می‌شد و هیچ‌وقت داخل شش گروه واقعی قرار نمی‌گرفت.
+  const groupLabel = document.getElementById('newRecordGroupLabel');
+  const groupSel = document.getElementById('newRecordGroup');
+  if(currentDept === 'معدن') {
+    groupLabel.style.display = 'block'; groupSel.style.display = 'block';
+    groupSel.innerHTML = Object.keys(MINE_CAT_COLORS).map(c => '<option value="'+esc(c)+'">'+esc(c)+'</option>').join('');
+    groupSel.value = Object.keys(MINE_CAT_COLORS)[0];
+  } else {
+    groupLabel.style.display = 'none'; groupSel.style.display = 'none';
+  }
   document.getElementById('newRecordModal').classList.add('open');
   setTimeout(()=>document.getElementById('newRecordName').focus(), 100);
 }
 function closeNewRecordModal() { document.getElementById('newRecordModal').classList.remove('open'); }
+
+// ── دسته‌بندی معادن قدیمی که روی «غیره»/بدون‌دسته مانده‌اند، در قالب شش گروه واقعی ────
+// (برای رکوردهایی که پیش از رفع باگ «افزودن معدن جدید» ساخته شده‌اند و همیشه با دسته‌ی
+// ثابت «غیره» ذخیره می‌شدند، یا هر رکورد دیگری که دسته‌اش داخل شش گروه تعریف‌شده نیست)
+function mineRealGroups() { return Object.keys(MINE_CAT_COLORS).filter(c => c !== 'غیره'); }
+function mineNeedsReclassify(m) { return !mineRealGroups().includes(m['دسته']); }
+
+function openReclassifyMinesModal() {
+  const groups = mineRealGroups();
+  const rows = mines.map((m,i)=>({m,i})).filter(r => mineNeedsReclassify(r.m));
+  const body = document.getElementById('reclassifyMinesBody');
+  if(!rows.length) {
+    body.innerHTML = '<div class="fuel-none">همه‌ی معادن این بخش در شش گروه تعریف‌شده قرار دارند 🎉</div>';
+  } else {
+    body.innerHTML = rows.map(({m,i}) =>
+      '<div class="mine-row" data-idx="'+i+'" style="cursor:default;flex-wrap:wrap;gap:8px">'+
+        '<div style="flex:1;min-width:160px">'+
+          '<div class="mine-row-name">'+esc(m[nameField()]||'')+'</div>'+
+          '<div class="mine-row-sub">دسته فعلی: '+esc(m['دسته']||'ثبت‌نشده')+'</div>'+
+        '</div>'+
+        '<select id="reclassifySel_'+i+'" style="min-width:220px">'+
+          groups.map(g=>'<option value="'+esc(g)+'">'+esc(g)+'</option>').join('')+
+        '</select>'+
+        '<button class="btn-sm" style="background:#2e7d32;color:#fff" onclick="saveReclassifiedMine('+i+')">💾 ذخیره</button>'+
+      '</div>'
+    ).join('');
+  }
+  document.getElementById('reclassifyMinesModal').classList.add('open');
+}
+function closeReclassifyMinesModal() { document.getElementById('reclassifyMinesModal').classList.remove('open'); updateReclassifyMinesButton(); renderList(); }
+
+async function saveReclassifiedMine(idx) {
+  const sel = document.getElementById('reclassifySel_'+idx);
+  if(!sel || !mines[idx]) return;
+  mines[idx]['دسته'] = sel.value;
+  const {data:{user}} = await sb.auth.getUser();
+  await saveMineRow(idx, user?user.email:'');
+  const row = document.querySelector('#reclassifyMinesBody .mine-row[data-idx="'+idx+'"]');
+  if(row) row.remove();
+  updateReclassifyMinesButton();
+  updateCounts();
+  showToast('✅ گروه معدن ذخیره شد');
+  if(!document.querySelector('#reclassifyMinesBody .mine-row')) {
+    document.getElementById('reclassifyMinesBody').innerHTML = '<div class="fuel-none">همه‌ی معادن این بخش در شش گروه تعریف‌شده قرار دارند 🎉</div>';
+  }
+}
+
+async function saveAllReclassifiedMines() {
+  const rowEls = [...document.querySelectorAll('#reclassifyMinesBody .mine-row[data-idx]')];
+  if(!rowEls.length) { closeReclassifyMinesModal(); return; }
+  showToast('⏳ در حال ذخیره...');
+  const indices = [];
+  rowEls.forEach(el => {
+    const idx = parseInt(el.getAttribute('data-idx'));
+    const sel = document.getElementById('reclassifySel_'+idx);
+    if(sel && mines[idx]) { mines[idx]['دسته'] = sel.value; indices.push(idx); }
+  });
+  const {data:{user}} = await sb.auth.getUser();
+  await saveMineRows(indices, user?user.email:'');
+  updateCounts();
+  showToast('✅ '+indices.length+' معدن دسته‌بندی شد');
+  closeReclassifyMinesModal();
+}
+
+// دکمه/نشان «دسته‌بندی معادن قدیمی» را فقط برای بخش معدن، و فقط وقتی موردی باقی مانده، نشان می‌دهد
+function updateReclassifyMinesButton() {
+  const btn = document.getElementById('reclassifyMinesBtn');
+  const badge = document.getElementById('reclassifyMinesBadge');
+  if(!btn) return;
+  if(currentDept !== 'معدن') { btn.style.display = 'none'; return; }
+  const n = mines.filter(mineNeedsReclassify).length;
+  btn.style.display = n ? 'inline-block' : 'none';
+  if(badge) { badge.style.display = n ? 'inline-block' : 'none'; badge.textContent = n; }
+}
 
 async function confirmNewRecord() {
   const name = document.getElementById('newRecordName').value.trim();
@@ -9565,7 +9740,9 @@ async function confirmNewRecord() {
     return;
   }
   const addCornersNow = document.getElementById('newRecordAddCorners').checked;
-  const defaultCat = {'معدن':'غیره', 'اکتشاف':'در حال اکتشاف', 'فرآوری':'فعال'}[currentDept] || 'فعال';
+  const defaultCat = currentDept === 'معدن'
+    ? (document.getElementById('newRecordGroup').value || Object.keys(MINE_CAT_COLORS)[0])
+    : ({'اکتشاف':'در حال اکتشاف', 'فرآوری':'فعال'}[currentDept] || 'فعال');
   const rec = {};
   rec[dupField] = name;
   rec['شهرستان'] = myAssignedCounty || 'قروه'; rec['استان'] = myAssignedProvince || 'کردستان'; rec['دسته'] = defaultCat;
