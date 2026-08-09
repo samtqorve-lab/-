@@ -6992,8 +6992,8 @@ async function importApprovedTechEquipment(silent) {
     if(existingIds.has(eq.id)) return; // از تکرار ورود دوباره‌ی همون رکورد جلوگیری می‌کند
     const extra = eq.plate_no ? 'پلاک: ' + eq.plate_no : '';
     const row = type === 'نفت‌گاز'
-      ? { 'نام': eq.machine_type||'', 'نوع': extra, 'تعداد': '1', '_srcId': eq.id }
-      : { 'نام': eq.machine_type||'', 'توضیحات': extra, 'تعداد': '1', '_srcId': eq.id };
+      ? { 'نام': eq.machine_type||'', 'نوع': extra, 'تعداد': '1', '_srcId': eq.id, '_photoUrl': eq.photo_url||'' }
+      : { 'نام': eq.machine_type||'', 'توضیحات': extra, 'تعداد': '1', '_srcId': eq.id, '_photoUrl': eq.photo_url||'' };
     if(fpEquipRows.length === 1 && Object.values(fpEquipRows[0]).every(v=>!v)) fpEquipRows[0] = row;
     else fpEquipRows.push(row);
     added++;
@@ -8656,17 +8656,20 @@ function findFpEquipPhotos(name) {
   return fpEquipPhotoCache.find(e => normalizeSearchText(e.name) === norm || normalizeSearchText(e.name).includes(norm) || norm.includes(normalizeSearchText(e.name))) || null;
 }
 
-function viewEquipPhotos(name) {
-  const rec = findFpEquipPhotos(name);
-  if(!rec) { showToast('⚠️ عکسی برای این دستگاه یافت نشد'); return; }
+function viewEquipPhotos(i) {
+  const row = fpEquipRows[i] || {};
+  const rec = findFpEquipPhotos(row['نام']);
+  const overview = [...(rec ? rec.overview : []), ...(row._photoUrl ? [row._photoUrl] : [])];
+  const serial = rec ? rec.serial : [];
+  if(!overview.length && !serial.length) { showToast('⚠️ عکسی برای این دستگاه یافت نشد'); return; }
   const box = document.getElementById('equipPhotosBody');
-  box.innerHTML = '<div style="font-size:12.5px;color:#607d8b;margin-bottom:10px">دستگاه: <b>'+esc(rec.name)+'</b> — دوره گزارش: '+esc(rec.period||'-')+'</div>'+
+  box.innerHTML = '<div style="font-size:12.5px;color:#607d8b;margin-bottom:10px">دستگاه: <b>'+esc(row['نام']||'')+'</b>'+(rec&&rec.period?(' — دوره گزارش: '+esc(rec.period)):'')+'</div>'+
     '<div style="display:flex;gap:16px;flex-wrap:wrap">'+
       '<div><div style="font-size:12px;color:#455a64;margin-bottom:6px">📷 نمای کامل / دور دستگاه</div>'+
-        (rec.overview.length ? rec.overview.map(u=>'<img src="'+esc(u)+'" onclick="window.open(\''+esc(u)+'\',\'_blank\')" style="width:140px;height:140px;object-fit:cover;border-radius:8px;cursor:pointer;margin-left:6px;margin-bottom:6px">').join('') : '<div style="color:#90a4ae;font-size:12px">عکسی ثبت نشده</div>')+
+        (overview.length ? overview.map(u=>'<img src="'+esc(u)+'" onclick="window.open(\''+esc(u)+'\',\'_blank\')" style="width:140px;height:140px;object-fit:cover;border-radius:8px;cursor:pointer;margin-left:6px;margin-bottom:6px">').join('') : '<div style="color:#90a4ae;font-size:12px">عکسی ثبت نشده</div>')+
       '</div>'+
       '<div><div style="font-size:12px;color:#455a64;margin-bottom:6px">🔢 عکس شماره سریال</div>'+
-        (rec.serial.length ? rec.serial.map(u=>'<img src="'+esc(u)+'" onclick="window.open(\''+esc(u)+'\',\'_blank\')" style="width:140px;height:140px;object-fit:cover;border-radius:8px;cursor:pointer;margin-left:6px;margin-bottom:6px">').join('') : '<div style="color:#90a4ae;font-size:12px">عکسی ثبت نشده</div>')+
+        (serial.length ? serial.map(u=>'<img src="'+esc(u)+'" onclick="window.open(\''+esc(u)+'\',\'_blank\')" style="width:140px;height:140px;object-fit:cover;border-radius:8px;cursor:pointer;margin-left:6px;margin-bottom:6px">').join('') : '<div style="color:#90a4ae;font-size:12px">عکسی ثبت نشده</div>')+
       '</div>'+
     '</div>';
   document.getElementById('equipPhotosModal').classList.add('open');
@@ -8736,10 +8739,10 @@ function renderEquipRows() {
   const type = document.getElementById('fpFuelType').value;
   const cols = FUEL_EQUIP_COLS[type];
   document.getElementById('fpEquipRows').innerHTML = fpEquipRows.map((row,i)=>{
-    const hasPhotos = findFpEquipPhotos(row['نام']);
+    const hasPhotos = findFpEquipPhotos(row['نام']) || row._photoUrl;
     return '<div class="fp-equip-row">'+
     cols.map(([k,l])=>'<input placeholder="'+l+'" data-row="'+i+'" data-key="'+k+'" value="'+String(row[k]||'').replace(/"/g,'&quot;')+'" onchange="updateEquipCell(this)">').join('')+
-    (hasPhotos ? '<button class="fp-equip-del" style="color:#1565c0" title="مشاهده عکس نما و شماره سریال" onclick="viewEquipPhotos(\''+String(row['نام']||'').replace(/'/g,"\\'")+'\')">📷</button>' : '')+
+    (hasPhotos ? '<button class="fp-equip-del" style="color:#1565c0" title="مشاهده عکس نما و شماره سریال" onclick="viewEquipPhotos('+i+')">📷</button>' : '')+
     '<button class="fp-equip-del" onclick="removeEquipRow('+i+')" title="حذف ردیف">🗑</button></div>';
   }).join('');
 }
@@ -8823,6 +8826,23 @@ function doPrintFuelForm() {
   ).join('');
   const tableHead = '<tr><th>ردیف</th>'+cols.map(([,l])=>'<th>'+l+'</th>').join('')+'</tr>';
 
+  // پیوست عکس ماشین‌آلات: قبلاً دکمه‌ی 📷 کنار هر ردیف فقط برای مشاهده‌ی روی صفحه بود و در خروجی
+  // چاپی هیچ عکسی نمی‌آمد. الان برای هر ردیفی که عکس نما/سریال دارد (از گزارش‌های دوره‌ای مسئول
+  // فنی، از طریق findFpEquipPhotos)، عکس‌هایش به‌عنوان پیوست بعد از جدول در خروجی چاپ می‌آید.
+  const equipPhotoSections = fpEquipRows.filter(r=>Object.values(r).some(v=>v)).map(r => {
+    const rec = findFpEquipPhotos(r['نام']);
+    const urls = [...(rec ? [...rec.overview, ...rec.serial] : []), ...(r._photoUrl ? [r._photoUrl] : [])];
+    if(!urls.length) return '';
+    const imgs = urls.map(u =>
+      '<img src="'+esc(u)+'" style="width:150px;height:150px;object-fit:cover;border-radius:6px;margin:0 6px 6px 0;border:1px solid #ccc">'
+    ).join('');
+    return '<div style="margin-top:10px"><div style="font-weight:700;font-size:12px;margin-bottom:4px">'+esc(r['نام']||'')+'</div>'+
+      '<div style="display:flex;flex-wrap:wrap">'+imgs+'</div></div>';
+  }).filter(Boolean).join('');
+  const equipPhotoAppendix = equipPhotoSections
+    ? '<div class="pf-divider"></div><div class="pf-title" style="font-size:14px;text-align:right">📷 پیوست — عکس ماشین‌آلات</div>'+equipPhotoSections
+    : '';
+
   document.getElementById('printArea').innerHTML =
     '<div class="pf-title">بسمه تعالی</div>'+
     '<div class="pf-title pf-underline">فرم اعلام وصول سوخت و تایید میزان تولید</div>'+
@@ -8842,7 +8862,8 @@ function doPrintFuelForm() {
     )+'</div>'+
     '</div>'+
     '<table class="pf-table"><thead>'+tableHead+'</thead><tbody>'+tableRows+'</tbody></table>'+
-    '<div class="pf-sign-row"><div>مهر و امضاء تایید کننده :</div><div>تاریخ : '+esc(reqDate)+'</div></div>';
+    '<div class="pf-sign-row"><div>مهر و امضاء تایید کننده :</div><div>تاریخ : '+esc(reqDate)+'</div></div>'+
+    equipPhotoAppendix;
 
   setTimeout(()=>window.print(), 100);
 }
