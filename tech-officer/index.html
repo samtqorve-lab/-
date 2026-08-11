@@ -355,7 +355,13 @@ setTimeout(function(){
     <div id="scMineNameBox" style="font-size:12.5px;color:#55707d;margin-bottom:6px"></div>
     <div style="font-size:10.5px;color:#90a4ae;margin-bottom:10px">طبق آیین‌نامه ایمنی معادن، این بازرسی باید پیش از شروع هر نوبت کاری انجام شود.</div>
     <div style="display:flex;gap:8px">
-      <div style="flex:1"><label>تاریخ</label><input id="scShiftDate" type="date"></div>
+      <div style="flex:1"><label>تاریخ (شمسی)</label>
+        <div style="display:flex;gap:3px">
+          <select id="scShiftDateDay" style="flex:1"></select>
+          <select id="scShiftDateMonth" style="flex:1.4"></select>
+          <select id="scShiftDateYear" style="flex:1"></select>
+        </div>
+      </div>
       <div style="flex:1"><label>نوبت کاری</label>
         <select id="scShiftType"><option>صبح</option><option>عصر</option><option>شب</option></select>
       </div>
@@ -380,12 +386,17 @@ setTimeout(function(){
     <input id="trTopic" type="text" placeholder="مثلاً استفاده از کپسول آتش‌نشانی">
     <label>مدرس/برگزارکننده (اختیاری)</label>
     <input id="trTrainer" type="text">
-    <label>تاریخ برگزاری</label>
-    <input id="trDate" type="date">
+    <label>تاریخ برگزاری (شمسی)</label>
+    <div style="display:flex;gap:6px">
+      <select id="trDateDay" style="flex:1"></select>
+      <select id="trDateMonth" style="flex:2"></select>
+      <select id="trDateYear" style="flex:1"></select>
+    </div>
+    <label>شرکت‌کنندگان</label>
+    <div id="trAttendeesList" style="max-height:180px;overflow-y:auto;border:1px solid #dde5ea;border-radius:8px;padding:8px;margin-bottom:2px;background:#fafcfd"></div>
+    <div style="font-size:11px;color:#90a4ae;margin-bottom:6px">لیست از «پرسنل تحت سرپرستی» همین معدن می‌آید؛ اگر فردی در لیست نیست، اول از آن بخش اضافه‌اش کنید.</div>
     <label>تعداد شرکت‌کنندگان</label>
-    <input id="trCount" type="number" min="0" value="0">
-    <label>نام شرکت‌کنندگان (اختیاری)</label>
-    <textarea id="trAttendees" rows="2" placeholder="اسامی را با ویرگول جدا کنید"></textarea>
+    <input id="trCount" type="number" min="0" value="0" readonly style="background:#f0f3f5">
     <label>عکس از جلسه (اختیاری)</label>
     <input id="trPhotoInput" type="file" accept="image/*" capture="environment">
     <label>توضیحات (اختیاری)</label>
@@ -403,8 +414,16 @@ setTimeout(function(){
   <div class="gate-box" style="max-width:440px;max-height:88vh;overflow-y:auto;text-align:right">
     <h2 style="color:#1565c0">⚖️ گزارش تولید و عیار</h2>
     <div id="productionMineNameBox" style="font-size:12.5px;color:#55707d;margin-bottom:10px"></div>
-    <label>دوره (مثلاً تیر ۱۴۰۵)</label>
-    <input id="prPeriod" type="text">
+    <label>دوره — از</label>
+    <div style="display:flex;gap:6px">
+      <select id="prPeriodFromMonth" style="flex:2"></select>
+      <select id="prPeriodFromYear" style="flex:1"></select>
+    </div>
+    <label>دوره — تا</label>
+    <div style="display:flex;gap:6px">
+      <select id="prPeriodToMonth" style="flex:2"></select>
+      <select id="prPeriodToYear" style="flex:1"></select>
+    </div>
     <label>نوع ماده معدنی</label>
     <input id="prMaterial" type="text">
     <label>تناژ استخراج‌شده (تن)</label>
@@ -440,8 +459,12 @@ setTimeout(function(){
       <option value="آتشبار">
       <option value="کارگر عمومی">
     </datalist>
-    <label>تاریخ شروع (اختیاری)</label>
-    <input id="peStart" type="date">
+    <label>تاریخ شروع (شمسی، اختیاری)</label>
+    <div style="display:flex;gap:3px">
+      <select id="peStartDay" style="flex:1"></select>
+      <select id="peStartMonth" style="flex:1.4"></select>
+      <select id="peStartYear" style="flex:1"></select>
+    </div>
     <label>شماره تماس (اختیاری)</label>
     <input id="pePhone" type="text" dir="ltr">
     <div class="login-err" id="personnelErr"></div>
@@ -472,8 +495,12 @@ setTimeout(function(){
     </select>
     <label>شرح مشکل</label>
     <textarea id="coDescription" rows="3" placeholder="چه مشکلی باید رفع شود؟"></textarea>
-    <label>مهلت رفع (اختیاری)</label>
-    <input id="coDueDate" type="date">
+    <label>مهلت رفع (شمسی، اختیاری)</label>
+    <div style="display:flex;gap:3px">
+      <select id="coDueDateDay" style="flex:1"></select>
+      <select id="coDueDateMonth" style="flex:1.4"></select>
+      <select id="coDueDateYear" style="flex:1"></select>
+    </div>
     <div class="login-err" id="correctiveErr"></div>
     <div style="display:flex;gap:8px;margin-top:14px">
       <button class="btn" style="flex:1;background:#eee;color:#333" onclick="closeCorrectiveModal()">انصراف</button>
@@ -751,8 +778,12 @@ setTimeout(function(){
   <div class="gate-box" style="max-width:460px;max-height:88vh;overflow-y:auto;text-align:right">
     <h2 id="rcTitle" style="color:#b71c1c">✅ چک‌لیست</h2>
     <div id="rcMineNameBox" style="font-size:12.5px;color:#55707d;margin-bottom:10px"></div>
-    <label>تاریخ</label>
-    <input id="rcShiftDate" type="date">
+    <label>تاریخ (شمسی)</label>
+    <div style="display:flex;gap:3px">
+      <select id="rcShiftDateDay" style="flex:1"></select>
+      <select id="rcShiftDateMonth" style="flex:1.4"></select>
+      <select id="rcShiftDateYear" style="flex:1"></select>
+    </div>
     <div id="rcItemsBox" style="margin-top:8px"></div>
     <label style="margin-top:8px">توضیحات کلی (اختیاری)</label>
     <textarea id="rcNotes" rows="2"></textarea>
@@ -2166,7 +2197,7 @@ async function openRoleChecklistModal() {
   const mine = getSelectedMineForRole(); if(!mine) return;
   const roleLabel = myRole === 'safety_officer' ? 'ایمنی' : 'بهداشت حرفه‌ای';
   document.getElementById('rcTitle').textContent = '✅ چک‌لیست ' + roleLabel + ' نوبت‌کاری';
-  document.getElementById('rcShiftDate').value = todayStr();
+  populateJalaliDateWidget('rcShiftDate', null, false);
   document.getElementById('rcNotes').value = '';
   document.getElementById('roleChecklistErr').textContent = '';
   document.getElementById('rcItemsBox').innerHTML = '';
@@ -2260,7 +2291,7 @@ async function submitRoleChecklist() {
     const issueItems = items.filter(i => i.status === 'issue');
     const {error} = await sb.from('safety_checklists').insert([{
       mine_name: mine['نام_معدن'], department: myTechOfficerDept, submitted_by: user ? user.email : '',
-      submitter_role: myRole, shift_date: document.getElementById('rcShiftDate').value || todayStr(), shift_type: 'صبح',
+      submitter_role: myRole, shift_date: readJalaliDateWidget('rcShiftDate') || todayStr(), shift_type: 'صبح',
       items, overall_status: issueItems.length ? 'issues' : 'ok',
       notes: document.getElementById('rcNotes').value.trim() || null,
       lat: rcCoords.latitude, lon: rcCoords.longitude, inside_boundary: rcInsideBoundary
@@ -2512,7 +2543,7 @@ let scItemsList = [];
 async function openSafetyChecklistModal() {
   const mine = getSelectedMineForSupp(); if(!mine) return;
   document.getElementById('scMineNameBox').textContent = '⛏️ ' + mine['نام_معدن'];
-  document.getElementById('scShiftDate').value = todayStr();
+  populateJalaliDateWidget('scShiftDate', null, false);
   document.getElementById('scShiftType').value = 'صبح';
   document.getElementById('scNotes').value = '';
   document.getElementById('safetyChecklistErr').textContent = '';
@@ -2561,7 +2592,7 @@ async function submitSafetyChecklist() {
     const issueItems = items.filter(i => i.status === 'issue');
     const {error} = await sb.from('safety_checklists').insert([{
       mine_name: mine['نام_معدن'], department: myTechOfficerDept, submitted_by: user ? user.email : '',
-      shift_date: document.getElementById('scShiftDate').value || todayStr(),
+      shift_date: readJalaliDateWidget('scShiftDate') || todayStr(),
       shift_type: document.getElementById('scShiftType').value,
       items, overall_status: issueItems.length ? 'issues' : 'ok',
       notes: document.getElementById('scNotes').value.trim() || null
@@ -2591,19 +2622,49 @@ function getSelectedMineForSupp() {
 
 // ── ۱) آموزش ایمنی کارکنان ──────────────────────────────────────────────
 let trainingPhotoFile = null;
+function populateTrDateDropdowns() {
+  const now = new Date();
+  const [jy, jm, jd] = gregorianToJalali(now.getFullYear(), now.getMonth()+1, now.getDate());
+  const daySel = document.getElementById('trDateDay'), moSel = document.getElementById('trDateMonth'), ySel = document.getElementById('trDateYear');
+  daySel.innerHTML = Array.from({length:31}, (_,i)=>i+1).map(d=>'<option value="'+d+'">'+d+'</option>').join('');
+  moSel.innerHTML = JALALI_MONTHS.map((m,i)=>'<option value="'+(i+1)+'">'+m+'</option>').join('');
+  ySel.innerHTML = [jy, jy-1].map(y=>'<option value="'+y+'">'+y+'</option>').join('');
+  daySel.value = jd; moSel.value = jm; ySel.value = jy;
+}
+
+async function renderTrainingAttendeesList() {
+  const mine = getSelectedMineForSupp(); if(!mine) return;
+  const box = document.getElementById('trAttendeesList');
+  box.innerHTML = '<div style="font-size:11px;color:#90a4ae">در حال بارگذاری...</div>';
+  const {data, error} = await sb.from('mine_personnel').select('*').eq('mine_name', mine['نام_معدن']).eq('status','active').order('full_name');
+  if(error) { box.innerHTML = '<div style="font-size:11px;color:#c62828">خطا در بارگذاری لیست پرسنل</div>'; return; }
+  if(!data || !data.length) { box.innerHTML = '<div style="font-size:11px;color:#90a4ae">هنوز کسی در «پرسنل تحت سرپرستی» این معدن ثبت نشده</div>'; updateTrAttendeeCount(); return; }
+  box.innerHTML = data.map(p =>
+    '<label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:12.5px;cursor:pointer">'+
+      '<input type="checkbox" class="tr-attendee-chk" value="'+esc(p.full_name)+'" onchange="updateTrAttendeeCount()" style="width:auto">'+
+      esc(p.full_name)+(p.role?' <span style="color:#90a4ae">('+esc(p.role)+')</span>':'')+
+    '</label>'
+  ).join('');
+  updateTrAttendeeCount();
+}
+function updateTrAttendeeCount() {
+  const n = document.querySelectorAll('.tr-attendee-chk:checked').length;
+  document.getElementById('trCount').value = n;
+}
+
 function openTrainingModal() {
   const mine = getSelectedMineForSupp(); if(!mine) return;
   document.getElementById('trainingMineNameBox').textContent = '⛏️ ' + mine['نام_معدن'];
   document.getElementById('trTopic').value = '';
   document.getElementById('trTrainer').value = '';
-  document.getElementById('trDate').value = todayStr();
+  populateTrDateDropdowns();
   document.getElementById('trCount').value = 0;
-  document.getElementById('trAttendees').value = '';
   document.getElementById('trPhotoInput').value = '';
   document.getElementById('trNotes').value = '';
   document.getElementById('trainingErr').textContent = '';
   trainingPhotoFile = null;
   document.getElementById('trainingModal').style.display = 'flex';
+  renderTrainingAttendeesList();
 }
 function closeTrainingModal() { document.getElementById('trainingModal').style.display = 'none'; }
 async function submitTraining() {
@@ -2622,12 +2683,16 @@ async function submitTraining() {
       const blob = await new Promise(r => canvas.toBlob(b=>r(b), 'image/jpeg', 0.85));
       photoUrl = await uploadTechFile(blob, 'training.jpg', mine['نام_معدن'], 'safety-training', 'training');
     }
+    const jy = parseInt(document.getElementById('trDateYear').value);
+    const jm = parseInt(document.getElementById('trDateMonth').value);
+    const jd = parseInt(document.getElementById('trDateDay').value);
+    const attendeeNames = [...document.querySelectorAll('.tr-attendee-chk:checked')].map(c=>c.value);
     const {error} = await sb.from('safety_trainings').insert([{
       mine_name: mine['نام_معدن'], department: myTechOfficerDept, submitted_by: user ? user.email : '',
       topic, trainer_name: document.getElementById('trTrainer').value.trim() || null,
-      training_date: document.getElementById('trDate').value || todayStr(),
-      attendee_count: parseInt(document.getElementById('trCount').value) || 0,
-      attendee_names: document.getElementById('trAttendees').value.trim() || null,
+      training_date: jalaliToISODate(jy, jm, jd),
+      attendee_count: attendeeNames.length,
+      attendee_names: attendeeNames.length ? attendeeNames.join('، ') : null,
       photo_url: photoUrl, notes: document.getElementById('trNotes').value.trim() || null
     }]);
     if(error) throw new Error(error.message);
@@ -2638,10 +2703,35 @@ async function submitTraining() {
 }
 
 // ── ۲) تولید و عیار ──────────────────────────────────────────────────────
+// دوره‌ی گزارش تولید به‌صورت «از ماه/سال تا ماه/سال» است (مثلاً تیر ۱۴۰۵ تا بهمن ۱۴۰۵) —
+// چون یک گزارش تولید می‌تواند چند ماه را با هم پوشش دهد، نه فقط یک ماه.
+function populateProductionPeriodDropdowns() {
+  const now = new Date();
+  const [curY, curM] = gregorianToJalali(now.getFullYear(), now.getMonth()+1, now.getDate());
+  const years = [curY-1, curY, curY+1];
+  const monthOpts = JALALI_MONTHS.map((m,i)=>'<option value="'+(i+1)+'">'+m+'</option>').join('');
+  const yearOpts = years.map(y=>'<option value="'+y+'">'+y+'</option>').join('');
+  ['prPeriodFromMonth','prPeriodToMonth'].forEach(id => document.getElementById(id).innerHTML = monthOpts);
+  ['prPeriodFromYear','prPeriodToYear'].forEach(id => document.getElementById(id).innerHTML = yearOpts);
+  document.getElementById('prPeriodFromMonth').value = curM;
+  document.getElementById('prPeriodToMonth').value = curM;
+  document.getElementById('prPeriodFromYear').value = curY;
+  document.getElementById('prPeriodToYear').value = curY;
+}
+function readProductionPeriod() {
+  const fm = parseInt(document.getElementById('prPeriodFromMonth').value);
+  const fy = parseInt(document.getElementById('prPeriodFromYear').value);
+  const tm = parseInt(document.getElementById('prPeriodToMonth').value);
+  const ty = parseInt(document.getElementById('prPeriodToYear').value);
+  const fromLabel = JALALI_MONTHS[fm-1] + ' ' + fy;
+  const toLabel = JALALI_MONTHS[tm-1] + ' ' + ty;
+  return fromLabel === toLabel ? fromLabel : (fromLabel + ' تا ' + toLabel);
+}
+
 function openProductionModal() {
   const mine = getSelectedMineForSupp(); if(!mine) return;
   document.getElementById('productionMineNameBox').textContent = '⛏️ ' + mine['نام_معدن'];
-  document.getElementById('prPeriod').value = '';
+  populateProductionPeriodDropdowns();
   document.getElementById('prMaterial').value = '';
   document.getElementById('prTonnage').value = '';
   document.getElementById('prGrade').value = '';
@@ -2653,8 +2743,7 @@ function closeProductionModal() { document.getElementById('productionModal').sty
 async function submitProduction() {
   const mine = getSelectedMineForSupp(); if(!mine) return;
   const errEl = document.getElementById('productionErr'); errEl.textContent = '';
-  const period = document.getElementById('prPeriod').value.trim();
-  if(!period) { errEl.textContent = 'دوره را وارد کنید'; return; }
+  const period = readProductionPeriod();
   const btn = document.getElementById('productionSubmitBtn');
   btn.disabled = true; btn.textContent = '⏳ در حال ارسال...';
   try {
@@ -2679,7 +2768,7 @@ function openPersonnelModal() {
   document.getElementById('personnelMineNameBox').textContent = '⛏️ ' + mine['نام_معدن'];
   document.getElementById('peName').value = '';
   document.getElementById('peRole').value = '';
-  document.getElementById('peStart').value = '';
+  populateJalaliDateWidget('peStart', null, true);
   document.getElementById('pePhone').value = '';
   document.getElementById('personnelErr').textContent = '';
   document.getElementById('personnelListBox').innerHTML = '';
@@ -2698,13 +2787,13 @@ async function submitPersonnel() {
     const {error} = await sb.from('mine_personnel').insert([{
       mine_name: mine['نام_معدن'], department: myTechOfficerDept, submitted_by: user ? user.email : '',
       full_name: fullName, role: document.getElementById('peRole').value.trim() || null,
-      start_date: document.getElementById('peStart').value || null,
+      start_date: readJalaliDateWidget('peStart'),
       phone: document.getElementById('pePhone').value.trim() || null, status: 'active'
     }]);
     if(error) throw new Error(error.message);
     showToast('✅ فرد به لیست اضافه شد');
     document.getElementById('peName').value = ''; document.getElementById('peRole').value = '';
-    document.getElementById('peStart').value = ''; document.getElementById('pePhone').value = '';
+    populateJalaliDateWidget('peStart', null, true); document.getElementById('pePhone').value = '';
     loadPersonnelList();
   } catch(err) { errEl.textContent = err.message; }
   btn.disabled = false; btn.textContent = '➕ افزودن';
@@ -2735,7 +2824,7 @@ function openCorrectiveModal() {
   document.getElementById('correctiveMineNameBox').textContent = '⛏️ ' + mine['نام_معدن'];
   document.getElementById('coSourceType').value = 'equipment';
   document.getElementById('coDescription').value = '';
-  document.getElementById('coDueDate').value = '';
+  populateJalaliDateWidget('coDueDate', null, true);
   document.getElementById('correctiveErr').textContent = '';
   document.getElementById('correctiveListBox').innerHTML = '';
   document.getElementById('correctiveModal').style.display = 'flex';
@@ -2753,7 +2842,7 @@ async function submitCorrective() {
     const {error} = await sb.from('corrective_actions').insert([{
       mine_name: mine['نام_معدن'], department: myTechOfficerDept, submitted_by: user ? user.email : '',
       description, source_type: document.getElementById('coSourceType').value,
-      due_date: document.getElementById('coDueDate').value || null, status: 'open'
+      due_date: readJalaliDateWidget('coDueDate'), status: 'open'
     }]);
     if(error) throw new Error(error.message);
     showToast('✅ اقدام اصلاحی ثبت شد');
@@ -3123,6 +3212,64 @@ function gregorianToJalali(gy, gm, gd) {
   const mo = parseInt(parts.find(p=>p.type==='month').value);
   const d = parseInt(parts.find(p=>p.type==='day').value);
   return [y, mo, d];
+}
+// برای ذخیره‌ی تاریخ شمسی انتخاب‌شده در ستون‌های date واقعی پایگاه‌داده (که میلادی می‌خواهند)،
+// لازم است برعکسِ gregorianToJalali هم داشته باشیم — الگوریتم استاندارد تبدیل جلالی به میلادی.
+function jalaliToGregorian(jy, jm, jd) {
+  jy += 1595;
+  let days = -355668 + (365 * jy) + (Math.floor(jy / 33) * 8) + Math.floor(((jy % 33) + 3) / 4) + jd +
+    ((jm < 7) ? (jm - 1) * 31 : ((jm - 7) * 30) + 186);
+  let gy = 400 * Math.floor(days / 146097);
+  days %= 146097;
+  if (days > 36524) {
+    gy += 100 * Math.floor(--days / 36524);
+    days %= 36524;
+    if (days >= 365) days++;
+  }
+  gy += 4 * Math.floor(days / 1461);
+  days %= 1461;
+  if (days > 365) {
+    gy += Math.floor((days - 1) / 365);
+    days = (days - 1) % 365;
+  }
+  let gd = days + 1;
+  const isLeap = (gy % 4 === 0 && gy % 100 !== 0) || (gy % 400 === 0);
+  const monthDays = [0, 31, isLeap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  let gm;
+  for (gm = 1; gm <= 12; gm++) {
+    if (gd <= monthDays[gm]) break;
+    gd -= monthDays[gm];
+  }
+  return [gy, gm, gd];
+}
+function jalaliToISODate(jy, jm, jd) {
+  const [gy, gm, gd] = jalaliToGregorian(jy, jm, jd);
+  return gy + '-' + String(gm).padStart(2,'0') + '-' + String(gd).padStart(2,'0');
+}
+
+// ابزار عمومی تاریخ شمسی (سه کشویی روز/ماه/سال) — برای همه‌ی فیلدهای تاریخ اپ به‌جای تقویم میلادی مرورگر.
+// idPrefix + 'Day'/'Month'/'Year' باید از قبل به‌صورت <select> در HTML موجود باشند.
+function populateJalaliDateWidget(idPrefix, isoDateStr, optional) {
+  const daySel = document.getElementById(idPrefix+'Day'), moSel = document.getElementById(idPrefix+'Month'), ySel = document.getElementById(idPrefix+'Year');
+  if(!daySel || !moSel || !ySel) return;
+  const now = new Date();
+  let jy, jm, jd;
+  const m = String(isoDateStr||'').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m) { [jy,jm,jd] = gregorianToJalali(parseInt(m[1]),parseInt(m[2]),parseInt(m[3])); }
+  else if(!optional) { [jy,jm,jd] = gregorianToJalali(now.getFullYear(), now.getMonth()+1, now.getDate()); }
+  const [curY] = gregorianToJalali(now.getFullYear(), now.getMonth()+1, now.getDate());
+  const emptyOpt = optional ? '<option value="">— انتخاب نشده —</option>' : '';
+  daySel.innerHTML = emptyOpt + Array.from({length:31}, (_,i)=>i+1).map(d=>'<option value="'+d+'">'+d+'</option>').join('');
+  moSel.innerHTML = emptyOpt + JALALI_MONTHS.map((mm,i)=>'<option value="'+(i+1)+'">'+mm+'</option>').join('');
+  ySel.innerHTML = emptyOpt + [curY-1, curY, curY+1, curY+2].map(y=>'<option value="'+y+'">'+y+'</option>').join('');
+  daySel.value = jd || ''; moSel.value = jm || ''; ySel.value = jy || '';
+}
+function readJalaliDateWidget(idPrefix) {
+  const dV = document.getElementById(idPrefix+'Day').value;
+  const mV = document.getElementById(idPrefix+'Month').value;
+  const yV = document.getElementById(idPrefix+'Year').value;
+  if(!dV || !mV || !yV) return null;
+  return jalaliToISODate(parseInt(yV), parseInt(mV), parseInt(dV));
 }
 // دوره‌ی جاری و ۵ ماه قبل از آن را در کشویی می‌گذارد (کافی برای اینکه مسئول فنی هیچ‌وقت گزارش
 // عقب‌افتاده را هم نتواند به‌اشتباه با اسم ماه غلط ثبت کند) — ماه جاری همیشه اول لیست است

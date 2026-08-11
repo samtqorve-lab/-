@@ -338,7 +338,7 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
     <div class="gate-box">
       <div class="gate-logo">🚫</div>
       <h2>دسترسی از این طریق مجاز نیست</h2>
-      <p id="techOfficerBlockedMsg">حساب شما با نقش «مسئول فنی» ثبت شده. لطفاً از اپلیکیشن مخصوص مسئولین فنی/ایمنی/بهداشت وارد شوید.</p>
+      <p id="techOfficerBlockedMsg">حساب شما نقشی دارد که از این طریق قابل ورود نیست. لطفاً از اپلیکیشن مخصوص خودتان (مسئولین فنی/ایمنی/بهداشت یا پرتال بهره‌برداران) وارد شوید.</p>
       <button class="btn btn-cancel" style="width:100%;margin-top:14px" onclick="showAuthGate()">بازگشت به صفحه ورود</button>
     </div>
   </div>
@@ -535,6 +535,13 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
     </div>
 
     <div class="panel" id="panel-fuel">
+      <div class="user-mgmt-card" style="margin-bottom:16px">
+        <h3 style="font-size:15px;color:#1a3a5c;margin-bottom:4px">🖨️ چاپ سریع درخواست سوخت</h3>
+        <div style="font-size:11px;color:#90a4ae;margin-bottom:10px">اسم معدن را تایپ کنید — بدون نیاز به رفتن به لیست کامل معادن، مستقیم فرم سوخت همان معدن (با ماشین‌آلات پیش‌فرض ذخیره‌شده) باز و قابل ویرایش/چاپ می‌شود.</div>
+        <input id="fuelQuickSearch" type="text" placeholder="نام معدن یا واحد صنعتی..." oninput="renderFuelQuickSearchResults()" style="width:100%;border:1.5px solid #cfd8dc;border-radius:8px;padding:11px 14px;font-size:14px;font-family:Tahoma">
+        <div id="fuelQuickSearchResults" style="margin-top:8px"></div>
+      </div>
+
       <div class="upload-zone" id="fuelDrop" onclick="document.getElementById('fuelFile').click()">
         <div style="font-size:32px;margin-bottom:8px">⛽</div>
         <div style="font-weight:700;margin-bottom:4px">آپلود گزارش سوخت</div>
@@ -718,7 +725,7 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
         </p>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
           <label style="font-size:12px">آرشیو فایل‌های قدیمی‌تر از:</label>
-          <input id="archiveCutoffDate" type="date">
+          <input id="archiveCutoffDate" type="text" dir="ltr" class="jalali-date-input" data-out="greg" placeholder="برای انتخاب تاریخ کلیک کنید">
           <button class="btn-sm" style="background:#e3f2fd;color:#1565c0" onclick="scanArchiveCandidates()">🔍 بررسی</button>
         </div>
         <div id="archiveSummary"></div>
@@ -732,9 +739,9 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
         </p>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
           <label style="font-size:12px">از تاریخ:</label>
-          <input id="checklistExportFrom" type="date">
+          <input id="checklistExportFrom" type="text" dir="ltr" class="jalali-date-input" data-out="greg" placeholder="برای انتخاب تاریخ کلیک کنید">
           <label style="font-size:12px">تا تاریخ:</label>
-          <input id="checklistExportTo" type="date">
+          <input id="checklistExportTo" type="text" dir="ltr" class="jalali-date-input" data-out="greg" placeholder="برای انتخاب تاریخ کلیک کنید">
           <button class="btn-sm" style="background:#e8f5e9;color:#2e7d32" onclick="exportChecklistCSV()">📥 دانلود CSV</button>
         </div>
         <div id="checklistExportStatus" style="font-size:11.5px;color:#607d8b"></div>
@@ -883,8 +890,11 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
     <select id="mapFuelCol"></select>
     <label>ستون تاریخ / دوره (اختیاری)</label>
     <select id="mapDateCol"></select>
-    <label>عنوان این دوره گزارش (مثال: خرداد ۱۴۰۵) — برای تاریخچه ماهانه لازم است</label>
-    <input id="fuelPeriodLabel" type="text" placeholder="مثال: خرداد 1405">
+    <label>عنوان این دوره گزارش (شمسی) — برای تاریخچه ماهانه لازم است</label>
+    <div style="display:flex;gap:6px">
+      <select id="fuelPeriodMonth" style="flex:2"></select>
+      <select id="fuelPeriodYear" style="flex:1"></select>
+    </div>
     <div class="modal-btns">
       <button class="btn btn-save" onclick="confirmFuelImport()">✅ ثبت گزارش</button>
       <button class="btn btn-cancel" onclick="closeFuelModal()">انصراف</button>
@@ -1036,6 +1046,17 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
   </div>
 </div>
 
+<div class="modal-overlay" id="productionTrendModal">
+  <div class="modal" style="max-width:680px">
+    <h3 id="prodTrendTitle">📈 روند تولید</h3>
+    <div style="font-size:11.5px;color:#607d8b;margin-bottom:10px">مجموع تناژ ثبت‌شده در «گزارش تولید» به تفکیک دوره (بر اساس گزارش‌های مسئول فنی)</div>
+    <div id="prodTrendBody" style="min-height:220px"></div>
+    <div class="modal-btns">
+      <button class="btn btn-cancel" onclick="closeProductionTrendModal()">بستن</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay visit-modal" id="visitModal">
   <div class="modal">
     <h3 id="visitModalTitle">📷 ثبت گزارش جدید</h3>
@@ -1066,7 +1087,7 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
     </div>
 
     <div id="visitFieldsProductionOnly" class="fp-grid" style="margin-top:10px">
-      <div><label>ماه گزارش تولید</label><input id="vProdMonth" type="text" placeholder="مثال: اردیبهشت 1405"></div>
+      <div><label>ماه گزارش تولید (شمسی)</label><div style="display:flex;gap:4px"><select id="vProdMonthMonth" style="flex:2"></select><select id="vProdMonthYear" style="flex:1"></select></div></div>
       <div><label>مقدار تولید این ماه</label><input id="vProdAmount" type="text" placeholder="مقدار عددی"></div>
       <div><label>واحد سنجش</label><input id="vProdUnit" type="text" placeholder="تن"></div>
       <div><label>نام و امضای مسئول فنی</label><input id="vProdOfficer" type="text"></div>
@@ -1407,10 +1428,10 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
     <div class="fp-grid">
       <div><label>نام نماینده</label><input id="fpRep" type="text" placeholder="نام نماینده معدن"></div>
       <div><label>تاریخ درخواست</label><input id="fpReqDate" type="text" class="jalali-date-input" placeholder="برای انتخاب تاریخ کلیک کنید"></div>
-      <div><label>ماه دریافت سوخت</label><input id="fpMonthReceived" type="text" placeholder="مثال: اسفند ماه 1404"></div>
+      <div><label>ماه دریافت سوخت (شمسی)</label><div style="display:flex;gap:4px"><select id="fpMonthReceivedMonth" style="flex:2"></select><select id="fpMonthReceivedYear" style="flex:1"></select></div></div>
       <div><label>مقدار دریافتی</label><input id="fpAmountReceived" type="text" placeholder="مقدار عددی"></div>
       <div><label>باقیمانده سوخت</label><input id="fpRemaining" type="text" placeholder="مقدار عددی"></div>
-      <div><label>ماه درخواستی</label><input id="fpMonthRequested" type="text" placeholder="مثال: فروردین ماه 1405"></div>
+      <div><label>ماه درخواستی (شمسی)</label><div style="display:flex;gap:4px"><select id="fpMonthRequestedMonth" style="flex:2"></select><select id="fpMonthRequestedYear" style="flex:1"></select></div></div>
       <div><label>مقدار درخواستی</label><input id="fpAmountRequested" type="text" placeholder="مقدار عددی"></div>
       <div><label id="fpMainOreLbl">ماده معدنی اصلی این دوره (تن)</label><input id="fpMainOre" type="text" placeholder="مقدار عددی"></div>
       <div><label id="fpWasteLbl">باطله‌برداری این دوره (تن)</label><input id="fpWaste" type="text" placeholder="مقدار عددی"></div>
@@ -1422,9 +1443,21 @@ body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:#222;background:
     <button class="fp-equip-add" style="background:#e8f5e9;color:#2e7d32" onclick="importApprovedTechEquipment()">📥 وارد کردن ماشین‌آلات تایید‌شده مسئول فنی</button>
 
     <div class="fp-actions">
-      <button class="btn btn-save" onclick="doPrintFuelForm()">🖨️ چاپ</button>
+      <button class="btn btn-save" onclick="doPrintFuelForm()">👁️ پیش‌نمایش و چاپ</button>
       <button class="btn btn-add" onclick="saveDefaultEquipment()">💾 ذخیره تجهیزات به عنوان پیش‌فرض معدن</button>
       <button class="btn btn-cancel" onclick="closeFuelPrintModal()">انصراف</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="fuelPrintPreviewModal" style="z-index:1050">
+  <div class="modal" style="max-width:700px">
+    <h3>👁️ پیش‌نمایش قبل از چاپ</h3>
+    <div style="font-size:11.5px;color:#607d8b;margin-bottom:10px">عکس ماشین‌آلات فقط برای کنترل شما اینجا نمایش داده می‌شود و در برگه‌ی چاپی نمی‌آید.</div>
+    <div id="fuelPrintPreviewBody" style="max-height:65vh;overflow-y:auto;background:#f5f7f8;padding:10px;border-radius:8px"></div>
+    <div class="modal-btns">
+      <button class="btn btn-save" onclick="confirmFuelPrint()">🖨️ چاپ نهایی</button>
+      <button class="btn btn-cancel" onclick="closeFuelPrintPreview()">✏️ بازگشت و ویرایش</button>
     </div>
   </div>
 </div>
@@ -2078,8 +2111,8 @@ async function onLogin() {
 
   if(myRole === 'pending') {
     showPendingGate(user.email);
-  } else if(myRole === 'tech_officer' || myRole === 'safety_officer' || myRole === 'health_officer') {
-    // مهم برای امنیت: این سه نقش فقط باید از اپلیکیشن مخصوص خودشان وارد شوند، نه داشبورد ادمین.
+  } else if(myRole === 'tech_officer' || myRole === 'safety_officer' || myRole === 'health_officer' || myRole === 'owner') {
+    // مهم برای امنیت: این نقش‌ها فقط باید از اپلیکیشن مخصوص خودشان وارد شوند، نه داشبورد ادمین.
     // قبلاً فقط tech_officer اینجا مسدود می‌شد؛ safety_officer/health_officer از این چک رد می‌شدند و
     // چون myPermissions برایشان تنظیم نشده (null)، تابع hasPerm برای آن‌ها true برمی‌گرداند —
     // یعنی دسترسی کامل و نامحدود به داشبورد ادمین (همه‌ی معادن، اطلاعات مالی و حقوقی و غیره).
@@ -2333,6 +2366,12 @@ function openFuelMapModal() {
     const sel = document.getElementById(id);
     sel.innerHTML = '<option value="">— انتخاب کنید —</option>' + parsedFuelHeaders.map(h=>'<option value="'+h+'">'+h+'</option>').join('');
   });
+  const now = new Date();
+  const [jy, jm] = gregorianToJalali(now.getFullYear(), now.getMonth()+1, now.getDate());
+  document.getElementById('fuelPeriodMonth').innerHTML = JALALI_MONTHS.map((m,i)=>'<option value="'+(i+1)+'">'+m+'</option>').join('');
+  document.getElementById('fuelPeriodYear').innerHTML = [jy-1, jy, jy+1].map(y=>'<option value="'+y+'">'+y+'</option>').join('');
+  document.getElementById('fuelPeriodMonth').value = jm;
+  document.getElementById('fuelPeriodYear').value = jy;
   document.getElementById('fuelMapModal').classList.add('open');
 }
 function closeFuelModal() { document.getElementById('fuelMapModal').classList.remove('open'); }
@@ -2341,9 +2380,8 @@ async function confirmFuelImport() {
   const nameCol = document.getElementById('mapNameCol').value;
   const fuelCol = document.getElementById('mapFuelCol').value;
   const dateCol = document.getElementById('mapDateCol').value;
-  const period = document.getElementById('fuelPeriodLabel').value.trim();
+  const period = JALALI_MONTHS[parseInt(document.getElementById('fuelPeriodMonth').value)-1] + ' ' + document.getElementById('fuelPeriodYear').value;
   if(!nameCol || !fuelCol) { alert('ستون نام و ستون سوخت را انتخاب کنید'); return; }
-  if(!period) { alert('عنوان دوره گزارش (مثلاً «خرداد ۱۴۰۵») را وارد کنید تا در تاریخچه قابل تشخیص باشد'); return; }
 
   const newFuelData = {};
   parsedFuelRows.forEach(row => {
@@ -2420,6 +2458,7 @@ async function loadUsersList() {
           '<option value="tech_officer" '+(u.requested_mine_name?'selected':'')+'>مسئول فنی</option>'+
           '<option value="safety_officer">مسئول ایمنی</option>'+
           '<option value="health_officer">مسئول بهداشت حرفه‌ای</option>'+
+          '<option value="owner">بهره‌بردار (فقط مشاهده معدن خودش)</option>'+
           '<option value="admin">ادمین</option>'+
         '</select>'+
         '<select class="role-select" id="'+uid+'_dept">'+
@@ -2488,7 +2527,7 @@ function onPendingRoleChange(uid) {
   const role = document.getElementById(uid+'_role').value;
   const wrap = document.getElementById(uid+'_mineWrap');
   if(!wrap) return;
-  if(!['tech_officer','safety_officer','health_officer'].includes(role)) { wrap.innerHTML = ''; return; }
+  if(!['tech_officer','safety_officer','health_officer','owner'].includes(role)) { wrap.innerHTML = ''; return; }
 
   const requested = wrap.dataset.requested || '';
   if(currentDept !== 'معدن') {
@@ -2519,7 +2558,7 @@ async function approveUser(email, uid) {
   const department = document.getElementById(uid+'_dept').value;
   const update = {role, department};
 
-  if(['tech_officer','safety_officer','health_officer'].includes(role)) {
+  if(['tech_officer','safety_officer','health_officer','owner'].includes(role)) {
     const mineSel = document.getElementById(uid+'_mine');
     const chosen = mineSel ? mineSel.value : '';
     if(!chosen) {
@@ -2656,7 +2695,7 @@ async function openUserAccessModal(email) {
       '<div><label style="font-size:11px">کد ملی</label><input id="ua_national_code" type="text" dir="ltr" value="'+esc(u.national_code||'')+'"></div>'+
       '<div><label style="font-size:11px">شماره عضویت نظام مهندسی</label><input id="ua_membership_no" type="text" dir="ltr" value="'+esc(u.membership_no||'')+'"></div>'+
       '<div><label style="font-size:11px">شماره پروانه اشتغال به کار</label><input id="ua_license_no" type="text" dir="ltr" value="'+esc(u.license_no||'')+'"></div>'+
-      '<div><label style="font-size:11px">تاریخ انقضای پروانه اشتغال (ماده ۴ قانون نظام مهندسی معدن)</label><input id="ua_license_expiry" type="date" dir="ltr" value="'+esc(u.license_expiry_date||'')+'"></div>'+
+      '<div><label style="font-size:11px">تاریخ انقضای پروانه اشتغال (ماده ۴ قانون نظام مهندسی معدن)</label><input id="ua_license_expiry" type="text" dir="ltr" class="jalali-date-input" data-out="greg" placeholder="برای انتخاب تاریخ کلیک کنید" value="'+esc(u.license_expiry_date||'')+'"></div>'+
       '<div><label style="font-size:11px">شماره ثبت قرارداد نظام مهندسی</label><input id="ua_contract_no" type="text" dir="ltr" value="'+esc(u.contract_no||'')+'"></div>'+
       '<div><label style="font-size:11px">ظرفیت اشتغال مجاز (ماده ۱۲ آیین‌نامه نظام مهندسی معدن)</label><input id="ua_employment_capacity" type="number" min="1" step="1" dir="ltr" value="'+(u.employment_capacity??'')+'" placeholder="طبق پروانه اشتغال"></div>'+
       '</div>'+
@@ -2685,6 +2724,7 @@ async function openUserAccessModal(email) {
 
   document.getElementById('userAccessBody').innerHTML = html;
   document.getElementById('userAccessModal').classList.add('open');
+  attachAllJalaliPickers(document.getElementById('userAccessBody'));
   if(['tech_officer','safety_officer','health_officer'].includes(u.role)) await loadUaMineList(spec);
 }
 
@@ -3393,8 +3433,9 @@ async function deleteTechReport(id) {
     if(rmErr) console.warn('حذف فایل‌های Storage ناموفق بود (ادامه می‌دهیم)', rmErr);
   }
 
-  const {error} = await sb.from('tech_reports').delete().eq('id', id);
+  const {data: deletedRows, error} = await sb.from('tech_reports').delete().eq('id', id).select('id');
   if(error) { showToast('⚠️ خطا در حذف گزارش: ' + error.message); return; }
+  if(!deletedRows || !deletedRows.length) { showToast('⚠️ حذف انجام نشد (دسترسی کافی نیست) — گزارش همچنان روی سرور باقی است'); return; }
 
   techReportsAdminCache = techReportsAdminCache.filter(x => x.id !== id);
   renderTechReportsAdmin();
@@ -4468,6 +4509,7 @@ function switchTab(t) {
   if(t==='identity') loadIdentityAdmin();
   if(t==='supplementary') loadSupplementaryAdmin();
   if(t==='dashboard') loadDashboard();
+  if(t==='archive') attachAllJalaliPickers(document.getElementById('panel-archive'));
   if(t==='links') { loadAppLinksForm(); loadIdentitySettings(); }
   if(t==='audit') loadAuditLog();
   if(t==='fuel') renderFuelSummary();
@@ -4834,6 +4876,7 @@ function showMine(idx) {
   const lastEdit = m['_lastEdit'] ? 'آخرین ویرایش: '+m['_lastEdit'] : '';
   let actions = (currentDept === 'معدن' || currentDept === 'صنعت') ? '<button class="btn btn-fuel-print" onclick="openFuelPrintModal('+idx+')">🖨️ چاپ درخواست سوخت</button>' : '';
   actions += '<button class="btn" style="background:#e0f2f1;color:#00695c" onclick="printIDCard('+idx+')">🪪 کارت شناسایی</button>';
+  actions += '<button class="btn" style="background:#ede7f6;color:#4527a0" onclick="openProductionTrendModal('+idx+')">📈 روند تولید</button>';
   if(isAdmin()) {
     actions += editMode
       ? '<button class="btn btn-save" onclick="saveEdits()">💾 ذخیره</button>'+
@@ -4975,6 +5018,20 @@ function jalaliDaysInMonth(jy, jm) {
 }
 
 const JALALI_MONTHS = ['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
+// جفت کشویی «ماه + سال» شمسی، برای فیلدهای متنی که فقط یک برچسب دوره (نه تاریخ روز-دقیق) لازم دارند
+// مثل «ماه دریافت سوخت» یا «ماه گزارش تولید» — قبلاً اینها یک input متنی آزاد بودند.
+function populateMonthYearDropdowns(prefix) {
+  const now = new Date();
+  const [jy, jm] = gregorianToJalali(now.getFullYear(), now.getMonth()+1, now.getDate());
+  const moEl = document.getElementById(prefix+'Month'), yEl = document.getElementById(prefix+'Year');
+  if(!moEl || !yEl) return;
+  moEl.innerHTML = JALALI_MONTHS.map((m,i)=>'<option value="'+(i+1)+'">'+m+'</option>').join('');
+  yEl.innerHTML = [jy-1, jy, jy+1].map(y=>'<option value="'+y+'">'+y+'</option>').join('');
+  moEl.value = jm; yEl.value = jy;
+}
+function readMonthYearLabel(prefix) {
+  return JALALI_MONTHS[parseInt(document.getElementById(prefix+'Month').value)-1] + ' ' + document.getElementById(prefix+'Year').value;
+}
 const JALALI_WEEKDAYS = ['ش','ی','د','س','چ','پ','ج'];
 
 let jalaliPickerEl = null;
@@ -5704,8 +5761,8 @@ function openLegalRecordModal(existing) {
       '<div><label>نرخ (به ازای هر تن)</label><input id="lr_rate" type="number" step="any" value="'+(v.rate_per_ton??'')+'"></div></div>'+
       '<div class="fp-grid"><div><label>مبلغ محاسبه‌شده</label><input id="lr_calc" type="number" step="any" value="'+(v.calculated_amount??'')+'"></div>'+
       '<div><label>مبلغ پرداخت‌شده</label><input id="lr_paid_amount" type="number" step="any" value="'+(v.paid_amount??0)+'"></div></div>'+
-      '<div class="fp-grid"><div><label>تاریخ سررسید</label><input id="lr_due" type="date" value="'+(v.due_date||'')+'"></div>'+
-      '<div><label>تاریخ پرداخت</label><input id="lr_paiddate" type="date" value="'+(v.paid_date||'')+'"></div></div>'+
+      '<div class="fp-grid"><div><label>تاریخ سررسید</label><input id="lr_due" type="text" dir="ltr" class="jalali-date-input" data-out="greg" placeholder="کلیک برای انتخاب تاریخ" value="'+(v.due_date||'')+'"></div>'+
+      '<div><label>تاریخ پرداخت</label><input id="lr_paiddate" type="text" dir="ltr" class="jalali-date-input" data-out="greg" placeholder="کلیک برای انتخاب تاریخ" value="'+(v.paid_date||'')+'"></div></div>'+
       '<label>وضعیت</label><select id="lr_status">'+
         ['pending','partial','paid','overdue'].map(s=>'<option value="'+s+'"'+(v.status===s?' selected':'')+'>'+LEGAL_STATUS_META[s].l+'</option>').join('')+
       '</select>'+
@@ -5714,8 +5771,8 @@ function openLegalRecordModal(existing) {
     f.innerHTML =
       '<label>نوع تضمین</label><input id="lr_gtype" type="text" placeholder="ضمانت‌نامه بانکی، سپرده نقدی، ..." value="'+esc(v.guarantee_type||'')+'">'+
       '<div class="fp-grid"><div><label>مبلغ</label><input id="lr_amount" type="number" step="any" value="'+(v.amount??'')+'"></div>'+
-      '<div><label>تاریخ صدور</label><input id="lr_issue" type="date" value="'+(v.issue_date||'')+'"></div></div>'+
-      '<label>تاریخ تعدیل بعدی <span style="font-weight:400;color:#90a4ae">(طبق ماده ۴۳ آیین‌نامه، معمولاً هر ۳ سال یک‌بار)</span></label><input id="lr_nextadj" type="date" value="'+(v.next_adjustment_date||'')+'">'+
+      '<div><label>تاریخ صدور</label><input id="lr_issue" type="text" dir="ltr" class="jalali-date-input" data-out="greg" placeholder="کلیک برای انتخاب تاریخ" value="'+(v.issue_date||'')+'"></div></div>'+
+      '<label>تاریخ تعدیل بعدی <span style="font-weight:400;color:#90a4ae">(طبق ماده ۴۳ آیین‌نامه، معمولاً هر ۳ سال یک‌بار)</span></label><input id="lr_nextadj" type="text" dir="ltr" class="jalali-date-input" data-out="greg" placeholder="کلیک برای انتخاب تاریخ" value="'+(v.next_adjustment_date||'')+'">'+
       '<label style="display:flex;align-items:center;gap:5px;margin-top:8px"><input type="checkbox" id="lr_linkedreclaim" style="width:auto" '+(v.linked_to_reclamation?'checked':'')+'> این تضمین بابت تعهد بازسازی محیط‌زیست (ماده ۶ ضوابط زیست‌محیطی) است</label>'+
       '<label>وضعیت</label><select id="lr_status">'+
         ['active','expired','released'].map(s=>'<option value="'+s+'"'+(v.status===s?' selected':'')+'>'+LEGAL_STATUS_META[s].l+'</option>').join('')+
@@ -5725,7 +5782,7 @@ function openLegalRecordModal(existing) {
     f.innerHTML =
       '<label>سال</label><input id="lr_year" type="text" placeholder="۱۴۰۴" value="'+esc(v.year||'')+'">'+
       '<div class="fp-grid"><div><label>مبلغ</label><input id="lr_amount" type="number" step="any" value="'+(v.amount??'')+'"></div>'+
-      '<div><label>تاریخ پرداخت</label><input id="lr_paiddate" type="date" value="'+(v.payment_date||'')+'"></div></div>'+
+      '<div><label>تاریخ پرداخت</label><input id="lr_paiddate" type="text" dir="ltr" class="jalali-date-input" data-out="greg" placeholder="کلیک برای انتخاب تاریخ" value="'+(v.payment_date||'')+'"></div></div>'+
       '<label>لینک مستندات (اختیاری)</label><input id="lr_docurl" type="text" dir="ltr" value="'+esc(v.document_url||'')+'">'+
       '<label>وضعیت</label><select id="lr_status">'+
         ['pending','paid','reported'].map(s=>'<option value="'+s+'"'+(v.status===s?' selected':'')+'>'+({pending:'در انتظار پرداخت',paid:'پرداخت‌شده - در انتظار اعلام به وزارت',reported:LEGAL_STATUS_META.reported.l})[s]+'</option>').join('')+
@@ -5736,7 +5793,7 @@ function openLegalRecordModal(existing) {
       '<div class="fp-grid"><div><label>وضعیت طرح بازسازی</label><select id="lr_planstatus">'+
         ['not_submitted','pending_approval','approved'].map(s=>'<option value="'+s+'"'+(v.plan_status===s?' selected':'')+'>'+LEGAL_STATUS_META[s].l+'</option>').join('')+
       '</select></div>'+
-      '<div><label>تاریخ تایید طرح</label><input id="lr_approvaldate" type="date" value="'+(v.approval_date||'')+'"></div></div>'+
+      '<div><label>تاریخ تایید طرح</label><input id="lr_approvaldate" type="text" dir="ltr" class="jalali-date-input" data-out="greg" placeholder="کلیک برای انتخاب تاریخ" value="'+(v.approval_date||'')+'"></div></div>'+
       '<label>وضعیت اجرای بازسازی</label><select id="lr_reststatus">'+
         ['not_started','in_progress','completed'].map(s=>'<option value="'+s+'"'+(v.restoration_status===s?' selected':'')+'>'+LEGAL_STATUS_META[s].l+'</option>').join('')+
       '</select>'+
@@ -5749,8 +5806,8 @@ function openLegalRecordModal(existing) {
     f.innerHTML =
       '<div class="fp-grid"><div><label>انتقال‌دهنده</label><input id="lr_transferor" type="text" value="'+esc(v.transferor_name||'')+'"></div>'+
       '<div><label>انتقال‌گیرنده</label><input id="lr_transferee" type="text" value="'+esc(v.transferee_name||'')+'"></div></div>'+
-      '<div class="fp-grid"><div><label>تاریخ ثبت درخواست</label><input id="lr_reqdate" type="date" value="'+(v.request_date||'')+'"></div>'+
-      '<div><label>تاریخ ظهرنویسی (ماده ۴۷ تبصره ۱)</label><input id="lr_finaldate" type="date" value="'+(v.finalization_date||'')+'"></div></div>'+
+      '<div class="fp-grid"><div><label>تاریخ ثبت درخواست</label><input id="lr_reqdate" type="text" dir="ltr" class="jalali-date-input" data-out="greg" placeholder="کلیک برای انتخاب تاریخ" value="'+(v.request_date||'')+'"></div>'+
+      '<div><label>تاریخ ظهرنویسی (ماده ۴۷ تبصره ۱)</label><input id="lr_finaldate" type="text" dir="ltr" class="jalali-date-input" data-out="greg" placeholder="کلیک برای انتخاب تاریخ" value="'+(v.finalization_date||'')+'"></div></div>'+
       (legalCache.royalty.some(rr=>rr.mine_name===mineSel.value && (rr.status==='overdue'||rr.status==='pending'||rr.status==='partial'))
         ? '<div style="font-size:11px;color:#c62828;margin-top:4px">⚠️ این معدن رویالتی معوق/تسویه‌نشده دارد — طبق ماده ۴۷ باید پیش از انتقال، مفاصا حساب حقوق دولتی ارائه شود</div>'
         : '<div style="font-size:11px;color:#2e7d32;margin-top:4px">✅ رویالتی معوقی برای این معدن ثبت نشده</div>')+
@@ -5761,9 +5818,9 @@ function openLegalRecordModal(existing) {
   } else {
     f.innerHTML =
       '<label>شرح تخلف</label><textarea id="lr_violation" rows="2">'+esc(v.violation_description||'')+'</textarea>'+
-      '<div class="fp-grid"><div><label>تاریخ اخطار</label><input id="lr_warndate" type="date" value="'+(v.warning_date||'')+'"></div>'+
-      '<div><label>مهلت رفع تخلف</label><input id="lr_deadline" type="date" value="'+(v.deadline||'')+'"></div></div>'+
-      '<label>تاریخ بررسی/تصمیم کمیسیون ماده ۲۰</label><input id="lr_committeedate" type="date" value="'+(v.committee_decision_date||'')+'">'+
+      '<div class="fp-grid"><div><label>تاریخ اخطار</label><input id="lr_warndate" type="text" dir="ltr" class="jalali-date-input" data-out="greg" placeholder="کلیک برای انتخاب تاریخ" value="'+(v.warning_date||'')+'"></div>'+
+      '<div><label>مهلت رفع تخلف</label><input id="lr_deadline" type="text" dir="ltr" class="jalali-date-input" data-out="greg" placeholder="کلیک برای انتخاب تاریخ" value="'+(v.deadline||'')+'"></div></div>'+
+      '<label>تاریخ بررسی/تصمیم کمیسیون ماده ۲۰</label><input id="lr_committeedate" type="text" dir="ltr" class="jalali-date-input" data-out="greg" placeholder="کلیک برای انتخاب تاریخ" value="'+(v.committee_decision_date||'')+'">'+
       '<label style="margin-top:8px">وضعیت</label><select id="lr_status">'+
         ['warned','deadline_passed','committee_review','disqualified','resolved'].map(s=>'<option value="'+s+'"'+(v.status===s?' selected':'')+'>'+LEGAL_STATUS_META[s].l+'</option>').join('')+
       '</select>'+
@@ -5771,6 +5828,7 @@ function openLegalRecordModal(existing) {
       '<label>یادداشت</label><textarea id="lr_notes" rows="2">'+esc(v.notes||'')+'</textarea>';
   }
   document.getElementById('legalRecordModal').classList.add('open');
+  attachAllJalaliPickers(document.getElementById('legalRecordModal'));
 }
 function closeLegalRecordModal() { document.getElementById('legalRecordModal').classList.remove('open'); }
 
@@ -6566,7 +6624,7 @@ function openVisitModal(idx) {
   document.getElementById('vCompany').value = m['نام_دارنده'] || '';
   document.getElementById('vTonnage').value = '';
   document.getElementById('vNarrative').value = '';
-  document.getElementById('vProdMonth').value = '';
+  populateMonthYearDropdowns('vProdMonth');
   document.getElementById('vProdAmount').value = '';
   document.getElementById('vProdUnit').value = 'تن';
   document.getElementById('vProdOfficer').value = m['نام_مسئول_فنی'] || '';
@@ -6725,7 +6783,7 @@ async function queueOfflineVisit() {
     company: document.getElementById('vCompany').value.trim(),
     tonnage: document.getElementById('vTonnage').value.trim(),
     narrative: document.getElementById('vNarrative').value.trim(),
-    prodMonth: document.getElementById('vProdMonth').value.trim(),
+    prodMonth: readMonthYearLabel('vProdMonth'),
     prodAmount: document.getElementById('vProdAmount').value.trim(),
     prodUnit: document.getElementById('vProdUnit').value.trim(),
     prodOfficer: document.getElementById('vProdOfficer').value.trim(),
@@ -6860,7 +6918,7 @@ async function saveVisit() {
     company: document.getElementById('vCompany').value.trim(),
     tonnage: document.getElementById('vTonnage').value.trim(),
     narrative: document.getElementById('vNarrative').value.trim(),
-    prodMonth: document.getElementById('vProdMonth').value.trim(),
+    prodMonth: readMonthYearLabel('vProdMonth'),
     prodAmount: document.getElementById('vProdAmount').value.trim(),
     prodUnit: document.getElementById('vProdUnit').value.trim(),
     prodOfficer: document.getElementById('vProdOfficer').value.trim(),
@@ -6998,7 +7056,16 @@ async function importApprovedTechEquipment(silent) {
     else fpEquipRows.push(row);
     added++;
   });
-  if(added) renderEquipRows();
+  if(added) {
+    renderEquipRows();
+    // قبلاً این ماشین‌آلات فقط موقتاً (تا وقتی مدیر دستی «ذخیره تجهیزات پیش‌فرض» را می‌زد) در فرم می‌ماندند
+    // و هر بار باز کردن فرم دوباره باید همین دکمه/فرایند تکرار می‌شد. الان به‌محض افزوده‌شدن،
+    // خودکار به‌عنوان پیش‌فرض دائمی همین معدن ذخیره می‌شود تا دیگر هیچ‌وقت نیازی به تکرار این کار نباشد.
+    const key = equipKeyForType(type);
+    mines[fpMineIdx][key] = fpEquipRows.filter(r=>Object.values(r).some(v=>v));
+    const {data:{user}} = await sb.auth.getUser();
+    await saveMineRow(fpMineIdx, user?user.email:'');
+  }
   if(!silent) showToast(added ? '✅ '+added+' ماشین‌آلات تایید‌شده اضافه شد' : 'همه‌ی ماشین‌آلات تایید‌شده از قبل در لیست بودند');
   else if(added) showToast('✅ '+added+' ماشین‌آلات تایید‌شده مسئول فنی خودکار اضافه شد');
 }
@@ -8676,6 +8743,23 @@ function viewEquipPhotos(i) {
 }
 function closeEquipPhotosModal() { document.getElementById('equipPhotosModal').classList.remove('open'); }
 
+// ── چاپ سریع سوخت: جست‌وجوی مستقیم نام معدن، بدون نیاز به رفتن به لیست کامل ────
+function renderFuelQuickSearchResults() {
+  const q = document.getElementById('fuelQuickSearch').value.trim().toLowerCase();
+  const box = document.getElementById('fuelQuickSearchResults');
+  if(!q) { box.innerHTML = ''; return; }
+  const matches = mines.map((m,i)=>({m,i})).filter(({m}) => (m[nameField()]||'').toLowerCase().includes(q)).slice(0,8);
+  if(!matches.length) { box.innerHTML = '<div style="font-size:11.5px;color:#90a4ae;padding:8px">موردی یافت نشد</div>'; return; }
+  box.innerHTML = matches.map(({m,i}) =>
+    '<div onclick="selectFuelQuickSearchResult('+i+')" style="padding:10px 12px;border-radius:8px;background:#f5f7f8;margin-bottom:5px;cursor:pointer;font-size:13px">⛏️ '+esc(m[nameField()]||'')+'</div>'
+  ).join('');
+}
+function selectFuelQuickSearchResult(idx) {
+  document.getElementById('fuelQuickSearch').value = '';
+  document.getElementById('fuelQuickSearchResults').innerHTML = '';
+  openFuelPrintModal(idx);
+}
+
 function openFuelPrintModal(idx) {
   fpMineIdx = idx;
   const m = mines[idx];
@@ -8697,10 +8781,10 @@ function openFuelPrintModal(idx) {
 
   document.getElementById('fpRep').value = m['نماینده'] || '';
   document.getElementById('fpReqDate').value = '';
-  document.getElementById('fpMonthReceived').value = '';
+  populateMonthYearDropdowns('fpMonthReceived');
   document.getElementById('fpAmountReceived').value = '';
   document.getElementById('fpRemaining').value = '';
-  document.getElementById('fpMonthRequested').value = '';
+  populateMonthYearDropdowns('fpMonthRequested');
   document.getElementById('fpAmountRequested').value = '';
   document.getElementById('fpMainOre').value = '';
   document.getElementById('fpWaste').value = '';
@@ -8791,16 +8875,17 @@ function validateUploadFile(file, opts) {
   return null;
 }
 
+let _pendingFuelPrintHTML = '';
 function doPrintFuelForm() {
   const m = mines[fpMineIdx];
   const type = document.getElementById('fpFuelType').value;
   const unit = FUEL_UNITS[type];
   const rep = document.getElementById('fpRep').value.trim();
   const reqDate = document.getElementById('fpReqDate').value.trim();
-  const monthReceived = document.getElementById('fpMonthReceived').value.trim();
+  const monthReceived = readMonthYearLabel('fpMonthReceived');
   const amountReceived = document.getElementById('fpAmountReceived').value.trim();
   const remaining = document.getElementById('fpRemaining').value.trim();
-  const monthRequested = document.getElementById('fpMonthRequested').value.trim();
+  const monthRequested = readMonthYearLabel('fpMonthRequested');
   const amountRequested = document.getElementById('fpAmountRequested').value.trim();
   const mainOre = document.getElementById('fpMainOre').value.trim();
   const waste = document.getElementById('fpWaste').value.trim();
@@ -8826,24 +8911,8 @@ function doPrintFuelForm() {
   ).join('');
   const tableHead = '<tr><th>ردیف</th>'+cols.map(([,l])=>'<th>'+l+'</th>').join('')+'</tr>';
 
-  // پیوست عکس ماشین‌آلات: قبلاً دکمه‌ی 📷 کنار هر ردیف فقط برای مشاهده‌ی روی صفحه بود و در خروجی
-  // چاپی هیچ عکسی نمی‌آمد. الان برای هر ردیفی که عکس نما/سریال دارد (از گزارش‌های دوره‌ای مسئول
-  // فنی، از طریق findFpEquipPhotos)، عکس‌هایش به‌عنوان پیوست بعد از جدول در خروجی چاپ می‌آید.
-  const equipPhotoSections = fpEquipRows.filter(r=>Object.values(r).some(v=>v)).map(r => {
-    const rec = findFpEquipPhotos(r['نام']);
-    const urls = [...(rec ? [...rec.overview, ...rec.serial] : []), ...(r._photoUrl ? [r._photoUrl] : [])];
-    if(!urls.length) return '';
-    const imgs = urls.map(u =>
-      '<img src="'+esc(u)+'" style="width:150px;height:150px;object-fit:cover;border-radius:6px;margin:0 6px 6px 0;border:1px solid #ccc">'
-    ).join('');
-    return '<div style="margin-top:10px"><div style="font-weight:700;font-size:12px;margin-bottom:4px">'+esc(r['نام']||'')+'</div>'+
-      '<div style="display:flex;flex-wrap:wrap">'+imgs+'</div></div>';
-  }).filter(Boolean).join('');
-  const equipPhotoAppendix = equipPhotoSections
-    ? '<div class="pf-divider"></div><div class="pf-title" style="font-size:14px;text-align:right">📷 پیوست — عکس ماشین‌آلات</div>'+equipPhotoSections
-    : '';
-
-  document.getElementById('printArea').innerHTML =
+  // این HTML همان چیزی است که واقعاً روی کاغذ چاپ می‌شود — بدون عکس (تا کاغذ/جوهر چاپگر شلوغ نشود).
+  _pendingFuelPrintHTML =
     '<div class="pf-title">بسمه تعالی</div>'+
     '<div class="pf-title pf-underline">فرم اعلام وصول سوخت و تایید میزان تولید</div>'+
     '<div class="pf-body" style="margin-top:14px">'+
@@ -8862,9 +8931,33 @@ function doPrintFuelForm() {
     )+'</div>'+
     '</div>'+
     '<table class="pf-table"><thead>'+tableHead+'</thead><tbody>'+tableRows+'</tbody></table>'+
-    '<div class="pf-sign-row"><div>مهر و امضاء تایید کننده :</div><div>تاریخ : '+esc(reqDate)+'</div></div>'+
-    equipPhotoAppendix;
+    '<div class="pf-sign-row"><div>مهر و امضاء تایید کننده :</div><div>تاریخ : '+esc(reqDate)+'</div></div>';
 
+  // عکس ماشین‌آلات فقط برای همین پیش‌نمایشِ روی صفحه است — تا قبل از چاپ، عکس‌ها را کنترل کنید —
+  // و داخل خروجی چاپی (_pendingFuelPrintHTML بالا) وارد نمی‌شود.
+  const equipPhotoSections = fpEquipRows.filter(r=>Object.values(r).some(v=>v)).map(r => {
+    const rec = findFpEquipPhotos(r['نام']);
+    const urls = [...(rec ? [...rec.overview, ...rec.serial] : []), ...(r._photoUrl ? [r._photoUrl] : [])];
+    if(!urls.length) return '';
+    const imgs = urls.map(u =>
+      '<img src="'+esc(u)+'" style="width:150px;height:150px;object-fit:cover;border-radius:6px;margin:0 6px 6px 0;border:1px solid #ccc">'
+    ).join('');
+    return '<div style="margin-top:10px"><div style="font-weight:700;font-size:12px;margin-bottom:4px">'+esc(r['نام']||'')+'</div>'+
+      '<div style="display:flex;flex-wrap:wrap">'+imgs+'</div></div>';
+  }).filter(Boolean).join('');
+  const equipPhotoAppendix = equipPhotoSections
+    ? '<div class="pf-divider"></div><div class="pf-title" style="font-size:14px;text-align:right">📷 عکس ماشین‌آلات (فقط برای کنترل — در چاپ نمی‌آید)</div>'+equipPhotoSections
+    : '<div style="text-align:center;color:#90a4ae;font-size:12px;margin-top:10px">هیچ‌کدام از ماشین‌آلات این فرم عکس ثبت‌شده ندارند</div>';
+
+  document.getElementById('fuelPrintPreviewBody').innerHTML =
+    '<div style="border:1px solid #dde5ea;border-radius:8px;padding:14px;background:#fff">'+_pendingFuelPrintHTML+'</div>'+equipPhotoAppendix;
+  document.getElementById('fuelPrintPreviewModal').classList.add('open');
+}
+
+function closeFuelPrintPreview() { document.getElementById('fuelPrintPreviewModal').classList.remove('open'); }
+function confirmFuelPrint() {
+  document.getElementById('printArea').innerHTML = _pendingFuelPrintHTML;
+  document.getElementById('fuelPrintPreviewModal').classList.remove('open');
   setTimeout(()=>window.print(), 100);
 }
 
@@ -9684,7 +9777,70 @@ function closeNewRecordModal() { document.getElementById('newRecordModal').class
 function mineRealGroups() { return Object.keys(MINE_CAT_COLORS).filter(c => c !== 'غیره'); }
 function mineNeedsReclassify(m) { return !mineRealGroups().includes(m['دسته']); }
 
+// ── روند تولید (نمودار ستونی SVG، بدون کتابخانه خارجی) ────────────
+// دوره‌ها به‌صورت متن آزاد ذخیره می‌شوند (مثلاً «تیر ۱۴۰۵» یا «تیر ۱۴۰۵ تا بهمن ۱۴۰۵»)؛
+// برای مرتب‌سازی درست بر اساس زمان، اولین ماه/سال داخل متن دوره استخراج و به یک عدد قابل‌مقایسه تبدیل می‌شود.
+function periodSortKey(period) {
+  const m = String(period||'').match(/(فروردین|اردیبهشت|خرداد|تیر|مرداد|شهریور|مهر|آبان|آذر|دی|بهمن|اسفند)\s*(\d{3,4})/);
+  if(!m) return 0;
+  const monthIdx = JALALI_MONTHS.indexOf(m[1]);
+  return parseInt(m[2])*12 + monthIdx;
+}
+
+async function openProductionTrendModal(idx) {
+  const m = mines[idx];
+  const mineName = m[nameField()];
+  document.getElementById('prodTrendTitle').textContent = '📈 روند تولید — ' + mineName;
+  const body = document.getElementById('prodTrendBody');
+  body.innerHTML = '<div style="text-align:center;color:#90a4ae;padding:30px">در حال بارگذاری...</div>';
+  document.getElementById('productionTrendModal').classList.add('open');
+
+  const {data, error} = await sb.from('production_reports').select('period, material, tonnage, grade_percent').eq('mine_name', mineName);
+  if(error) { body.innerHTML = '<div style="text-align:center;color:#c62828;padding:30px">خطا در بارگذاری داده</div>'; return; }
+  if(!data || !data.length) { body.innerHTML = '<div style="text-align:center;color:#90a4ae;padding:30px">هنوز گزارش تولیدی برای این معدن ثبت نشده</div>'; return; }
+
+  // مجموع تناژ به تفکیک دوره (چند ماده معدنی در یک دوره با هم جمع می‌شوند)
+  const byPeriod = {};
+  data.forEach(r => {
+    const key = r.period || 'نامشخص';
+    byPeriod[key] = (byPeriod[key] || 0) + (parseFloat(r.tonnage) || 0);
+  });
+  const periods = Object.keys(byPeriod).sort((a,b) => periodSortKey(a) - periodSortKey(b));
+  const values = periods.map(p => byPeriod[p]);
+  const maxVal = Math.max(...values, 1);
+
+  const W = 640, H = 260, padL = 50, padB = 60, padT = 20, padR = 20;
+  const chartW = W - padL - padR, chartH = H - padT - padB;
+  const barGap = 10;
+  const barW = Math.max(18, Math.min(60, (chartW / periods.length) - barGap));
+
+  let bars = '', labels = '';
+  periods.forEach((p, i) => {
+    const x = padL + i * (chartW / periods.length) + ((chartW / periods.length) - barW) / 2;
+    const h = (values[i] / maxVal) * chartH;
+    const y = padT + chartH - h;
+    bars += '<rect x="'+x+'" y="'+y+'" width="'+barW+'" height="'+h+'" fill="#5e35b1" rx="4"></rect>'+
+      '<text x="'+(x+barW/2)+'" y="'+(y-6)+'" font-size="11" text-anchor="middle" fill="#4527a0">'+values[i].toLocaleString('fa-IR')+'</text>';
+    labels += '<text x="'+(x+barW/2)+'" y="'+(H-padB+18)+'" font-size="10.5" text-anchor="middle" fill="#607d8b" transform="rotate(-25 '+(x+barW/2)+' '+(H-padB+18)+')">'+esc(p)+'</text>';
+  });
+  // خطوط راهنمای افقی
+  let gridLines = '';
+  for(let g=0; g<=4; g++) {
+    const gy = padT + chartH - (g/4)*chartH;
+    gridLines += '<line x1="'+padL+'" y1="'+gy+'" x2="'+(W-padR)+'" y2="'+gy+'" stroke="#eceff1" stroke-width="1"></line>'+
+      '<text x="'+(padL-8)+'" y="'+(gy+4)+'" font-size="10" text-anchor="end" fill="#90a4ae">'+Math.round((g/4)*maxVal).toLocaleString('fa-IR')+'</text>';
+  }
+
+  const totalTonnage = values.reduce((a,b)=>a+b, 0);
+  body.innerHTML =
+    '<div style="font-size:12px;color:#455a64;margin-bottom:10px">مجموع کل: <b>'+totalTonnage.toLocaleString('fa-IR')+'</b> تن در '+periods.length+' دوره ثبت‌شده</div>'+
+    '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;font-family:Tahoma">'+gridLines+bars+labels+'</svg>';
+}
+function closeProductionTrendModal() { document.getElementById('productionTrendModal').classList.remove('open'); }
+
 function openReclassifyMinesModal() {
+
+
   const groups = mineRealGroups();
   const rows = mines.map((m,i)=>({m,i})).filter(r => mineNeedsReclassify(r.m));
   const body = document.getElementById('reclassifyMinesBody');

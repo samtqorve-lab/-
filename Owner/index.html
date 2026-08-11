@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>پرتال بهره‌بردار — اداره صنعت، معدن و تجارت قروه</title>
+<meta name="theme-color" content="#1a3a5c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="بهره‌بردار">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --bg-page:#f0f4f8; --text-main:#222;
+  --card-bg:#fff; --card-border:#e0e0e0;
+  --input-bg:#fff; --input-border:#b0bec5; --input-text:#1a3a5c;
+  --label-text:#455a64; --heading:#1a3a5c;
+  --secondary-text:#55707d; --muted-text:#6b8291;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{font-size:16px}
+body{font-family:Tahoma,Arial,sans-serif;min-height:100vh;color:var(--text-main);background:var(--bg-page);overflow-x:hidden;
+     padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+
+.gate-screen{position:fixed;inset:0;z-index:999;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,#0d1f33,#1a3a5c 60%,#00695c);padding:20px}
+.gate-box{background:var(--card-bg);border-radius:20px;padding:34px 26px;max-width:400px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.gate-logo{font-size:40px;margin-bottom:10px}
+.gate-box h2{font-size:18px;color:var(--heading);margin-bottom:6px}
+.gate-box p{font-size:13.5px;color:var(--secondary-text);margin-bottom:18px;line-height:1.9}
+.gate-box label{display:block;text-align:right;font-size:13.5px;color:var(--label-text);margin:12px 0 5px}
+.gate-box input{width:100%;border:1.5px solid var(--input-border);border-radius:10px;padding:13px 14px;font-size:16px;font-family:Tahoma;background:var(--input-bg);color:var(--input-text);min-height:46px}
+.login-err{color:#e53935;font-size:13px;text-align:center;margin-top:8px;min-height:18px;line-height:1.6}
+
+.topbar{background:rgba(0,0,0,.3);backdrop-filter:blur(10px);padding:10px 14px;display:flex;align-items:center;
+  justify-content:space-between;position:sticky;top:0;z-index:50;flex-wrap:wrap;gap:8px;
+  padding-top:calc(10px + env(safe-area-inset-top))}
+.topbar-title{color:#fff;font-size:15px;font-weight:700}
+.topbar-user{color:rgba(255,255,255,.65);font-size:11px}
+.logout-btn{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;font-family:Tahoma}
+
+.shell{background:linear-gradient(180deg,#1a3a5c,#0d1f33 340px,var(--bg-page) 340px);min-height:100vh}
+.wrap{max-width:640px;margin:0 auto;padding:16px}
+.panel-card{background:var(--card-bg);border-radius:14px;padding:18px;margin-top:16px;box-shadow:0 2px 10px rgba(0,0,0,.06)}
+.panel-card h3{font-size:14.5px;color:var(--heading);margin-bottom:12px}
+.kv-row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f0f2f4;font-size:13px}
+.kv-row:last-child{border-bottom:none}
+.kv-label{color:var(--muted-text)}
+.kv-val{font-weight:700;color:var(--text-main)}
+.badge{display:inline-block;border-radius:8px;padding:3px 9px;font-size:11px;font-weight:700}
+.badge-ok{background:#e8f5e9;color:#2e7d32}
+.badge-warn{background:#fff3e0;color:#e65100}
+.badge-danger{background:#ffebee;color:#c62828}
+.list-item{padding:10px 0;border-bottom:1px solid #f0f2f4;font-size:12.5px}
+.list-item:last-child{border-bottom:none}
+.list-item .t{font-weight:700;margin-bottom:3px}
+.list-item .s{color:var(--muted-text)}
+.empty-note{text-align:center;color:var(--muted-text);font-size:12.5px;padding:14px}
+.btn{padding:14px 18px;border-radius:10px;border:none;cursor:pointer;font-family:Tahoma;font-size:14.5px;font-weight:700;min-height:48px;width:100%}
+.btn-save{background:#00897b;color:#fff}
+</style>
+</head>
+<body>
+
+<div class="gate-screen" id="loginGate">
+  <div class="gate-box">
+    <div class="gate-logo">🏢</div>
+    <h2>پرتال بهره‌برداران معادن</h2>
+    <p>اداره صنعت، معدن و تجارت شهرستان قروه</p>
+    <label>ایمیل</label>
+    <input id="gateEmail" type="text" dir="ltr" placeholder="example@email.com">
+    <label>رمز عبور</label>
+    <input id="gatePass" type="password">
+    <div class="login-err" id="gateErr"></div>
+    <button class="btn btn-save" id="gateLoginBtn" style="margin-top:16px" onclick="doGateLogin()">ورود</button>
+  </div>
+</div>
+
+<div class="gate-screen" id="notAllowedGate" style="display:none">
+  <div class="gate-box">
+    <div class="gate-logo">🚫</div>
+    <h2>دسترسی از این طریق مجاز نیست</h2>
+    <p>این حساب برای پرتال بهره‌برداران تعریف نشده است. اگر مسئول فنی/ایمنی/بهداشت هستید، از اپلیکیشن مخصوص خودتان وارد شوید.</p>
+    <button class="btn" style="background:#eee;color:#333" onclick="doLogout()">بازگشت</button>
+  </div>
+</div>
+
+<div class="gate-screen" id="pendingGate" style="display:none">
+  <div class="gate-box">
+    <div class="gate-logo">⏳</div>
+    <h2>در انتظار تایید</h2>
+    <p>حساب شما هنوز توسط اداره تایید نشده است. پس از تایید و اختصاص معدن، دوباره وارد شوید.</p>
+    <button class="btn" style="background:#eee;color:#333" onclick="doLogout()">بازگشت</button>
+  </div>
+</div>
+
+<div class="gate-screen" id="noMineGate" style="display:none">
+  <div class="gate-box">
+    <div class="gate-logo">⛏️</div>
+    <h2>معدنی به شما اختصاص نیافته</h2>
+    <p>لطفاً با اداره صنعت، معدن و تجارت تماس بگیرید.</p>
+    <button class="btn" style="background:#eee;color:#333" onclick="doLogout()">بازگشت</button>
+  </div>
+</div>
+
+<div class="shell" id="ownerShell" style="display:none">
+  <div class="topbar">
+    <div class="topbar-title">🏢 پرتال بهره‌بردار</div>
+    <div class="topbar-right">
+      <span class="topbar-user" id="ownerEmailBox"></span>
+      <button class="logout-btn" onclick="doLogout()">خروج</button>
+    </div>
+  </div>
+  <div class="wrap" id="ownerMinesBox">
+    <div class="empty-note" style="color:#fff">در حال بارگذاری...</div>
+  </div>
+</div>
+
+<script>
+const SUPA_URL = 'https://khhurfxqxkuphksglgqi.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtoaHVyZnhxeGt1cGhrc2dsZ3FpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3MDUwNTksImV4cCI6MjA5ODI4MTA1OX0.q3b_JNkltZ3I_2qU8fGBT_enjCzN6eFshQNo11TyIPQ';
+const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+function esc(s) { return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function toEnDigits(s) { return String(s||'').replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)); }
+function hideAllGates() { ['loginGate','notAllowedGate','pendingGate','noMineGate'].forEach(id => document.getElementById(id).style.display='none'); }
+
+async function doGateLogin() {
+  const email = toEnDigits(document.getElementById('gateEmail').value.trim());
+  const pass = document.getElementById('gatePass').value;
+  const errEl = document.getElementById('gateErr');
+  errEl.textContent = '';
+  if(!email || !pass) { errEl.textContent = 'ایمیل و رمز را وارد کنید'; return; }
+  const btn = document.getElementById('gateLoginBtn');
+  btn.disabled = true; const orig = btn.textContent; btn.textContent = '⏳ در حال ورود...';
+  try {
+    const {error} = await sb.auth.signInWithPassword({email, password: pass});
+    if(error) { errEl.textContent = 'ایمیل یا رمز اشتباه است'; return; }
+    await onLogin();
+  } finally {
+    btn.disabled = false; btn.textContent = orig;
+  }
+}
+async function doLogout() { await sb.auth.signOut(); location.reload(); }
+
+async function onLogin() {
+  const {data:{user}} = await sb.auth.getUser();
+  if(!user) return;
+  const {data} = await sb.from('user_roles')
+    .select('role, assigned_mines, department').eq('email', user.email).limit(1);
+  const row = (data && data[0]) || {role:'pending', assigned_mines:[]};
+  hideAllGates();
+  if(row.role === 'pending') { document.getElementById('pendingGate').style.display = 'flex'; return; }
+  if(row.role !== 'owner') { document.getElementById('notAllowedGate').style.display = 'flex'; return; }
+  if(!row.assigned_mines || !row.assigned_mines.length) { document.getElementById('noMineGate').style.display = 'flex'; return; }
+  document.getElementById('ownerEmailBox').textContent = user.email;
+  document.getElementById('ownerShell').style.display = 'block';
+  await loadOwnerMines(row.assigned_mines, row.department || 'معدن');
+}
+
+const JALALI_MONTHS = ['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
+function faDate(iso) {
+  if(!iso) return '';
+  try { return new Date(iso).toLocaleDateString('fa-IR'); } catch(e) { return iso; }
+}
+// همان منطق محاسبه‌ی انقضای پروانه که در داشبورد ادمین استفاده می‌شود (تاریخ صدور شمسی + مدت اعتبار)
+// چون تاریخ انقضا به‌صورت مستقیم ذخیره نمی‌شود، از تاریخ صدور + مدت بهره‌برداری محاسبه می‌شود.
+function getCurrentJalaliYMD() {
+  try {
+    const fmt = new Intl.DateTimeFormat('en-US-u-ca-persian', {year:'numeric',month:'numeric',day:'numeric'});
+    const parts = fmt.formatToParts(new Date());
+    return {y: parseInt(parts.find(p=>p.type==='year').value), mo: parseInt(parts.find(p=>p.type==='month').value), d: parseInt(parts.find(p=>p.type==='day').value)};
+  } catch(e) { return {y:1404, mo:1, d:1}; }
+}
+function parseJalaliDateString(str) {
+  if(!str) return null;
+  const m = String(str).match(/(\d{2,4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if(!m) return null;
+  let y = parseInt(m[1]); if(y < 100) y += 1300;
+  return {y, mo:parseInt(m[2]), d:parseInt(m[3])};
+}
+function licenseExpiryInfo(m, dept) {
+  let issue, durationYears;
+  if(dept === 'اکتشاف') {
+    issue = parseJalaliDateString(m['تاریخ_صدور']);
+    const months = parseFloat(m['مدت_اعتبار_ماه']);
+    durationYears = (!isNaN(months) && months) ? months/12 : null;
+  } else if(dept === 'فرآوری') {
+    issue = parseJalaliDateString(m['تاریخ_صدور']);
+    durationYears = parseFloat(m['مدت_اعتبار_سال']);
+  } else {
+    issue = parseJalaliDateString(m['تاریخ_پروانه']);
+    durationYears = parseFloat(m['مدت_بهره_برداری']);
+  }
+  if(!issue || !durationYears || isNaN(durationYears)) return null;
+  const expiryY = issue.y + Math.floor(durationYears);
+  const now = getCurrentJalaliYMD();
+  let monthsLeft = (expiryY - now.y)*12 + (issue.mo - now.mo);
+  if(now.d > issue.d) monthsLeft -= 1;
+  return { expiryY, expiryMo: issue.mo, monthsLeft, expired: monthsLeft < 0 };
+}
+
+async function loadOwnerMines(mineNames, department) {
+  const box = document.getElementById('ownerMinesBox');
+  box.innerHTML = '';
+  for(const mineName of mineNames) {
+    const card = document.createElement('div');
+    card.innerHTML = '<div class="empty-note" style="color:#fff">در حال بارگذاری «'+esc(mineName)+'»...</div>';
+    box.appendChild(card);
+    renderMineCard(card, mineName, department);
+  }
+}
+
+async function renderMineCard(container, mineName, department) {
+  const [{data: mineRows}, {data: reports}, {data: corrective}] = await Promise.all([
+    sb.from('mine_records').select('record'),
+    sb.from('tech_reports').select('period, submitted_by, created_at, note').eq('mine_name', mineName).order('created_at', {ascending:false}).limit(6),
+    sb.from('corrective_actions').select('description, status, due_date, created_at, closed_at').eq('mine_name', mineName).order('created_at', {ascending:false}).limit(10),
+  ]);
+  const m = (mineRows||[]).map(r=>r.record).find(r => r['نام_معدن'] === mineName) || {};
+
+  const expInfo = licenseExpiryInfo(m, department);
+  let expiryBadge = '', expiryLine = '';
+  if(expInfo) {
+    expiryLine = JALALI_MONTHS[expInfo.expiryMo-1] + ' ' + expInfo.expiryY;
+    expiryBadge = expInfo.expired ? '<span class="badge badge-danger">منقضی شده</span>'
+      : expInfo.monthsLeft <= 3 ? '<span class="badge badge-warn">'+expInfo.monthsLeft+' ماه مانده</span>'
+      : '<span class="badge badge-ok">معتبر</span>';
+  }
+
+  const openCorrective = (corrective||[]).filter(c => c.status === 'open');
+  const closedCorrective = (corrective||[]).filter(c => c.status !== 'open');
+
+  container.innerHTML =
+    '<div class="panel-card">'+
+      '<h3>⛏️ '+esc(mineName)+'</h3>'+
+      '<div class="kv-row"><span class="kv-label">دسته</span><span class="kv-val">'+esc(m['دسته']||'—')+'</span></div>'+
+      '<div class="kv-row"><span class="kv-label">شماره پروانه</span><span class="kv-val">'+esc(m['شماره_پروانه']||m['شماره_مجوز']||'—')+'</span></div>'+
+      (expiryLine ? '<div class="kv-row"><span class="kv-label">انقضای پروانه (تخمینی)</span><span class="kv-val">'+esc(expiryLine)+' '+expiryBadge+'</span></div>' : '')+
+      '<div class="kv-row"><span class="kv-label">نماینده/بهره‌بردار</span><span class="kv-val">'+esc(m['نام_دارنده']||m['نماینده']||'—')+'</span></div>'+
+    '</div>'+
+
+    '<div class="panel-card">'+
+      '<h3>🛠️ اقدام‌های اصلاحی باز</h3>'+
+      (openCorrective.length ? openCorrective.map(c =>
+        '<div class="list-item"><div class="t">'+esc(c.description||'')+'</div>'+
+        '<div class="s">'+(c.due_date ? 'مهلت: '+faDate(c.due_date) : 'بدون مهلت مشخص')+' — <span class="badge badge-warn">باز</span></div></div>'
+      ).join('') : '<div class="empty-note">موردی باز نیست 🎉</div>')+
+      (closedCorrective.length ? '<div style="margin-top:10px;font-size:11.5px;color:var(--muted-text)">'+closedCorrective.length+' مورد قبلاً رفع/بسته شده</div>' : '')+
+    '</div>'+
+
+    '<div class="panel-card">'+
+      '<h3>📋 آخرین گزارش‌های دوره‌ای مسئول فنی</h3>'+
+      (reports && reports.length ? reports.map(r =>
+        '<div class="list-item"><div class="t">دوره: '+esc(r.period||'—')+'</div>'+
+        '<div class="s">تاریخ ثبت: '+faDate(r.created_at)+(r.note?' — '+esc(r.note):'')+'</div></div>'
+      ).join('') : '<div class="empty-note">هنوز گزارشی برای این معدن ثبت نشده</div>')+
+    '</div>';
+}
+
+sb.auth.onAuthStateChange((event) => {
+  if(event === 'SIGNED_IN') onLogin();
+});
+(async () => {
+  const {data:{session}} = await sb.auth.getSession();
+  if(session) await onLogin();
+})();
+</script>
+</body>
+</html>
