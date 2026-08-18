@@ -3,7 +3,18 @@ import { getState, setTab, setDepartment, onChange } from '../../router.js';
 import { signOut } from '../../lib/auth.js';
 import { fetchPendingIdentityCount } from '../../lib/identity.js';
 
-const DEPARTMENTS = ['معدن', 'صنعت', 'اکتشاف', 'فرآوری'];
+const DEPT_GROUPS = [
+  {
+    key: 'معدن',
+    label: 'معدن',
+    children: [
+      { dept: 'معدن', label: 'استخراج' },
+      { dept: 'اکتشاف', label: 'اکتشاف' },
+      { dept: 'فرآوری', label: 'فرآوری' },
+    ],
+  },
+  { key: 'صنعت', label: 'صنعت', children: null },
+];
 
 const NAV_ITEMS = [
   { tab: 'dashboard', label: 'داشبورد', icon: '◈' },
@@ -51,12 +62,33 @@ export function mountShell(root, { userLabel, renderContent }) {
 
   function renderDeptSwitch(activeDept) {
     deptSwitch.innerHTML = '';
-    DEPARTMENTS.forEach((d) => {
-      const btn = el('button', {
-        class: `dept-item${d === activeDept ? ' active' : ''}`,
-        onclick: () => setDepartment(d),
-      }, d);
-      deptSwitch.append(btn);
+    DEPT_GROUPS.forEach((group) => {
+      if (!group.children) {
+        const btn = el('button', {
+          class: `dept-item${activeDept === group.key ? ' active' : ''}`,
+          onclick: () => setDepartment(group.key),
+        }, group.label);
+        deptSwitch.append(btn);
+        return;
+      }
+      const childDepts = group.children.map((c) => c.dept);
+      const groupActive = childDepts.includes(activeDept);
+      const groupBtn = el('button', {
+        class: `dept-item${groupActive ? ' active' : ''}`,
+        onclick: () => setDepartment(group.children[0].dept),
+      }, group.label);
+      deptSwitch.append(groupBtn);
+      if (groupActive) {
+        const subWrap = el('div', { class: 'dept-subgroup' });
+        group.children.forEach((child) => {
+          const subBtn = el('button', {
+            class: `dept-subitem${activeDept === child.dept ? ' active' : ''}`,
+            onclick: () => setDepartment(child.dept),
+          }, child.label);
+          subWrap.append(subBtn);
+        });
+        deptSwitch.append(subWrap);
+      }
     });
   }
 

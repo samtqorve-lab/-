@@ -27,7 +27,7 @@ export default defineConfig(({ mode }) => {
         manifest: {
           name: 'سامانه مسئول فنی و ایمنی',
           short_name: 'مسئول فنی و ایمنی',
-          description: 'اپ مسئول فنی/ایمنی/بهداشت اداره صنعت، معدن و تجارت قروه',
+          description: 'اپ مسئول فنی/ایمنی/بهداشت وزارت صنعت، معدن و تجارت',
           lang: 'fa',
           dir: 'rtl',
           theme_color: '#1E2622',
