@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">سامات — مسئول فنی</string>
-    <string name="title_activity_main">سامات — مسئول فنی</string>
+    <string name="app_name">سامانه مسئول فنی و ایمنی</string>
+    <string name="title_activity_main">سامانه مسئول فنی و ایمنی</string>
     <string name="package_name">ir.novinproduct.samattech</string>
     <string name="custom_url_scheme">ir.novinproduct.samattech</string>
 </resources>

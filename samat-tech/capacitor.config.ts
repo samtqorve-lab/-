@@ -1,8 +1,8 @@
-import { CapacitorConfig } from '@capacitor/cli';
+import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'ir.novinproduct.samattech',
-  appName: 'سامات — مسئول فنی',
+  appName: 'سامانه مسئول فنی و ایمنی',
   webDir: 'dist',
   server: {
     // اجازه می‌دهد در حالت توسعه با vite dev server زنده تست کنید (اختیاری، فقط برای dev):

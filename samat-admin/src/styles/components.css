@@ -201,7 +201,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--ochre-500); outl
    صفحه‌ی ورود
    ============================================================= */
 .login-screen {
-  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  min-height: 100vh; width: 100%; display: flex; align-items: center; justify-content: center;
   background: var(--slate-900); position: relative; overflow: hidden;
 }
 .login-screen::before {

@@ -1,5 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="6" fill="#1E2622"/>
-  <path d="M2 20 Q10 12 16 19 T30 15" stroke="#C97A31" stroke-width="2" fill="none" stroke-linecap="round"/>
-  <path d="M2 25 Q10 18 16 24 T30 21" stroke="#8FA096" stroke-width="1.4" fill="none" stroke-linecap="round" opacity="0.7"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#1E2622"/>
+  <!-- خط کوهستان/تراز زمین (ادامه هویت بصری قبلی) -->
+  <path d="M40 330 Q160 200 260 300 T480 250" stroke="#8FA096" stroke-width="14" fill="none" stroke-linecap="round" opacity="0.55"/>
+  <!-- سپر ایمنی -->
+  <path d="M256 96 L372 138 V246 C372 328 322 384 256 412 C190 384 140 328 140 246 V138 Z"
+        fill="none" stroke="#C97A31" stroke-width="20" stroke-linejoin="round"/>
+  <!-- کلاه ایمنی داخل سپر -->
+  <path d="M196 268 C196 224 222 196 256 196 C290 196 316 224 316 268 H332 V284 H180 V268 Z" fill="#C97A31"/>
+  <rect x="238" y="176" width="36" height="26" rx="6" fill="#C97A31"/>
+  <rect x="176" y="284" width="160" height="16" rx="8" fill="#C97A31"/>
 </svg>

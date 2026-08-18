@@ -25,8 +25,8 @@ export default defineConfig(({ mode }) => {
           globPatterns: ['**/*.{js,css,html,woff2,svg,png}'],
         },
         manifest: {
-          name: 'مسئول فنی — SAMAT',
-          short_name: 'SAMAT مسئول فنی',
+          name: 'سامانه مسئول فنی و ایمنی',
+          short_name: 'مسئول فنی و ایمنی',
           description: 'اپ مسئول فنی/ایمنی/بهداشت اداره صنعت، معدن و تجارت قروه',
           lang: 'fa',
           dir: 'rtl',

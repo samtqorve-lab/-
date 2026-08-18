@@ -27,6 +27,9 @@ const STAFF_FIELD_ROLES = ['admin', 'superadmin', 'inspector'];
 registerSender('identityVerification', submitIdentityVerification);
 mountOfflineBadge();
 initOfflineQueueWatcher(showToast);
+// GPS از همین لحظه‌ی باز شدن اپ پیش‌گرم می‌شود (نه بعد از ورود) — تا مسئول فنی زودتر
+// مجوز موقعیت‌مکانی را بدهد و اولین خوانش‌ها زودتر آماده باشند.
+startManagedGpsPrewarm();
 
 function logoutAndReload() {
   stopGpsPrewarm();
