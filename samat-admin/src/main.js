@@ -2,7 +2,8 @@ import './styles/tokens.css';
 import './styles/base.css';
 import './styles/components.css';
 
-import { getSession, fetchMyRole, isStaffRole } from './lib/auth.js';
+import { getSession, fetchMyRole, isStaffRole, signOut } from './lib/auth.js';
+import { el } from './lib/dom.js';
 import { setGeoScope } from './router.js';
 import { mountLogin } from './modules/shell/login.js';
 import { mountShell } from './modules/shell/shell.js';
@@ -49,12 +50,47 @@ async function boot() {
   try {
     roleRow = await fetchMyRole(session.user.email);
   } catch {
-    root.innerHTML = '<div class="empty-state">حساب شما هنوز در سامانه تعریف نشده — با مدیر سیستم تماس بگیرید.</div>';
+    root.innerHTML = '';
+    root.append(
+      el('div', { class: 'empty-state' }, [
+        el('div', {}, 'حساب شما هنوز در سامانه تعریف نشده — با مدیر سیستم تماس بگیرید.'),
+        el('button', {
+          class: 'btn btn-primary',
+          style: 'margin-top:14px',
+          onclick: async () => {
+            await signOut();
+            window.location.reload();
+          },
+        }, 'بازگشت به صفحه ورود'),
+      ])
+    );
     return;
   }
 
   if (!isStaffRole(roleRow.role)) {
-    root.innerHTML = '<div class="empty-state">این حساب دسترسی به پنل مدیریت ندارد.</div>';
+    const ROLE_FA = {
+      tech_officer: 'مسئول فنی',
+      safety_officer: 'مسئول ایمنی',
+      health_officer: 'مسئول بهداشت حرفه‌ای',
+      owner: 'بهره‌بردار',
+      pending: 'در انتظار تأیید',
+    };
+    const roleLabel = ROLE_FA[roleRow.role] || roleRow.role;
+
+    root.innerHTML = '';
+    root.append(
+      el('div', { class: 'empty-state' }, [
+        el('div', {}, `شما مجاز به ورود به این سامانه با حساب ${roleLabel} نیستید. لطفاً اگر حساب ادمین دارید مجدداً سعی نمایید.`),
+        el('button', {
+          class: 'btn btn-primary',
+          style: 'margin-top:14px',
+          onclick: async () => {
+            await signOut();
+            window.location.reload();
+          },
+        }, 'بازگشت به صفحه ورود'),
+      ])
+    );
     return;
   }
 
