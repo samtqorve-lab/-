@@ -31,11 +31,7 @@ export function mountLogin(root, onSuccess) {
 
   function brand(subtitle) {
     return el('div', { class: 'brand' }, [
-      el('img', {
-        class: 'logo', src: '/assets/ministry-logo.png', alt: 'وزارت صنعت، معدن و تجارت',
-        onerror: (e) => { e.target.style.display = 'none'; },
-      }),
-      el('div', { class: 'org' }, 'وزارت صنعت، معدن و تجارت'),
+      el('div', { class: 'org' }, 'اداره صنعت، معدن و تجارت قروه'),
       el('div', { class: 'app' }, subtitle || 'ورود مسئول فنی/ایمنی/بهداشت'),
     ]);
   }

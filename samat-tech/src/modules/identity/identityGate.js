@@ -150,7 +150,7 @@ export function mountIdentityCapture(root, { email, mines, captureKind, reason, 
 
   const card = el('div', { class: 'gate-card' }, [
     el('div', { class: 'brand' }, [
-      el('div', { class: 'org' }, 'وزارت صنعت، معدن و تجارت'),
+      el('div', { class: 'org' }, 'اداره صنعت، معدن و تجارت قروه'),
       el('div', { class: 'app' }, captureKind === 'monthly' ? '📸 احراز هویت ماهانه (اجباری)' : '📸 احراز هویت مسئول فنی'),
     ]),
     el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:10px' },

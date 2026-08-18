@@ -63,20 +63,6 @@
   color: #fff;
   font-weight: 600;
 }
-.dept-subgroup { display: flex; flex-direction: column; gap: 2px; padding-inline-start: 20px; margin-top: 2px; }
-.dept-subitem {
-  display: flex; align-items: center; padding: 8px 12px; border-radius: var(--radius-sm);
-  border-inline-start: 2px solid transparent; font-size: var(--text-sm); color: var(--stone-300);
-  cursor: pointer; background: none; border: none; text-align: right; width: 100%;
-  transition: background 0.15s var(--ease);
-}
-.dept-subitem:hover { background: rgba(255,255,255,0.05); }
-.dept-subitem.active {
-  background: rgba(201, 122, 49, 0.1);
-  border-inline-start-color: var(--ochre-500);
-  color: #fff;
-  font-weight: 600;
-}
 
 .nav-group { position: relative; padding: var(--space-2) var(--space-3); flex: 1; overflow-y: auto; }
 .nav-label { font-size: var(--text-xs); color: var(--slate-300); padding: var(--space-3) 12px 6px; text-transform: uppercase; letter-spacing: 0.04em; }
