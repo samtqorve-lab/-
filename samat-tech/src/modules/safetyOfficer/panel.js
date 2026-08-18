@@ -86,7 +86,7 @@ export async function mountSafetyOfficerPanel(root, { email, mines, identityVeri
 
   const shell = el('div', { class: 'app-shell' }, [
     el('div', { class: 'topbar' }, [
-      el('div', {}, [el('div', { class: 'title' }, email), el('div', { class: 'sub' }, `${meta.icon} پنل ${meta.label}`), gpsChipBox]),
+      el('div', {}, [el('div', { class: 'title' }, roleRow.membership_no || roleRow.full_name || email), el('div', { class: 'sub' }, `${meta.icon} پنل ${meta.label}`), gpsChipBox]),
       el('button', { class: 'btn-sm', style: 'background:rgba(255,255,255,.15);color:#fff', onclick: onLogout }, 'خروج'),
     ]),
     el('div', { class: 'content' }, [

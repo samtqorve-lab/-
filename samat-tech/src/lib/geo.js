@@ -74,10 +74,33 @@ function resetPrewarmIdleTimer() {
   if (prewarmWatchId === null) startGpsPrewarm();
 }
 
+// ── روشن‌شدن GPS هنگام بازگشت اپ از بک‌گراند ──────────────────────────────
+// روی موبایل، وقتی مسئول فنی اپ را می‌بندد/می‌رود سراغ اپ دیگر، اندروید معمولاً پردازه را زنده
+// نگه می‌دارد (main.js دوباره اجرا نمی‌شود) — یعنی اگر GPS به‌خاطر بی‌فعالیتی خاموش شده باشد، تا
+// قبل از این تغییر فقط با اولین لمس صفحه دوباره روشن می‌شد. رویداد resume پلاگین @capacitor/app
+// دقیقاً لحظه‌ی «باز شدن دوباره‌ی اپ» را می‌دهد، پس همان لحظه GPS را به‌صورت واقعی و بدون نیاز به
+// لمس کاربر روشن می‌کنیم.
+let resumeListenerAttached = false;
+async function attachAppResumeListener() {
+  if (resumeListenerAttached) return;
+  resumeListenerAttached = true;
+  try {
+    const { Capacitor } = await import('@capacitor/core');
+    if (!Capacitor.isNativePlatform()) return;
+    const { App } = await import('@capacitor/app');
+    App.addListener('appStateChange', ({ isActive }) => {
+      if (isActive) { clearTimeout(prewarmIdleTimer); startGpsPrewarm(); resetPrewarmIdleTimer(); }
+    });
+  } catch {
+    resumeListenerAttached = false;
+  }
+}
+
 /** نسخه‌ی خودکار startGpsPrewarm که بعد از چند دقیقه بی‌فعالیتی، خودش را خاموش می‌کند (برای صرفه‌جویی باتری) */
 export function startManagedGpsPrewarm() {
   prewarmAutoManaged = true;
   ['touchstart', 'click', 'keydown', 'scroll'].forEach((ev) => window.addEventListener(ev, resetPrewarmIdleTimer, { passive: true }));
+  attachAppResumeListener();
   resetPrewarmIdleTimer();
 }
 

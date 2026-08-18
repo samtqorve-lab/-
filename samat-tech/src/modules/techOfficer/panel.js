@@ -105,7 +105,7 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
   const shell = el('div', { class: 'app-shell' }, [
     el('div', { class: 'topbar' }, [
       el('div', {}, [
-        el('div', { class: 'title' }, email),
+        el('div', { class: 'title' }, roleRow.membership_no || roleRow.full_name || email),
         el('div', { class: 'sub' }, `${SPEC_ICONS[specialty] || '🦺'} مسئول فنی — تخصص: ${specialty}`),
         gpsChipBox,
       ]),
