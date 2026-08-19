@@ -1,6 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "samat-admin",
+  "account_id": "5287caa33f55e68eeff7d6aae51fead8",
   "compatibility_date": "2026-08-01",
   "assets": {
     "directory": "./dist",
