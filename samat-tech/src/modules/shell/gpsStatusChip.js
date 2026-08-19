@@ -1,5 +1,5 @@
 import { el } from '../../lib/dom.js';
-import { onGpsUpdate, onGpsError, getWarmCoords, retryGpsPrewarm } from '../../lib/geo.js';
+import { onGpsUpdate, onGpsError, getWarmCoords, retryGpsPrewarm, willOpenSettingsOnRetry } from '../../lib/geo.js';
 
 /** یک نشان کوچک در بالای صفحه که نشان می‌دهد GPS از قبل پیش‌گرم و آماده است — تا مسئول فنی
  * مطمئن شود لازم نیست موقع عکس‌گرفتن منتظر «لود شدن» GPS بماند. اگر بعد از چند ثانیه هنوز هیچ
@@ -10,15 +10,15 @@ const STUCK_AFTER_MS = 8000;
 export function mountGpsStatusChip(container) {
   const chip = el('span', {
     style: 'font-size:11px;color:rgba(255,255,255,.75);cursor:pointer',
-    onclick: () => { retryGpsPrewarm(); showPreparing(); armStuckTimer(); },
+    onclick: () => { const toSettings = willOpenSettingsOnRetry(); retryGpsPrewarm(); showPreparing(toSettings); if (!toSettings) armStuckTimer(); },
   }, '📡 در حال آماده‌سازی GPS...');
   container.append(chip);
 
   let settled = false; // یعنی حداقل یک خوانش موفق آمده — دیگر نیازی به تایمر «گیرکرده» نیست
   let stuckTimer = null;
 
-  function showPreparing() {
-    chip.textContent = '📡 در حال آماده‌سازی GPS...';
+  function showPreparing(openingSettings) {
+    chip.textContent = openingSettings ? '⚙️ تنظیمات مجوز باز شد — برگردید به اپ' : '📡 در حال آماده‌سازی GPS...';
     chip.style.color = 'rgba(255,255,255,.75)';
   }
 
@@ -34,9 +34,13 @@ export function mountGpsStatusChip(container) {
   function renderError(err) {
     if (settled) return; // اگر قبلاً خوانش موفق داشتیم، یک خطای گذرا بعدی چیز مهمی نیست
     const isDenied = err && err.code === 'permission-denied';
-    chip.textContent = isDenied
-      ? '⚠️ دسترسی GPS رد شده — برای تلاش دوباره ضربه بزنید'
-      : '⚠️ GPS فعال نشد — برای تلاش دوباره ضربه بزنید';
+    if (isDenied && err.needsSettings) {
+      chip.textContent = '⚠️ مجوز رد شده — برای باز کردن تنظیمات ضربه بزنید';
+    } else if (isDenied) {
+      chip.textContent = '⚠️ دسترسی GPS رد شده — برای تلاش دوباره ضربه بزنید';
+    } else {
+      chip.textContent = '⚠️ GPS فعال نشد — برای تلاش دوباره ضربه بزنید';
+    }
     chip.style.color = '#ffb4a8';
   }
 

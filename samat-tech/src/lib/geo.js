@@ -33,6 +33,9 @@ function waitForAppReady() {
 }
 
 let nativePermissionRequested = false;
+let permissionDenialCount = 0; // بار اول: شاید فقط دیالوگ به‌خاطر زمان‌بندی نمایش داده نشده — دوباره امتحان می‌کنیم.
+                                 // از بار دوم به بعد: اندروید معمولاً دیگر دیالوگ نشان نمی‌دهد و باید کاربر را
+                                 // مستقیم به صفحه‌ی تنظیمات مجوز اپ ببریم.
 async function ensureNativeLocationPermission() {
   if (nativePermissionRequested) return;
   nativePermissionRequested = true;
@@ -45,11 +48,13 @@ async function ensureNativeLocationPermission() {
     if (status.location !== 'granted' && status.coarseLocation !== 'granted') {
       const result = await Geolocation.requestPermissions();
       if (result.location !== 'granted' && result.coarseLocation !== 'granted') {
+        permissionDenialCount += 1;
         // کاربر مجوز را رد کرده (یا اندروید به‌خاطر رد قبلی دیگر دیالوگ را نشان نداده) — این را
         // به‌عنوان یک خطای واقعی به شنونده‌ها اطلاع می‌دهیم تا رابط‌کاربری به‌جای «آماده‌سازی» ابدی،
         // پیام و راه‌حل نشان دهد.
         const err = new Error('permission-denied');
         err.code = 'permission-denied';
+        err.needsSettings = permissionDenialCount >= 2; // از رد دوم به بعد، درخواست مجدد بی‌فایده است
         lastGpsError = err;
         gpsErrorListeners.forEach((fn) => fn(err));
       }
@@ -60,13 +65,33 @@ async function ensureNativeLocationPermission() {
   }
 }
 
+/** وقتی اندروید دیگر دیالوگ مجوز را نشان نمی‌دهد (بعد از حداقل یک رد قبلی)، تنها راه واقعی باز
+ * کردن مستقیم صفحه‌ی تنظیمات مجوزهای همین اپ در اندروید است — کاربر آنجا Location را روشن می‌کند و
+ * برمی‌گردد؛ چون شنونده‌ی resume از قبل وصل است، همان لحظه‌ی برگشت خودش دوباره امتحان می‌کند. */
+export async function openLocationSettings() {
+  try {
+    const { NativeSettings, AndroidSettings } = await import('capacitor-native-settings');
+    await NativeSettings.open({ optionAndroid: AndroidSettings.ApplicationDetails });
+  } catch {
+    // در وب/محیط بدون این پلاگین، کاری از دستمان ساخته نیست جز پیام متنی که رابط‌کاربری نشان می‌دهد
+  }
+}
+
 /** برای دکمه‌ی «تلاش دوباره» در رابط‌کاربری: وقتی مجوز رد شده یا خطا رخ داده، ناظر فعلی را می‌بندد
- * و از نو (با درخواست مجدد مجوز) شروع می‌کند. */
+ * و از نو شروع می‌کند. اگر قبلاً حداقل یک‌بار رد شده (یعنی اندروید احتمالاً دیگر دیالوگ نشان
+ * نمی‌دهد)، به‌جای درخواست بی‌فایده‌ی مجدد، مستقیم صفحه‌ی تنظیمات را باز می‌کند. */
 export function retryGpsPrewarm() {
   if (prewarmWatchId !== null) { navigator.geolocation.clearWatch(prewarmWatchId); prewarmWatchId = null; }
   nativePermissionRequested = false;
   lastGpsError = null;
+  if (permissionDenialCount >= 1) { openLocationSettings(); return; }
   startGpsPrewarm();
+}
+
+/** به رابط‌کاربری می‌گوید آیا لمس دکمه‌ی «تلاش دوباره» قرار است صفحه‌ی تنظیمات اندروید را باز کند
+ * (بعد از حداقل یک رد قبلی) یا فقط یک درخواست مجوز معمولی دوباره بزند. */
+export function willOpenSettingsOnRetry() {
+  return permissionDenialCount >= 1;
 }
 
 export function startGpsPrewarm() {
