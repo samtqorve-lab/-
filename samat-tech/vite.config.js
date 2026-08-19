@@ -15,6 +15,9 @@ export default defineConfig(({ mode }) => {
     build: {
       // خروجی جدا از dist اصلی، تا با build آندروید/PWA اصلی قاطی نشه
       outDir: isSubPath ? 'dist-web-sub' : 'dist',
+      // بدون این، Lightning CSS کوئری‌های @media (max-width:...) را به سینتکس مدرن «width<=Npx»
+      // تبدیل می‌کند که روی کروم/وب‌ویوهای اندروید قدیمی‌تر از Chrome 104 اصلاً کار نمی‌کند.
+      cssTarget: ['chrome87', 'safari14', 'firefox78', 'edge88'],
     },
     plugins: [
       VitePWA({
