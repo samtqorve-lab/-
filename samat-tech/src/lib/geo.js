@@ -10,6 +10,7 @@ let latestCoords = null;
 let latestCoordsAt = 0;
 let lastGpsError = null;
 const gpsListeners = new Set();
+const gpsErrorListeners = new Set();
 
 // ── نکته‌ی حیاتی اندروید ──────────────────────────────────────────────────
 // navigator.geolocation خام (بالا) وقتی داخل WebView کپسیتور اجرا می‌شود، به‌تنهایی هرگز
@@ -19,6 +20,18 @@ const gpsListeners = new Set();
 // پلاگین رسمی @capacitor/geolocation دقیقاً همین درخواست نیتیو را انجام می‌دهد؛ یک‌بار که با آن
 // اجازه گرفته شد، تماس‌های navigator.geolocation معمولی هم (چون اپ حالا مجوز سیستم را دارد) کار
 // می‌کنند — پس بقیه‌ی این فایل دست‌نخورده می‌ماند.
+// درخواست مجوز نیتیو بلافاصله در لحظه‌ی صفر (قبل از این‌که صفحه کامل رندر و Activity آماده‌ی
+// نمایش دیالوگ سیستم باشد) روی برخی گوشی‌ها/نسخه‌های اندروید باعث می‌شود دیالوگ اصلاً دیده نشود و
+// اندروید بی‌صدا «رد شده» برگرداند — دقیقاً همان چیزی که باعث می‌شود کاربر برای همیشه روی
+// «آماده‌سازی» بماند. برای اولین درخواست (که از main.js و خیلی زود صدا زده می‌شود)، کمی صبر
+// می‌کنیم تا صفحه کامل بارگذاری و Activity واقعاً آماده شود.
+function waitForAppReady() {
+  return new Promise((resolve) => {
+    if (document.readyState === 'complete') { setTimeout(resolve, 400); return; }
+    window.addEventListener('load', () => setTimeout(resolve, 400), { once: true });
+  });
+}
+
 let nativePermissionRequested = false;
 async function ensureNativeLocationPermission() {
   if (nativePermissionRequested) return;
@@ -26,15 +39,34 @@ async function ensureNativeLocationPermission() {
   try {
     const { Capacitor } = await import('@capacitor/core');
     if (!Capacitor.isNativePlatform()) return; // در وب معمولی لازم نیست، خود مرورگر مدیریت می‌کند
+    await waitForAppReady();
     const { Geolocation } = await import('@capacitor/geolocation');
     const status = await Geolocation.checkPermissions();
     if (status.location !== 'granted' && status.coarseLocation !== 'granted') {
-      await Geolocation.requestPermissions();
+      const result = await Geolocation.requestPermissions();
+      if (result.location !== 'granted' && result.coarseLocation !== 'granted') {
+        // کاربر مجوز را رد کرده (یا اندروید به‌خاطر رد قبلی دیگر دیالوگ را نشان نداده) — این را
+        // به‌عنوان یک خطای واقعی به شنونده‌ها اطلاع می‌دهیم تا رابط‌کاربری به‌جای «آماده‌سازی» ابدی،
+        // پیام و راه‌حل نشان دهد.
+        const err = new Error('permission-denied');
+        err.code = 'permission-denied';
+        lastGpsError = err;
+        gpsErrorListeners.forEach((fn) => fn(err));
+      }
     }
   } catch {
     // اگر پلاگین نصب/سینک نشده باشد، بی‌صدا رد می‌شویم — همان رفتار قبلی (بدون پرامپت) باقی می‌ماند
     nativePermissionRequested = false;
   }
+}
+
+/** برای دکمه‌ی «تلاش دوباره» در رابط‌کاربری: وقتی مجوز رد شده یا خطا رخ داده، ناظر فعلی را می‌بندد
+ * و از نو (با درخواست مجدد مجوز) شروع می‌کند. */
+export function retryGpsPrewarm() {
+  if (prewarmWatchId !== null) { navigator.geolocation.clearWatch(prewarmWatchId); prewarmWatchId = null; }
+  nativePermissionRequested = false;
+  lastGpsError = null;
+  startGpsPrewarm();
 }
 
 export function startGpsPrewarm() {
@@ -48,8 +80,12 @@ export function startGpsPrewarm() {
         lastGpsError = null;
         gpsListeners.forEach((fn) => fn(pos.coords));
       },
-      (err) => { lastGpsError = err; /* بی‌صدا نگه داشته می‌شود — این فقط پیش‌گرم‌سازی است؛ اگر کاربر
-        واقعاً وارد صفحه‌ی عکس‌گیری شود و هنوز خوانشی نباشد، پیام دقیق همان لحظه نشان داده می‌شود. */ },
+      (err) => {
+        lastGpsError = err;
+        gpsErrorListeners.forEach((fn) => fn(err));
+        /* برخلاف قبل، خطا را هم به شنونده‌ها اطلاع می‌دهیم — چون این ممکن است «پیش‌گرم‌سازی
+        ساکت» باشد، ولی اگر کاربر واقعاً منتظر بماند و هیچ خوانشی نیاید، باید بفهمد چرا. */
+      },
       { enableHighAccuracy: true, maximumAge: 3000, timeout: 30000 },
     );
   });
@@ -124,6 +160,12 @@ export function getWarmCoords(maxAgeMs = 8000) {
 export function onGpsUpdate(fn) {
   gpsListeners.add(fn);
   return () => gpsListeners.delete(fn);
+}
+
+/** برای نمایش خطای واقعی GPS در رابط‌کاربری (مثلاً وقتی مجوز رد شده و ناظر برای همیشه ساکت می‌ماند) */
+export function onGpsError(fn) {
+  gpsErrorListeners.add(fn);
+  return () => gpsErrorListeners.delete(fn);
 }
 
 export function getGeoLocation() {
