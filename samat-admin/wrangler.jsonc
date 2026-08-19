@@ -8,7 +8,7 @@
     "not_found_handling": "single-page-application"
   },
   "routes": [
-    { "pattern": "novinproduct.ir", "custom_domain": true },
-    { "pattern": "www.novinproduct.ir", "custom_domain": true }
+    { "pattern": "novinproduct.ir/*", "zone_name": "novinproduct.ir" },
+    { "pattern": "www.novinproduct.ir/*", "zone_name": "novinproduct.ir" }
   ]
 }
