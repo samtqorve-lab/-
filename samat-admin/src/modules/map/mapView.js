@@ -4,7 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import { el, esc, showToast } from '../../lib/dom.js';
 import { fetchDeptRecords, applyGeoScope } from '../../lib/records.js';
 import { DEPT_NAME_FIELD, DEPT_CAT_COLORS } from '../../lib/sections.js';
-import { getMineCorners } from '../../lib/geo.js';
+import { getMineCorners, ensureNativeLocationPermission } from '../../lib/geo.js';
 import { setMine, onChange } from '../../router.js';
 import { mountSatellitePanel } from './satellitePanel.js';
 
@@ -78,6 +78,50 @@ export async function renderMap(container, state) {
     '🛰️ ماهواره خالص': layers.pure,
     '🗺️ خیابانی': layers.street,
   }, null, { position: 'topleft', collapsed: true }).addTo(map);
+
+  // ── نمایش موقعیت فعلی کاربر روی نقشه (GPS مرورگر/دستگاه) ────────────────────────────
+  // از L.control.locate خودمان استفاده نمی‌کنیم (وابستگی اضافه)؛ مستقیم روی Geolocation API
+  // مرورگر (navigator.geolocation) که لیفلت هم داخلی همین را صدا می‌زند (map.locate) سوار می‌شویم.
+  // watch:true یعنی نقطه با حرکت کاربر (مثلاً روی گوشی، سر معدن) زنده به‌روزرسانی می‌شود.
+  let locateWatching = false;
+  const locateBtn = el('button', {
+    class: 'btn btn-ghost',
+    style: 'position:absolute;top:80px;left:10px;z-index:1000;padding:8px 10px;box-shadow:var(--shadow-md)',
+    title: 'نمایش موقعیت من روی نقشه',
+    onclick: async () => {
+      if (locateWatching) { map.stopLocate(); locateWatching = false; locateBtn.style.background = ''; return; }
+      await ensureNativeLocationPermission(); // در وب/دسکتاپ بی‌اثر است؛ فقط داخل اپ اندروید لازم می‌شود
+      map.locate({ watch: true, enableHighAccuracy: true, setView: false });
+      locateWatching = true;
+      locateBtn.style.background = 'var(--brand-50, #eef2ff)';
+    },
+  }, '📍 موقعیت من');
+  mapBox.style.position = 'relative';
+  mapBox.append(locateBtn);
+
+  let userMarker = null;
+  let userAccuracyCircle = null;
+  let firstLocateFix = true;
+  map.on('locationfound', (e) => {
+    if (userMarker) { userMarker.setLatLng(e.latlng); } else {
+      userMarker = L.circleMarker(e.latlng, { radius: 8, color: '#fff', weight: 2, fillColor: '#1e88e5', fillOpacity: 1 }).addTo(map);
+    }
+    if (userAccuracyCircle) { userAccuracyCircle.setLatLng(e.latlng).setRadius(e.accuracy); } else {
+      userAccuracyCircle = L.circle(e.latlng, { radius: e.accuracy, color: '#1e88e5', weight: 1, fillColor: '#1e88e5', fillOpacity: 0.1 }).addTo(map);
+    }
+    if (firstLocateFix) { map.setView(e.latlng, Math.max(map.getZoom(), 15)); firstLocateFix = false; }
+  });
+  map.on('locationerror', (e) => {
+    showToast(`⚠️ دریافت موقعیت مکانی ممکن نشد: ${e.message}`);
+    locateWatching = false;
+    locateBtn.style.background = '';
+  });
+  const unsubscribeLocate = onChange((s) => {
+    if (s.tab !== 'map') {
+      if (locateWatching) { map.stopLocate(); locateWatching = false; }
+      unsubscribeLocate();
+    }
+  });
 
   const bounds = [];
   withBoundary.forEach(({ r, corners }) => {

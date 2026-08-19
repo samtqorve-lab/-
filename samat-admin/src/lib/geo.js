@@ -1,6 +1,27 @@
 // تبدیل رشته‌ی درجه/دقیقه/ثانیه (یا اعشاری) به مختصات اعشاری، و استخراج گوشه‌های محدوده‌ی
 // قانونی هر رکورد از فیلدهای طول_A..طول_Z / عرض_A..عرض_Z — عیناً از نسخه‌ی قبلی پورت شده.
 
+// ── مجوز موقعیت‌مکانی نیتیو (فقط داخل اپ اندروید) ────────────────────────────────────────
+// در وب/دسکتاپ نیازی نیست: خودِ مرورگر دیالوگ استاندارد را نشان می‌دهد. ولی داخل WebView اندروید،
+// اگر مجوز سطح سیستم (ACCESS_FINE_LOCATION) گرفته نشده باشد، navigator.geolocation همیشه با خطا
+// رد می‌شود، حتی بدون هیچ دیالوگی — دقیقاً همان الگویی که در اپ مسئول فنی داشتیم.
+let nativeLocationPermissionRequested = false;
+export async function ensureNativeLocationPermission() {
+  if (nativeLocationPermissionRequested) return;
+  nativeLocationPermissionRequested = true;
+  try {
+    const { Capacitor } = await import('@capacitor/core');
+    if (!Capacitor.isNativePlatform()) return;
+    const { Geolocation } = await import('@capacitor/geolocation');
+    const status = await Geolocation.checkPermissions();
+    if (status.location !== 'granted' && status.coarseLocation !== 'granted') {
+      await Geolocation.requestPermissions();
+    }
+  } catch {
+    nativeLocationPermissionRequested = false;
+  }
+}
+
 export function dmsToDec(str) {
   if (!str) return null;
   const s = String(str).trim();
