@@ -3,6 +3,7 @@ import './styles/base.css';
 import './styles/components.css';
 
 import { getSession, fetchMyRole, isStaffRole, signOut } from './lib/auth.js';
+import { sb } from './lib/supabase.js';
 import { el } from './lib/dom.js';
 import { setGeoScope } from './router.js';
 import { mountLogin } from './modules/shell/login.js';
@@ -24,6 +25,7 @@ const LAZY_RENDERERS = {
   identity: () => import('./modules/identity/identity.js').then((m) => m.renderIdentity),
   users: () => import('./modules/users/users.js').then((m) => m.renderUsers),
   audit: () => import('./modules/audit/auditLog.js').then((m) => m.renderAuditLog),
+  mySettings: () => import('./modules/settings/mySettings.js').then((m) => m.renderMySettings),
 };
 
 let appCtx = null;
@@ -97,6 +99,19 @@ async function boot() {
   setGeoScope(roleRow.assigned_province, roleRow.assigned_county);
   appCtx = { myEmail: session.user.email, myRole: roleRow.role };
   startInactivityGuard();
+
+  // اگر این حساب قبلاً «ورود با تایید Push» را روی این دستگاه فعال کرده، هر بار اپ باز می‌شود
+  // باید شنونده‌ی دریافت اعلان دوباره سوار شود (چون handlerAttached در حافظه‌ی هر اجرای تازه صفر است)
+  try {
+    const { Capacitor } = await import('@capacitor/core');
+    if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+      const { data: pushRow } = await sb.from('user_roles').select('push_login_enabled').eq('email', session.user.email).maybeSingle();
+      if (pushRow?.push_login_enabled) {
+        const { attachLoginApprovalHandler } = await import('./lib/pushNative.js');
+        attachLoginApprovalHandler();
+      }
+    }
+  } catch { /* در بیلد وب/دسکتاپ بی‌اثر است */ }
 
   mountShell(root, {
     userLabel: `${roleRow.full_name || session.user.email} — ${roleRow.role}`,

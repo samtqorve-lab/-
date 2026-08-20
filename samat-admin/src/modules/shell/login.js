@@ -1,5 +1,6 @@
 import { el, passwordFieldWithToggle } from '../../lib/dom.js';
-import { signIn } from '../../lib/auth.js';
+import { signIn, signOut } from '../../lib/auth.js';
+import { isPushLoginEnabled, requestPushApproval } from '../../lib/pushLogin.js';
 
 export function mountLogin(root, onSuccess) {
   root.innerHTML = '';
@@ -16,10 +17,20 @@ export function mountLogin(root, onSuccess) {
       submitBtn.disabled = true;
       submitBtn.textContent = 'در حال ورود...';
       try {
-        await signIn(emailInput.value.trim(), passInput.value);
+        const email = emailInput.value.trim();
+        await signIn(email, passInput.value);
+
+        if (await isPushLoginEnabled(email)) {
+          submitBtn.textContent = 'در انتظار تایید...';
+          await waitForPushApproval(email);
+        }
         onSuccess();
       } catch (err) {
-        errBox.textContent = 'ایمیل یا رمز عبور نادرست است.';
+        errBox.textContent = err.pushDenied
+          ? 'ورود از طریق اعلان روی گوشی رد شد.'
+          : err.pushTimeout
+            ? 'زمان تایید ورود از طریق اعلان به پایان رسید — دوباره تلاش کنید.'
+            : 'ایمیل یا رمز عبور نادرست است.';
       } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = 'ورود';
@@ -33,6 +44,20 @@ export function mountLogin(root, onSuccess) {
     errBox,
     submitBtn,
   ]);
+
+  /** بعد از ورود موفق با رمز، اگر ورود با تایید Push روشن باشد، تا تایید/رد/انقضا صبر می‌کند —
+   * و در صورت رد/انقضا، session را هم می‌بندد (چون در این حالت اجازه‌ی دسترسی نداده‌ایم). */
+  async function waitForPushApproval(email) {
+    return new Promise((resolve, reject) => {
+      requestPushApproval(email, async (status, detail) => {
+        if (status === 'approved') { resolve(); return; }
+        await signOut();
+        if (status === 'denied') { const e = new Error('denied'); e.pushDenied = true; reject(e); return; }
+        if (status === 'timeout') { const e = new Error('timeout'); e.pushTimeout = true; reject(e); return; }
+        reject(new Error(detail || 'push-error'));
+      });
+    });
+  }
 
   const card = el('div', { class: 'login-card' }, [
     el('div', { class: 'brand' }, [

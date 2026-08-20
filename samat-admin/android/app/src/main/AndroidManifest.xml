@@ -42,4 +42,6 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- برای «ورود با تایید Push» (اندروید ۱۳ به بعد اعلان بدون این مجوز نشان داده نمی‌شود) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>

@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { tab: 'map', label: 'نقشه', icon: '🗺' },
   { tab: 'users', label: 'کاربران', icon: '◐' },
   { tab: 'audit', label: 'تاریخچه تغییرات', icon: '📜' },
+  { tab: 'mySettings', label: 'تنظیمات من', icon: '⚙' },
 ];
 
 /**
