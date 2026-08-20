@@ -1,7 +1,8 @@
 import { el, showToast } from '../../lib/dom.js';
 import {
-  signIn, signUp, confirmSignupCode, resendSignupCode, sendPasswordResetCode, resetPasswordWithCode,
+  signIn, signUp, confirmSignupCode, resendSignupCode, sendPasswordResetCode, resetPasswordWithCode, signOut,
 } from '../../lib/auth.js';
+import { isPushLoginEnabled, requestPushApproval } from '../../lib/pushLogin.js';
 import { friendlyError } from '../../lib/utils.js';
 
 const MESSENGER_HINTS = {
@@ -47,14 +48,35 @@ export function mountLogin(root, onSuccess) {
       if (!idInput.value.trim() || !passInput.value) { errBox.textContent = 'ایمیل/شماره عضویت و رمز را وارد کنید'; return; }
       submitBtn.disabled = true; submitBtn.textContent = '⏳ در حال ورود...';
       try {
-        await signIn(idInput.value, passInput.value);
+        const email = await signIn(idInput.value, passInput.value);
+        if (await isPushLoginEnabled(email)) {
+          submitBtn.textContent = '🔐 در انتظار تایید روی گوشی ثبت‌شده...';
+          await waitForPushApproval(email);
+        }
         onSuccess();
       } catch (err) {
-        errBox.textContent = friendlyError(err);
+        errBox.textContent = err.pushDenied
+          ? 'ورود از طریق اعلان رد شد.'
+          : err.pushTimeout
+            ? 'زمان تایید ورود به پایان رسید — دوباره تلاش کنید.'
+            : friendlyError(err);
       } finally {
         submitBtn.disabled = false; submitBtn.textContent = 'ورود';
       }
     });
+
+    /** بعد از ورود موفق با رمز، اگر ورود با تایید Push روشن باشد، تا تایید/رد/انقضا صبر می‌کند */
+    async function waitForPushApproval(email) {
+      return new Promise((resolve, reject) => {
+        requestPushApproval(email, async (status, detail) => {
+          if (status === 'approved') { resolve(); return; }
+          await signOut();
+          if (status === 'denied') { const e = new Error('denied'); e.pushDenied = true; reject(e); return; }
+          if (status === 'timeout') { const e = new Error('timeout'); e.pushTimeout = true; reject(e); return; }
+          reject(new Error(detail || 'push-error'));
+        });
+      });
+    }
 
     card.append(
       brand(),

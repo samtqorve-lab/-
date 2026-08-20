@@ -18,6 +18,7 @@ export async function signIn(identifier, password) {
   if (!email) throw new Error('ایمیل یا رمز اشتباه است');
   const { error } = await sb.auth.signInWithPassword({ email, password });
   if (error) throw new Error('ایمیل یا رمز اشتباه است');
+  return email;
 }
 
 export async function signOut() {

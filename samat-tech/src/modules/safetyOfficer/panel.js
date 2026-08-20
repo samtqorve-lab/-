@@ -5,6 +5,7 @@ import { openRoleChecklistModal } from './roleChecklist.js';
 import { mountGovLinks } from '../techOfficer/mineCards.js';
 import { openIncidentModal } from '../techOfficer/incidentModal.js';
 import { mountBiometricToggle } from '../shell/biometricToggle.js';
+import { mountPushLoginToggle } from '../shell/pushLoginToggle.js';
 import { mountGpsStatusChip } from '../shell/gpsStatusChip.js';
 import { mountSafetyCheckin } from '../shell/safetyCheckinWidget.js';
 import { mountNotificationToggle } from '../shell/notificationToggle.js';
@@ -80,6 +81,8 @@ export async function mountSafetyOfficerPanel(root, { email, mines, identityVeri
   mountGovLinks(govLinksBox, roleRow.membership_no, roleRow.national_code);
   const bioToggleBox = el('div');
   mountBiometricToggle(bioToggleBox, email);
+  const pushToggleBox = el('div');
+  mountPushLoginToggle(pushToggleBox, email);
   const notifToggleBox = el('div');
   const gpsChipBox = el('div', { style: 'margin-top:4px' });
   const checkinBox = el('div');
@@ -97,6 +100,7 @@ export async function mountSafetyOfficerPanel(root, { email, mines, identityVeri
         el('label', {}, 'شماره عضویت نظام مهندسی/پروانه'), membershipInput,
         saveBtn, profileStatus,
         bioToggleBox,
+        pushToggleBox,
         notifToggleBox,
       ]),
       el('div', { class: 'card' }, [

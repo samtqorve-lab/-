@@ -9,6 +9,7 @@ import { mountMonthlyReport } from './monthlyReport.js';
 import { mountGovLinks } from './mineCards.js';
 import { openIncidentModal } from './incidentModal.js';
 import { mountBiometricToggle } from '../shell/biometricToggle.js';
+import { mountPushLoginToggle } from '../shell/pushLoginToggle.js';
 import { mountGpsStatusChip } from '../shell/gpsStatusChip.js';
 import { mountSafetyCheckin } from '../shell/safetyCheckinWidget.js';
 import { mountNotificationToggle } from '../shell/notificationToggle.js';
@@ -67,6 +68,7 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
   const historyBox = el('div');
   const govLinksBox = el('div');
   const bioToggleBox = el('div');
+  const pushToggleBox = el('div');
   let historyMount = null;
 
   function currentMine() {
@@ -119,6 +121,7 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
         el('label', {}, 'شماره عضویت نظام مهندسی/پروانه'), membershipInput,
         saveBtn, profileStatus,
         bioToggleBox,
+        pushToggleBox,
         notifToggleBox,
       ]),
       el('div', { class: 'card' }, [
@@ -174,6 +177,7 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
   historyMount = mountHistory(historyBox, mines.map((m) => m[nameField]));
   mountGovLinks(govLinksBox, roleRow.membership_no, roleRow.national_code);
   mountBiometricToggle(bioToggleBox, email);
+  mountPushLoginToggle(pushToggleBox, email);
   mountGpsStatusChip(gpsChipBox);
   mountSafetyCheckin(checkinBox, { email, getMineName: () => currentMine()?.[nameField] || '', department: meta.dept });
   mountNotificationToggle(notifToggleBox);
