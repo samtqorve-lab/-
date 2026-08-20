@@ -2,12 +2,15 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { el, showToast, openModal } from '../../lib/dom.js';
 import { getMineCorners } from '../../lib/geo.js';
-import { getMineBBox } from '../../lib/sentinelHub.js';
+import {
+  getMineBBox, checkCopernicusStatus, getCopernicusToken, fetchSentinelImage, SAT_LAYERS,
+} from '../../lib/sentinelHub.js';
 import { fetchElevationGrid } from '../../lib/terrainDem.js';
 
 // رنگ‌بندی بر اساس ارتفاع نسبی (کم → پرشیب) — یک گرادیان ساده‌ی زمین‌شناسی (سبز کم‌ارتفاع تا
-// قهوه‌ای/سفید پرارتفاع)، چون بافت ماهواره‌ای واقعی نیاز به تراز‌کردن دقیق UV با bbox دارد که
-// بدون تست در مرورگر واقعی ریسک جابه‌جایی/کجی تصویر را داشت؛ رنگ ارتفاعی همیشه درست و قابل‌اتکاست.
+// قهوه‌ای/سفید پرارتفاع). این رنگ‌بندی به‌عنوان بازگشتی (fallback) استفاده می‌شود وقتی بافت
+// ماهواره‌ای واقعی در دسترس نیست (Sentinel Hub تنظیم نشده یا دریافت تصویر ناموفق بود) — نگاه کنید
+// به fetchSatelliteTexture پایین‌تر برای مسیر اصلی (بافت واقعی).
 function elevationColor(t) {
   const stops = [
     [0.00, [0.16, 0.45, 0.28]], // سبز تیره (کم‌ارتفاع)
@@ -28,10 +31,32 @@ function elevationColor(t) {
 }
 
 /**
+ * اگر Copernicus (Sentinel Hub) از قبل در پنل «پایش ماهواره‌ای» تنظیم شده باشد (فقط یک‌بار توسط
+ * ادمین)، دیگر نیازی به وارد کردن دوباره‌ی Client ID/Secret نیست — سرویس واسط سرور (sentinel-proxy)
+ * وقتی clientSecret خالی بفرستیم، خودش مقدار ذخیره‌شده را به‌کار می‌برد (نگاه کنید به action:'token').
+ * روی همان bbox دقیقی که برای شبکه‌ی ارتفاع استفاده می‌شود یک تصویر رنگ‌طبیعی می‌گیریم — چون هر دو
+ * از یک محدوده‌ی مختصاتی می‌آیند، تراز شدن پیش‌فرض UV صفحه (بدون نیاز به محاسبه‌ی دستی) کافی است.
+ */
+async function fetchSatelliteTexture(bbox) {
+  const status = await checkCopernicusStatus();
+  if (!status.configured) return { url: null, reason: 'not-configured' };
+  try {
+    const token = await getCopernicusToken('', '');
+    const today = new Date();
+    const dateStr = `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, '0')}-${String(today.getUTCDate()).padStart(2, '0')}`;
+    const layer = SAT_LAYERS.truecolor;
+    const blob = await fetchSentinelImage(token, bbox, dateStr, layer.script, 512, 512, layer.collection, 45);
+    return { url: URL.createObjectURL(blob), reason: null };
+  } catch (err) {
+    return { url: null, reason: err.message };
+  }
+}
+
+/**
  * مدل سه‌بعدی توپوگرافی محدوده‌ی یک معدن را در یک مودال باز می‌کند. داده‌ی ارتفاعی از کاشی‌های
- * عمومی Terrarium (بدون نیاز به API Key) گرفته می‌شود.
- * توجه صادقانه: این ماژول در محیط توسعه بدون دسترسی به مرورگر واقعی/اینترنت واقعی نوشته و فقط
- * از نظر build/syntax تست شده — لطفاً پس از دیپلوی یک‌بار به‌صورت دستی روی چند معدن امتحان کنید.
+ * عمومی Terrarium (بدون نیاز به API Key) گرفته می‌شود. اگر Sentinel Hub تنظیم شده باشد، بافت
+ * سطح از تصویر ماهواره‌ای واقعی (رنگ طبیعی) ساخته می‌شود؛ در غیر این‌صورت به رنگ‌بندی ارتفاعی
+ * (سبز تا سفید) برمی‌گردیم.
  */
 export function open3DTerrainModal(record, nameField) {
   const mineName = record[nameField] || '—';
@@ -41,22 +66,71 @@ export function open3DTerrainModal(record, nameField) {
 
   const { body, overlay } = openModal({ title: `🗻 مدل سه‌بعدی توپوگرافی — ${mineName}`, width: '90vw' });
   const canvasHost = el('div', { style: 'width:100%;height:70vh;border-radius:var(--radius-md);overflow:hidden;background:#dfe7ec;position:relative' });
-  const statusLine = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-top:8px' }, '⏳ در حال دریافت داده‌ی ارتفاعی...');
+  const statusLine = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-top:8px' }, '⏳ در حال دریافت داده‌ی ارتفاعی و تصویر ماهواره‌ای...');
   const hint = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-500);margin-top:4px' },
-    'برای چرخاندن بکشید، برای زوم اسکرول کنید. رنگ‌ها بر اساس ارتفاع نسبی است (نه بافت ماهواره‌ای واقعی).');
+    'برای چرخاندن بکشید، برای زوم اسکرول کنید.');
   body.append(canvasHost, statusLine, hint);
 
   let renderer = null;
   let animId = null;
   let disposed = false;
+  let sceneCtx = null; // بعد از buildScene پر می‌شود: { material, texture }
+  let elevDone = false;
+  let satDone = false;
+  let satResult = null;
 
-  fetchElevationGrid(bbox, 64).then(({ grid, gridSize, minElev, maxElev }) => {
+  function maybeFinishStatus() {
+    if (!elevDone) return;
+    if (satResult && satResult.url) {
+      statusLine.textContent = '✅ بافت از تصویر ماهواره‌ای واقعی (Sentinel-2) ساخته شد';
+    } else if (satDone) {
+      statusLine.textContent = satResult && satResult.reason === 'not-configured'
+        ? 'ℹ️ برای بافت ماهواره‌ای واقعی، ابتدا Sentinel Hub را در پنل «پایش ماهواره‌ای» تنظیم کنید — فعلاً رنگ‌بندی ارتفاعی نمایش داده می‌شود.'
+        : `⚠️ دریافت تصویر ماهواره‌ای ناموفق بود — رنگ‌بندی ارتفاعی نمایش داده می‌شود.`;
+    }
+  }
+
+  const elevPromise = fetchElevationGrid(bbox, 64).then(({ grid, gridSize, minElev, maxElev }) => {
     if (disposed) return;
-    statusLine.textContent = `✅ بازه‌ی ارتفاع: ${Math.round(minElev)} تا ${Math.round(maxElev)} متر`;
+    elevDone = true;
     buildScene(grid, gridSize, minElev, maxElev);
+    maybeFinishStatus();
   }).catch((err) => {
     statusLine.textContent = `⚠️ دریافت داده‌ی ارتفاعی ناموفق بود: ${err.message}`;
   });
+
+  fetchSatelliteTexture(bbox).then((result) => {
+    if (disposed) return;
+    satDone = true;
+    satResult = result;
+    if (result.url) applySatelliteTexture(result.url);
+    maybeFinishStatus();
+  });
+
+  function applySatelliteTexture(url) {
+    const img = new Image();
+    img.onload = () => {
+      if (disposed) return;
+      const texture = new THREE.Texture(img);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.needsUpdate = true;
+      if (sceneCtx) {
+        // صحنه از قبل ساخته شده (شبکه‌ی ارتفاع زودتر رسیده بود) — مستقیم جایگزین بافت رنگی می‌کنیم
+        sceneCtx.material.vertexColors = false;
+        sceneCtx.material.map = texture;
+        sceneCtx.material.color.set(0xffffff); // رنگ پایه سفید تا بافت را تیره نکند
+        sceneCtx.material.needsUpdate = true;
+        sceneCtx.texture = texture;
+      } else {
+        // صحنه هنوز ساخته نشده — وقتی buildScene اجرا شود خودش این بافت را برمی‌دارد
+        pendingTexture = texture;
+      }
+      maybeFinishStatus();
+    };
+    img.src = url;
+  }
+
+  let pendingTexture = null;
 
   function buildScene(grid, gridSize, minElev, maxElev) {
     const width = canvasHost.clientWidth || 800;
@@ -98,9 +172,19 @@ export function open3DTerrainModal(record, nameField) {
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geometry.computeVertexNormals();
 
-    const material = new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, flatShading: false });
+    // اگر بافت ماهواره‌ای زودتر از شبکه‌ی ارتفاع آماده شده باشد (pendingTexture)، همان ابتدا با
+    // map ساخته می‌شود؛ وگرنه فعلاً با رنگ‌بندی ارتفاعی شروع می‌کنیم تا وقتی applySatelliteTexture
+    // بعداً صدا زده شود (نگاه کنید به sceneCtx بالاتر).
+    const material = new THREE.MeshStandardMaterial({
+      vertexColors: !pendingTexture,
+      map: pendingTexture || null,
+      color: 0xffffff,
+      side: THREE.DoubleSide,
+      flatShading: false,
+    });
     const terrainMesh = new THREE.Mesh(geometry, material);
     scene.add(terrainMesh);
+    sceneCtx = { material, texture: pendingTexture };
 
     // ── محدوده‌ی قانونی معدن به‌صورت خط برجسته روی زمین ──
     if (corners.length >= 3) {
@@ -163,6 +247,7 @@ export function open3DTerrainModal(record, nameField) {
         renderer.dispose();
         geometry.dispose();
         material.dispose();
+        if (sceneCtx.texture) sceneCtx.texture.dispose();
         observer.disconnect();
       }
     });
