@@ -29,9 +29,9 @@
   padding: var(--space-5) var(--space-4) var(--space-4);
   border-bottom: 1px solid rgba(143, 160, 150, 0.18);
 }
+.sidebar-header .sidebar-logo { width: 40px; height: 40px; border-radius: 10px; display: block; margin-bottom: var(--space-3); }
 .sidebar-header .org-name { font-size: var(--text-sm); color: var(--slate-300); }
 .sidebar-header .app-name { font-size: var(--text-lg); font-weight: 800; margin-top: 2px; }
-.sidebar-header .app-sub { font-size: var(--text-xs); color: var(--slate-300); margin-top: 4px; }
 
 /* ── سوییچر بخش (معدن/صنعت/اکتشاف/فرآوری) به‌سبک ستون چینه‌شناسی ── */
 .dept-switch {
@@ -215,6 +215,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--ochre-500); outl
   padding: var(--space-6); box-shadow: var(--shadow-lg);
 }
 .login-card .brand { text-align: center; margin-bottom: var(--space-5); }
+.login-card .brand .brand-logo { width: 56px; height: 56px; border-radius: 14px; display: block; margin: 0 auto var(--space-3); }
 .login-card .brand .org { font-size: var(--text-xs); color: var(--stone-600); }
 .login-card .brand .app { font-size: var(--text-xl); font-weight: 800; margin-top: 2px; }
 .login-err { color: var(--rust-600); font-size: var(--text-xs); min-height: 16px; margin-top: 8px; }

@@ -1,5 +1,36 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="6" fill="#1E2622"/>
-  <path d="M2 20 Q10 12 16 19 T30 15" stroke="#C97A31" stroke-width="2" fill="none" stroke-linecap="round"/>
-  <path d="M2 25 Q10 18 16 24 T30 21" stroke="#8FA096" stroke-width="1.4" fill="none" stroke-linecap="round" opacity="0.7"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#242F29"/>
+      <stop offset="1" stop-color="#161D19"/>
+    </linearGradient>
+    <linearGradient id="terrace" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E0975A"/>
+      <stop offset="1" stop-color="#B8642A"/>
+    </linearGradient>
+    <linearGradient id="terraceDark" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#C97A31"/>
+      <stop offset="1" stop-color="#95521F"/>
+    </linearGradient>
+  </defs>
+
+  <!-- زمینه -->
+  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+
+  <!-- خطوط تراز توپوگرافی (پیوند با نقشه/مدل سه‌بعدی سامانه) -->
+  <path d="M4 40 Q18 33 28 39 T60 34" stroke="#8FA096" stroke-width="1.6" fill="none" stroke-linecap="round" opacity="0.35"/>
+  <path d="M4 46 Q18 40 28 45 T60 41" stroke="#8FA096" stroke-width="1.4" fill="none" stroke-linecap="round" opacity="0.25"/>
+
+  <!-- معدن روباز پلکانی (نماد صنعت معدن) -->
+  <path d="M8 46 L18 46 L21 40 L27 40 L30.5 33 L36 33 L40 25 L46 25 L50 18 L58 18 L58 46 L8 46 Z" fill="url(#terrace)"/>
+  <path d="M8 46 L18 46 L20 42.5 L11 42.5 Z" fill="url(#terraceDark)" opacity="0.55"/>
+  <path d="M21 40 L27 40 L28.5 37 L23 37 Z" fill="url(#terraceDark)" opacity="0.55"/>
+  <path d="M30.5 33 L36 33 L37.5 30 L32 30 Z" fill="url(#terraceDark)" opacity="0.55"/>
+  <path d="M40 25 L46 25 L47.5 22 L42 22 Z" fill="url(#terraceDark)" opacity="0.55"/>
+
+  <!-- پین موقعیت (نماد نقشه/GPS سامانه) روی بالاترین قله -->
+  <g transform="translate(51.5 9.5)">
+    <path d="M0 0 C4 0 6.5 2.6 6.5 6 C6.5 10 0 17 0 17 C0 17 -6.5 10 -6.5 6 C-6.5 2.6 -4 0 0 0 Z" fill="#F2B25C" stroke="#161D19" stroke-width="1"/>
+    <circle cx="0" cy="6" r="2.4" fill="#161D19"/>
+  </g>
 </svg>

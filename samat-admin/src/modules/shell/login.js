@@ -36,8 +36,9 @@ export function mountLogin(root, onSuccess) {
 
   const card = el('div', { class: 'login-card' }, [
     el('div', { class: 'brand' }, [
+      el('img', { src: '/favicon.svg', class: 'brand-logo', alt: 'صمت' }),
       el('div', { class: 'org' }, 'اداره صنعت، معدن و تجارت قروه'),
-      el('div', { class: 'app' }, 'ورود به سامانه'),
+      el('div', { class: 'app' }, 'ورود به پنل ادمین صمت'),
     ]),
     form,
   ]);
