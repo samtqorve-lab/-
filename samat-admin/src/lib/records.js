@@ -1,12 +1,13 @@
 import { sb } from './supabase.js';
 
-// نگاشت واقعی بخش‌ها به جدول‌های Supabase — از خود admin-index.html (نسخه‌ی قبلی) استخراج شده،
-// چون این اسم‌ها هیچ الگوی قابل‌حدسی ندارند (اصناف/trade_records در UI فعلی غیرفعال است، عمداً حذف شد).
+// نگاشت واقعی بخش‌ها به جدول‌های Supabase — از خود admin-index.html (نسخه‌ی قبلی) استخراج شده.
+// اصناف/trade_records بعداً (وقتی تب مستقل اصناف ساخته شد) با همین الگو اضافه شد.
 export const DEPT_TABLES = {
   معدن: 'mine_records',
   صنعت: 'industry_records',
   اکتشاف: 'exploration_records',
   فرآوری: 'processing_records',
+  اصناف: 'trade_records',
 };
 
 // ── کش حافظه‌ای بین تب‌ها ──────────────────────────────────────────────────

@@ -36,7 +36,7 @@ export function licenseExpiryInfo(m, department) {
     issue = parseJalaliDateString(m['تاریخ_صدور']);
     const months = parseFloat(m['مدت_اعتبار_ماه']);
     durationYears = !Number.isNaN(months) && months ? months / 12 : null;
-  } else if (department === 'فرآوری') {
+  } else if (department === 'فرآوری' || department === 'اصناف') {
     issue = parseJalaliDateString(m['تاریخ_صدور']);
     durationYears = parseFloat(m['مدت_اعتبار_سال']);
   } else {

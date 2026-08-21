@@ -32,6 +32,12 @@ export const PROCESSING_CAT_COLORS = {
   'در حال احداث': { bg: '#e3f2fd', badge: '#1565c0', border: '#42a5f5' },
 };
 
+export const TRADE_CAT_COLORS = {
+  فعال: { bg: '#e8f5e9', badge: '#2e7d32', border: '#4caf50' },
+  تعلیق: { bg: '#fffde7', badge: '#f57f17', border: '#ffc107' },
+  'ابطال شده': { bg: '#ffebee', badge: '#c62828', border: '#ef5350' },
+};
+
 export const MINE_SECTIONS = [
   { title: '📁 گروه ماده معدنی (ماده ۳ آیین‌نامه اجرایی قانون معادن)', keys: [
     ['دسته', 'گروه ماده معدنی'],
@@ -113,11 +119,26 @@ export const PROCESSING_SECTIONS = [
   ] },
 ];
 
+export const TRADE_SECTIONS = [
+  { title: '🏪 مشخصات واحد صنفی', keys: [
+    ['رسته_صنفی', 'رسته صنفی'], ['نام_واحد_صنفی', 'نام واحد صنفی'], ['آدرس', 'آدرس'],
+    ['تلفن_ثابت', 'تلفن ثابت'], ['استان', 'استان'], ['شهرستان', 'شهرستان'],
+  ] },
+  { title: '🪪 مشخصات دارنده پروانه', keys: [
+    ['نام_دارنده', 'نام و نام خانوادگی دارنده'], ['کد_ملی', 'کد ملی'], ['تلفن_همراه', 'تلفن همراه'],
+  ] },
+  { title: '📋 مشخصات پروانه کسب', keys: [
+    ['شماره_پروانه_کسب', 'شماره پروانه کسب'], ['تاریخ_صدور', 'تاریخ صدور'],
+    ['مدت_اعتبار_سال', 'مدت اعتبار (سال)'], ['اتحادیه_صادرکننده', 'اتحادیه‌ی صادرکننده'],
+  ] },
+];
+
 export const DEPT_SECTIONS = {
   معدن: MINE_SECTIONS,
   صنعت: INDUSTRY_SECTIONS,
   اکتشاف: EXPLORATION_SECTIONS,
   فرآوری: PROCESSING_SECTIONS,
+  اصناف: TRADE_SECTIONS,
 };
 
 export const DEPT_CAT_COLORS = {
@@ -125,6 +146,7 @@ export const DEPT_CAT_COLORS = {
   صنعت: INDUSTRY_CAT_COLORS,
   اکتشاف: EXPLORATION_CAT_COLORS,
   فرآوری: PROCESSING_CAT_COLORS,
+  اصناف: TRADE_CAT_COLORS,
 };
 
 export const DEPT_SEARCH_PLACEHOLDER = {
@@ -132,6 +154,7 @@ export const DEPT_SEARCH_PLACEHOLDER = {
   صنعت: 'نام واحد، شماره مجوز، محصول، گروه کالایی ...',
   اکتشاف: 'نام متقاضی، شماره پروانه اکتشاف، ماده مورد اکتشاف ...',
   فرآوری: 'نام واحد فرآوری، شماره پروانه، محصول نهایی ...',
+  اصناف: 'نام واحد صنفی، رسته صنفی، شماره پروانه کسب، نام دارنده ...',
 };
 
 export const DEPT_NAME_FIELD = {
@@ -139,4 +162,5 @@ export const DEPT_NAME_FIELD = {
   صنعت: 'نام_واحد',
   اکتشاف: 'نام_متقاضی',
   فرآوری: 'نام_واحد',
+  اصناف: 'نام_واحد_صنفی',
 };

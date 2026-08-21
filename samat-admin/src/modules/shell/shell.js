@@ -3,7 +3,7 @@ import { getState, setTab, setDepartment, onChange } from '../../router.js';
 import { signOut } from '../../lib/auth.js';
 import { fetchPendingIdentityCount } from '../../lib/identity.js';
 
-const DEPARTMENTS = ['معدن', 'صنعت', 'اکتشاف', 'فرآوری'];
+const DEPARTMENTS = ['معدن', 'صنعت', 'اکتشاف', 'فرآوری', 'اصناف'];
 
 const NAV_ITEMS = [
   { tab: 'dashboard', label: 'داشبورد', icon: '◈' },
