@@ -6,7 +6,8 @@ import {
 import { openAccessModal } from './accessModal.js';
 
 const ROLE_OPTIONS = ['viewer', 'inspector', 'tech_officer', 'safety_officer', 'health_officer', 'owner', 'admin'];
-const DEPARTMENTS = ['معدن', 'صنعت', 'اکتشاف', 'فرآوری'];
+const DEPARTMENTS = ['معدن', 'صنعت', 'اکتشاف', 'فرآوری', 'اصناف'];
+const ADMIN_DEPARTMENTS = [{ value: 'صنعت', label: '🏭 صنعت و معدن' }, { value: 'اصناف', label: '🛍️ اصناف' }];
 
 export async function renderUsers(container, state, ctx) {
   container.append(el('div', { class: 'loading-state' }, [
@@ -76,7 +77,13 @@ function renderPendingRow(u, refresh) {
   if (u.requested_mine_name) roleSelect.value = 'tech_officer';
 
   const deptSelect = el('select', { class: 'role-select' });
-  DEPARTMENTS.forEach((d) => deptSelect.append(el('option', { value: d }, d)));
+  function refreshDeptOptions() {
+    deptSelect.innerHTML = '';
+    const list = roleSelect.value === 'admin' ? ADMIN_DEPARTMENTS : DEPARTMENTS.map((d) => ({ value: d, label: d }));
+    list.forEach((d) => deptSelect.append(el('option', { value: d.value }, d.label)));
+  }
+  refreshDeptOptions();
+  roleSelect.addEventListener('change', refreshDeptOptions);
 
   const mineWrap = el('div', { style: 'margin-top:6px' });
 

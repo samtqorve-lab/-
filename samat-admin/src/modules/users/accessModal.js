@@ -38,6 +38,23 @@ export function openAccessModal(userRow, { myEmail, isSuper, onSaved }) {
     }
   }
 
+  // ── بخش سازمانی (فقط نقش admin) ──
+  if (u.role === 'admin') {
+    body.append(el('div', { style: 'font-weight:700;font-size:var(--text-sm);margin:14px 0 6px;border-top:1px dashed var(--stone-200);padding-top:10px' }, '🏢 بخش سازمانی'));
+    body.append(el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:8px' },
+      'مشخص می‌کند این ادمین مسئول کدام بخش اداره است — صرفاً یک برچسب سازمانی است (فعلاً برای فیلترکردن خودکار داده استفاده نمی‌شود).'));
+    const deptSelect = el('select', {}, [
+      el('option', { value: '' }, '— تعیین نشده —'),
+      el('option', { value: 'صنعت' }, '🏭 صنعت و معدن'),
+      el('option', { value: 'اصناف' }, '🛍️ اصناف'),
+    ]);
+    deptSelect.value = u.department || '';
+    deptSelect.disabled = !editableNotif;
+    fields.department = deptSelect;
+    body.append(el('div', {}, [el('label', {}, 'بخش'), deptSelect]));
+    if (!editableNotif) body.append(el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-top:6px' }, 'فقط سوپرادمین می‌تواند بخش سازمانی را تغییر دهد.'));
+  }
+
   // ── محدوده جغرافیایی ──
   if (['admin', 'inspector', 'viewer', 'superadmin'].includes(u.role)) {
     body.append(el('div', { style: 'font-weight:700;font-size:var(--text-sm);margin:14px 0 6px;border-top:1px dashed var(--stone-200);padding-top:10px' }, '🗺️ محدوده جغرافیایی تحت پوشش (اختیاری)'));
@@ -204,6 +221,7 @@ export function openAccessModal(userRow, { myEmail, isSuper, onSaved }) {
         if (chosen.length) patch.assigned_mines = chosen;
         patch.department = 'معدن';
       }
+      if (fields.department && !fields.department.disabled) patch.department = fields.department.value || null;
       if (fields.assigned_province && !fields.assigned_province.disabled) patch.assigned_province = fields.assigned_province.value.trim() || null;
       if (fields.assigned_county && !fields.assigned_county.disabled) patch.assigned_county = fields.assigned_county.value.trim() || null;
       if (fields.receives_tech_reports && !fields.receives_tech_reports.disabled) patch.receives_tech_reports = fields.receives_tech_reports.checked;

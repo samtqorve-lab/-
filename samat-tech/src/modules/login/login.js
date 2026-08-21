@@ -1,4 +1,4 @@
-import { el, showToast } from '../../lib/dom.js';
+import { el, showToast, passwordFieldWithToggle } from '../../lib/dom.js';
 import {
   signIn, signUp, confirmSignupCode, resendSignupCode, sendPasswordResetCode, resetPasswordWithCode, signOut,
 } from '../../lib/auth.js';
@@ -39,7 +39,7 @@ export function mountLogin(root, onSuccess) {
 
   function drawLogin(card) {
     const idInput = el('input', { type: 'text', dir: 'ltr', placeholder: 'ایمیل یا شماره عضویت نظام مهندسی' });
-    const passInput = el('input', { type: 'password', dir: 'ltr', placeholder: '••••••••' });
+    const { wrap: passWrap, input: passInput } = passwordFieldWithToggle({ dir: 'ltr', placeholder: '••••••••' });
     const errBox = el('div', { class: 'gate-err' });
     const submitBtn = el('button', { class: 'btn btn-primary', style: 'margin-top:14px' }, 'ورود');
 
@@ -81,7 +81,7 @@ export function mountLogin(root, onSuccess) {
     card.append(
       brand(),
       el('label', {}, 'ایمیل یا شماره عضویت'), idInput,
-      el('label', {}, 'رمز عبور'), passInput,
+      el('label', {}, 'رمز عبور'), passWrap,
       errBox, submitBtn,
       el('div', { class: 'gate-links' }, [
         el('a', { onclick: () => { screen = 'forgot1'; draw(); } }, 'فراموشی رمز عبور'),
@@ -91,13 +91,15 @@ export function mountLogin(root, onSuccess) {
   }
 
   function drawRegister(card) {
+    const { wrap: passWrap, input: passInput } = passwordFieldWithToggle({ dir: 'ltr' });
+    const { wrap: pass2Wrap, input: pass2Input } = passwordFieldWithToggle({ dir: 'ltr' });
     const f = {
       full_name: el('input', { type: 'text' }),
       national_code: el('input', { type: 'text', dir: 'ltr', maxlength: '10' }),
       phone: el('input', { type: 'text', dir: 'ltr' }),
       email: el('input', { type: 'email', dir: 'ltr' }),
-      pass: el('input', { type: 'password', dir: 'ltr' }),
-      pass2: el('input', { type: 'password', dir: 'ltr' }),
+      pass: passInput,
+      pass2: pass2Input,
       specialty: el('select', {}, [
         el('option', { value: 'استخراج' }, '⛏️ استخراج (مسئول فنی/ایمنی/بهداشت معدن)'),
         el('option', { value: 'اکتشاف' }, '🔍 اکتشاف'),
@@ -156,8 +158,8 @@ export function mountLogin(root, onSuccess) {
       el('label', {}, 'کد ملی'), f.national_code,
       el('label', {}, 'تلفن همراه'), f.phone,
       el('label', {}, 'ایمیل'), f.email,
-      el('label', {}, 'رمز عبور'), f.pass,
-      el('label', {}, 'تکرار رمز عبور'), f.pass2,
+      el('label', {}, 'رمز عبور'), passWrap,
+      el('label', {}, 'تکرار رمز عبور'), pass2Wrap,
       el('label', {}, 'نوع تخصص'), f.specialty,
       el('label', {}, 'شماره عضویت نظام مهندسی'), f.membership_no,
       el('label', {}, 'شماره پروانه اشتغال به کار'), f.license_no,
@@ -240,8 +242,8 @@ export function mountLogin(root, onSuccess) {
 
   function drawForgot2(card) {
     const codeInput = el('input', { type: 'text', dir: 'ltr', placeholder: 'کد ۶ رقمی' });
-    const p1 = el('input', { type: 'password', dir: 'ltr' });
-    const p2 = el('input', { type: 'password', dir: 'ltr' });
+    const { wrap: p1Wrap, input: p1 } = passwordFieldWithToggle({ dir: 'ltr' });
+    const { wrap: p2Wrap, input: p2 } = passwordFieldWithToggle({ dir: 'ltr' });
     const errBox = el('div', { class: 'gate-err' });
     const submitBtn = el('button', { class: 'btn btn-primary', style: 'margin-top:14px' }, 'تغییر رمز عبور');
     submitBtn.addEventListener('click', async () => {
@@ -261,8 +263,8 @@ export function mountLogin(root, onSuccess) {
     card.append(
       brand('کد بازیابی'),
       el('label', {}, 'کد ارسال‌شده به ایمیل'), codeInput,
-      el('label', {}, 'رمز عبور جدید'), p1,
-      el('label', {}, 'تکرار رمز عبور جدید'), p2,
+      el('label', {}, 'رمز عبور جدید'), p1Wrap,
+      el('label', {}, 'تکرار رمز عبور جدید'), p2Wrap,
       errBox, submitBtn,
     );
   }

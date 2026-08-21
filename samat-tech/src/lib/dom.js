@@ -55,6 +55,26 @@ export function simpleDateStatus(dateStr, warnDays = 60) {
 }
 
 /**
+ * یک فیلد رمز عبور با دکمه‌ی چشمک (نمایش/مخفی‌کردن) کنارش می‌سازد.
+ * @returns {{ wrap: HTMLElement, input: HTMLElement }}
+ */
+export function passwordFieldWithToggle(attrs = {}) {
+  const input = el('input', { type: 'password', ...attrs, style: 'padding-right:38px' });
+  const toggleBtn = el('button', {
+    type: 'button',
+    'aria-label': 'نمایش/مخفی‌کردن رمز عبور',
+    style: 'position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:15px;padding:4px;color:var(--stone-500)',
+    onclick: () => {
+      const showing = input.type === 'text';
+      input.type = showing ? 'password' : 'text';
+      toggleBtn.textContent = showing ? '👁' : '🙈';
+    },
+  }, '👁');
+  const wrap = el('div', { style: 'position:relative' }, [input, toggleBtn]);
+  return { wrap, input };
+}
+
+/**
  * یک مودال ساده (overlay + کارت) می‌سازد و به body اضافه می‌کند.
  * @returns {{ overlay: HTMLElement, body: HTMLElement, close: () => void }}
  */
