@@ -29,7 +29,7 @@ export async function registerForPushLogin(email) {
     PushNotifications.register();
   });
 
-  const { error } = await sb.from('user_roles').update({ push_fcm_token: token, push_login_enabled: true }).eq('email', email);
+  const { error } = await sb.from('user_roles').update({ push_fcm_token: token, push_login_enabled: true, push_app: 'samat-tech' }).eq('email', email);
   if (error) throw error;
 
   await attachLoginApprovalHandler();

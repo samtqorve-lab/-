@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "322463733172",
+    "project_id": "samttech-842fd",
+    "storage_bucket": "samttech-842fd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:322463733172:android:5cc3e3a255d074a2900ee1",
+        "android_client_info": {
+          "package_name": "ir.novinproduct.samattech"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBgZsgxCXBp0lw2dU11NZF3dfjI7EkzSCg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

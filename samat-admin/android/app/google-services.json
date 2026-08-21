@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "226175996903",
+    "project_id": "samt-65c82",
+    "storage_bucket": "samt-65c82.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:226175996903:android:4f9eb4eb0e0c662baa6342",
+        "android_client_info": {
+          "package_name": "ir.novinproduct.samatadmin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDX-eF0svSkMkr1m9Aod6NtxLiK52PwCBI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
