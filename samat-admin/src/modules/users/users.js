@@ -7,7 +7,7 @@ import { openAccessModal } from './accessModal.js';
 
 const ROLE_OPTIONS = ['viewer', 'inspector', 'tech_officer', 'safety_officer', 'health_officer', 'owner', 'admin'];
 const DEPARTMENTS = ['معدن', 'صنعت', 'اکتشاف', 'فرآوری', 'اصناف'];
-const ADMIN_DEPARTMENTS = [{ value: 'صنعت', label: '🏭 صنعت و معدن' }, { value: 'اصناف', label: '🛍️ اصناف' }];
+const ADMIN_DEPARTMENTS = [{ value: 'صنعت', label: '🏭 صنعت' }, { value: 'معدن', label: '⛏️ معدن' }, { value: 'اصناف', label: '🛍️ اصناف' }];
 
 export async function renderUsers(container, state, ctx) {
   container.append(el('div', { class: 'loading-state' }, [

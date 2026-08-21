@@ -45,7 +45,8 @@ export function openAccessModal(userRow, { myEmail, isSuper, onSaved }) {
       'مشخص می‌کند این ادمین مسئول کدام بخش اداره است — صرفاً یک برچسب سازمانی است (فعلاً برای فیلترکردن خودکار داده استفاده نمی‌شود).'));
     const deptSelect = el('select', {}, [
       el('option', { value: '' }, '— تعیین نشده —'),
-      el('option', { value: 'صنعت' }, '🏭 صنعت و معدن'),
+      el('option', { value: 'صنعت' }, '🏭 صنعت'),
+      el('option', { value: 'معدن' }, '⛏️ معدن'),
       el('option', { value: 'اصناف' }, '🛍️ اصناف'),
     ]);
     deptSelect.value = u.department || '';
