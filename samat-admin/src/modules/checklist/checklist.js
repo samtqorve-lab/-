@@ -6,6 +6,8 @@ import {
   approveEquipmentRows, rejectEquipmentRows,
 } from '../../lib/supplementary.js';
 import { exportXLSX } from '../../lib/exporters.js';
+import { attachJalaliDatePicker } from '../../lib/jalaliDatePicker.js';
+import { parseJalaliString, toGregorian } from '../../lib/jalaliCalendar.js';
 import {
   renderChecklist as renderChecklistRows, renderTraining, renderProduction, renderPersonnel, renderCorrective, renderQuarterlyMaps,
   renderIncidents, renderEquipment,
@@ -15,6 +17,39 @@ import { openChecklistItemsModal } from './checklistItemsModal.js';
 const SUB_TABS = Object.keys(SUPP_TITLES);
 let activeSub = 'checklist';
 let mineFilter = '';
+let dateFromStr = '';
+let dateToStr = '';
+
+/** نام فیلد «تاریخ رویداد» هر زیرتب — برای فیلتر بازه‌ی زمانی. تب‌هایی که مفهوم تاریخ دقیق ندارند
+ * (نفرات: فهرست فعلی پرسنل، تولید: فقط دوره‌ی ماهانه‌ی متنی) در این فهرست نیستند و فیلتر تاریخ
+ * رویشان بی‌اثر می‌ماند. */
+const DATE_FIELD_BY_SUB = {
+  checklist: 'shift_date',
+  training: 'training_date',
+  corrective: 'created_at',
+  quarterlymaps: 'created_at',
+  incident: 'created_at',
+  equipment: 'created_at',
+};
+
+/** رشته‌ی تاریخ ورودی تقویم شمسی («۱۴۰۴/۰۵/۱۰») را به Date میلادی تبدیل می‌کند */
+function jalaliInputToDate(str) {
+  const parsed = parseJalaliString(str);
+  if (!parsed) return null;
+  const g = toGregorian(parsed.jy, parsed.jm, parsed.jd);
+  return new Date(g.gy, g.gm - 1, g.gd);
+}
+
+/** مقدار فیلد تاریخ یک ردیف را به Date تبدیل می‌کند — چه به‌صورت ISO میلادی (created_at) چه رشته‌ی
+ * شمسی («۱۴۰۴/۰۵/۱۰» برای shift_date/training_date) */
+function rowDateValue(row, field) {
+  const raw = row[field];
+  if (!raw) return null;
+  const jalali = parseJalaliString(raw);
+  if (jalali) { const g = toGregorian(jalali.jy, jalali.jm, jalali.jd); return new Date(g.gy, g.gm - 1, g.gd); }
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
 
 export async function renderChecklist(container, state) {
   container.append(el('div', { class: 'loading-state' }, [
@@ -50,6 +85,23 @@ export async function renderChecklist(container, state) {
   const filterInput = el('input', { type: 'text', placeholder: 'فیلتر بر اساس نام معدن...', style: 'flex:1;min-width:200px', value: mineFilter });
   filterInput.addEventListener('input', () => { mineFilter = filterInput.value; drawList(); });
   toolbar.append(filterInput);
+
+  const dateFromInput = el('input', { type: 'text', dir: 'ltr', placeholder: 'از تاریخ (مثلاً ۱۴۰۴/۰۱/۰۱)', style: 'width:170px', value: dateFromStr });
+  const dateToInput = el('input', { type: 'text', dir: 'ltr', placeholder: 'تا تاریخ', style: 'width:170px', value: dateToStr });
+  attachJalaliDatePicker(dateFromInput);
+  attachJalaliDatePicker(dateToInput);
+  dateFromInput.addEventListener('change', () => { dateFromStr = dateFromInput.value; drawList(); });
+  dateToInput.addEventListener('change', () => { dateToStr = dateToInput.value; drawList(); });
+  const clearDatesBtn = el('button', {
+    type: 'button', class: 'btn-sm', style: 'background:var(--stone-100)',
+    onclick: () => { dateFromStr = ''; dateToStr = ''; dateFromInput.value = ''; dateToInput.value = ''; drawList(); },
+  }, '✕ پاک‌کردن بازه');
+  const dateFieldForActiveSub = () => DATE_FIELD_BY_SUB[activeSub];
+  const dateFilterBox = el('div', { style: 'display:flex;gap:6px;align-items:center' }, [dateFromInput, dateToInput, clearDatesBtn]);
+  toolbar.append(dateFilterBox);
+  if (!dateFieldForActiveSub()) {
+    dateFilterBox.style.display = 'none'; // این زیرتب مفهوم «تاریخ رویداد» ندارد (نفرات/تولید)
+  }
 
   const xlsxBtn = el('button', { class: 'btn btn-ghost', onclick: async () => {
     const rows = filteredRows();
@@ -90,9 +142,21 @@ export async function renderChecklist(container, state) {
   container.append(listBox);
 
   function filteredRows() {
-    const rows = cache[activeSub] || [];
-    if (!mineFilter.trim()) return rows;
-    return rows.filter((r) => (r.mine_name || '').includes(mineFilter.trim()));
+    let rows = cache[activeSub] || [];
+    if (mineFilter.trim()) rows = rows.filter((r) => (r.mine_name || '').includes(mineFilter.trim()));
+    const dateField = dateFieldForActiveSub();
+    if (dateField && (dateFromStr.trim() || dateToStr.trim())) {
+      const from = dateFromStr.trim() ? jalaliInputToDate(dateFromStr) : null;
+      const to = dateToStr.trim() ? jalaliInputToDate(dateToStr) : null;
+      rows = rows.filter((r) => {
+        const d = rowDateValue(r, dateField);
+        if (!d) return false; // ردیف بدون تاریخ معتبر، در فیلتر بازه‌ی زمانی نادیده گرفته می‌شود
+        if (from && d < from) return false;
+        if (to) { const toEnd = new Date(to); toEnd.setHours(23, 59, 59, 999); if (d > toEnd) return false; }
+        return true;
+      });
+    }
+    return rows;
   }
 
   function drawList() {
