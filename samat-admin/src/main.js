@@ -25,6 +25,7 @@ const LAZY_RENDERERS = {
   identity: () => import('./modules/identity/identity.js').then((m) => m.renderIdentity),
   users: () => import('./modules/users/users.js').then((m) => m.renderUsers),
   audit: () => import('./modules/audit/auditLog.js').then((m) => m.renderAuditLog),
+  boundaryMonitor: () => import('./modules/map/boundaryMonitor.js').then((m) => m.renderBoundaryMonitor),
   mySettings: () => import('./modules/settings/mySettings.js').then((m) => m.renderMySettings),
 };
 
