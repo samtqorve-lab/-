@@ -2,7 +2,7 @@ import { el, showToast, passwordFieldWithToggle } from '../../lib/dom.js';
 import {
   signIn, signUp, confirmSignupCode, resendSignupCode, sendPasswordResetCode, resetPasswordWithCode, signOut,
 } from '../../lib/auth.js';
-import { isPushLoginEnabled, requestPushApproval } from '../../lib/pushLogin.js';
+import { isPushLoginEnabled, requestPushApproval, verifyFallbackCode } from '../../lib/pushLogin.js';
 import { friendlyError } from '../../lib/utils.js';
 
 const MESSENGER_HINTS = {
@@ -43,15 +43,49 @@ export function mountLogin(root, onSuccess) {
     const errBox = el('div', { class: 'gate-err' });
     const submitBtn = el('button', { class: 'btn btn-primary', style: 'margin-top:14px' }, 'ورود');
 
+    // اگر Push پاسخ ندهد (مثلاً به‌خاطر تحریم/فیلترینگ)، این بخش خودکار ظاهر می‌شود و یک کد ۶ رقمی
+    // که از طریق تلگرام فرستاده شده را می‌گیرد.
+    const codeInput = el('input', { type: 'text', dir: 'ltr', placeholder: 'کد ۶ رقمی از تلگرام', maxlength: '6' });
+    const codeErrBox = el('div', { class: 'gate-err' });
+    const codeSubmitBtn = el('button', { type: 'button', class: 'btn btn-primary', style: 'margin-top:8px' }, 'تایید کد');
+    let currentApprovalId = null;
+    const codeBox = el('div', { style: 'display:none;margin-top:14px;padding-top:14px;border-top:1px dashed var(--stone-200)' }, [
+      el('div', { style: 'font-size:12px;color:var(--stone-600);margin-bottom:8px' },
+        '📲 اعلان Push پاسخی نداشت — یک کد ۶ رقمی از طریق تلگرام برایتان فرستاده شد.'),
+      codeInput, codeErrBox, codeSubmitBtn,
+    ]);
+    codeSubmitBtn.addEventListener('click', async () => {
+      codeErrBox.textContent = '';
+      if (!codeInput.value.trim() || !currentApprovalId) return;
+      codeSubmitBtn.disabled = true; codeSubmitBtn.textContent = 'در حال بررسی...';
+      try {
+        const result = await verifyFallbackCode(currentApprovalId, codeInput.value.trim());
+        if (!result.ok) {
+          codeErrBox.textContent = result.expired ? 'مهلت وارد کردن کد به پایان رسید — دوباره وارد شوید.' : 'کد نادرست است.';
+        }
+        // در صورت درست بودن کد، سرور status را approved می‌کند و اشتراک Realtime در
+        // requestPushApproval خودکار این تغییر را تشخیص و ورود را کامل می‌کند.
+      } catch (err) {
+        codeErrBox.textContent = err.message;
+      } finally {
+        codeSubmitBtn.disabled = false; codeSubmitBtn.textContent = 'تایید کد';
+      }
+    });
+
     submitBtn.addEventListener('click', async () => {
       errBox.textContent = '';
+      codeBox.style.display = 'none';
       if (!idInput.value.trim() || !passInput.value) { errBox.textContent = 'ایمیل/شماره عضویت و رمز را وارد کنید'; return; }
       submitBtn.disabled = true; submitBtn.textContent = '⏳ در حال ورود...';
       try {
         const email = await signIn(idInput.value, passInput.value);
         if (await isPushLoginEnabled(email)) {
           submitBtn.textContent = '🔐 در انتظار تایید روی گوشی ثبت‌شده...';
-          await waitForPushApproval(email);
+          await waitForPushApproval(email, (approvalId) => {
+            currentApprovalId = approvalId;
+            codeBox.style.display = 'block';
+            submitBtn.textContent = '📲 در انتظار کد تلگرام...';
+          });
         }
         onSuccess();
       } catch (err) {
@@ -66,7 +100,7 @@ export function mountLogin(root, onSuccess) {
     });
 
     /** بعد از ورود موفق با رمز، اگر ورود با تایید Push روشن باشد، تا تایید/رد/انقضا صبر می‌کند */
-    async function waitForPushApproval(email) {
+    async function waitForPushApproval(email, onAwaitingCode) {
       return new Promise((resolve, reject) => {
         requestPushApproval(email, async (status, detail) => {
           if (status === 'approved') { resolve(); return; }
@@ -74,7 +108,7 @@ export function mountLogin(root, onSuccess) {
           if (status === 'denied') { const e = new Error('denied'); e.pushDenied = true; reject(e); return; }
           if (status === 'timeout') { const e = new Error('timeout'); e.pushTimeout = true; reject(e); return; }
           reject(new Error(detail || 'push-error'));
-        });
+        }, onAwaitingCode);
       });
     }
 
@@ -82,7 +116,7 @@ export function mountLogin(root, onSuccess) {
       brand(),
       el('label', {}, 'ایمیل یا شماره عضویت'), idInput,
       el('label', {}, 'رمز عبور'), passWrap,
-      errBox, submitBtn,
+      errBox, submitBtn, codeBox,
       el('div', { class: 'gate-links' }, [
         el('a', { onclick: () => { screen = 'forgot1'; draw(); } }, 'فراموشی رمز عبور'),
         el('a', { onclick: () => { screen = 'register'; draw(); } }, 'ثبت‌نام مسئول فنی/ایمنی/بهداشت'),
