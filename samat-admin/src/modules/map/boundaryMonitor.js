@@ -97,7 +97,56 @@ export async function renderBoundaryMonitor(container, state, appCtx) {
       card.append(btnRow);
     }
 
+    const trendBox = el('div');
+    const trendBtn = el('button', {
+      class: 'btn btn-ghost', style: 'margin-top:10px;font-size:var(--text-xs)',
+      onclick: async () => {
+        if (trendBox.dataset.loaded) { trendBox.style.display = trendBox.style.display === 'none' ? 'block' : 'none'; return; }
+        trendBox.dataset.loaded = '1';
+        await renderTrend(trendBox, row.mine_name);
+      },
+    }, '📈 نمایش روند تاریخی');
+    card.append(trendBtn, trendBox);
+
     return card;
+  }
+
+  /** روند ماه‌به‌ماه BSI (تفاضل نسبت به خط‌مبنا) را به‌صورت یک نمودار خطی سبک SVG رسم می‌کند — بدون
+   * نیاز به کتابخانه‌ی نمودارکشی جدید. برای مستندسازی روند تدریجی گسترش (نه فقط لحظه‌ی فعلی). */
+  async function renderTrend(box, mineName) {
+    box.innerHTML = '⏳ در حال بارگذاری روند...';
+    const { data, error } = await sb.from('mine_boundary_monitoring_history')
+      .select('captured_at, differential_vs_baseline')
+      .eq('mine_name', mineName)
+      .order('captured_at', { ascending: true })
+      .limit(24);
+    if (error || !data || data.length < 2) {
+      box.innerHTML = '';
+      box.append(el('div', { style: 'font-size:var(--text-xs);color:var(--stone-500);margin-top:6px' }, 'هنوز داده‌ی تاریخی کافی برای رسم روند نیست (حداقل ۲ اجرای ماهانه لازم است).'));
+      return;
+    }
+
+    const w = 480; const h = 140; const pad = 28;
+    const values = data.map((d) => d.differential_vs_baseline ?? 0);
+    const minV = Math.min(0, ...values); const maxV = Math.max(0.12, ...values);
+    const xStep = (w - pad * 2) / (data.length - 1);
+    const yScale = (v) => h - pad - ((v - minV) / (maxV - minV || 1)) * (h - pad * 2);
+    const points = values.map((v, i) => `${pad + i * xStep},${yScale(v)}`).join(' ');
+    const zeroY = yScale(0);
+    const thresholdY = yScale(0.12);
+
+    const svg = `
+      <svg viewBox="0 0 ${w} ${h}" style="width:100%;max-width:${w}px;height:auto;background:var(--stone-50);border-radius:8px">
+        <line x1="${pad}" y1="${zeroY}" x2="${w - pad}" y2="${zeroY}" stroke="var(--stone-300)" stroke-width="1" />
+        <line x1="${pad}" y1="${thresholdY}" x2="${w - pad}" y2="${thresholdY}" stroke="#e57373" stroke-width="1" stroke-dasharray="4,3" />
+        <polyline points="${points}" fill="none" stroke="#1565c0" stroke-width="2" />
+        ${values.map((v, i) => `<circle cx="${pad + i * xStep}" cy="${yScale(v)}" r="3" fill="#1565c0" />`).join('')}
+      </svg>`;
+    box.innerHTML = '';
+    box.append(el('div', { style: 'margin-top:8px' }));
+    box.querySelector('div').innerHTML = svg;
+    box.append(el('div', { style: 'font-size:var(--text-xs);color:var(--stone-500);margin-top:4px' },
+      `خط قرمز نقطه‌چین = آستانه‌ی هشدار (۰.۱۲) — ${data[0].captured_at} تا ${data[data.length - 1].captured_at}`));
   }
 
   load();
