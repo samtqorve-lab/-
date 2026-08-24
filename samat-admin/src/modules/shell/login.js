@@ -1,6 +1,7 @@
 import { el, passwordFieldWithToggle, showToast } from '../../lib/dom.js';
 import {
   signIn, signOut, signUp, confirmSignupCode, resendSignupCode,
+  isPersonnelCodeTaken, emailForPersonnelCode,
 } from '../../lib/auth.js';
 import { isPushLoginEnabled, requestPushApproval, verifyFallbackCode } from '../../lib/pushLogin.js';
 
@@ -29,7 +30,7 @@ export function mountLogin(root, onSuccess) {
   }
 
   function drawLogin(card) {
-    const emailInput = el('input', { type: 'email', dir: 'ltr', placeholder: 'you@example.com', autocomplete: 'username' });
+    const codeInputLogin = el('input', { type: 'text', dir: 'ltr', placeholder: 'کد پرسنلی', autocomplete: 'username' });
     const { wrap: passWrap, input: passInput } = passwordFieldWithToggle({ dir: 'ltr', placeholder: '••••••••', autocomplete: 'current-password' });
     const errBox = el('div', { class: 'login-err' });
     const submitBtn = el('button', { class: 'btn btn-primary', style: 'width:100%;justify-content:center;margin-top:14px' }, 'ورود');
@@ -73,7 +74,9 @@ export function mountLogin(root, onSuccess) {
         submitBtn.disabled = true;
         submitBtn.textContent = 'در حال ورود...';
         try {
-          const email = emailInput.value.trim();
+          const code = codeInputLogin.value.trim();
+          const email = await emailForPersonnelCode(code);
+          if (!email) { errBox.textContent = 'کد پرسنلی یافت نشد'; return; }
           await signIn(email, passInput.value);
 
           if (await isPushLoginEnabled(email)) {
@@ -90,15 +93,15 @@ export function mountLogin(root, onSuccess) {
             ? 'ورود از طریق اعلان روی گوشی رد شد.'
             : err.pushTimeout
               ? 'زمان تایید ورود به پایان رسید — دوباره تلاش کنید.'
-              : 'ایمیل یا رمز عبور نادرست است.';
+              : 'کد پرسنلی یا رمز عبور نادرست است.';
         } finally {
           submitBtn.disabled = false;
           submitBtn.textContent = 'ورود';
         }
       },
     }, [
-      el('label', {}, 'ایمیل'),
-      emailInput,
+      el('label', {}, 'کد پرسنلی'),
+      codeInputLogin,
       el('label', {}, 'رمز عبور'),
       passWrap,
       errBox,
@@ -113,6 +116,7 @@ export function mountLogin(root, onSuccess) {
   function drawRegister(card) {
     const fullNameInput = el('input', { type: 'text' });
     const phoneInput = el('input', { type: 'text', dir: 'ltr' });
+    const codeInput = el('input', { type: 'text', dir: 'ltr', placeholder: 'مثلاً یک شماره یا کد کوتاه دلخواه' });
     const emailInput = el('input', { type: 'email', dir: 'ltr' });
     const { wrap: passWrap, input: passInput } = passwordFieldWithToggle({ dir: 'ltr' });
     const { wrap: pass2Wrap, input: pass2Input } = passwordFieldWithToggle({ dir: 'ltr' });
@@ -123,17 +127,25 @@ export function mountLogin(root, onSuccess) {
       onsubmit: async (e) => {
         e.preventDefault();
         errBox.textContent = '';
-        if (!fullNameInput.value.trim() || !phoneInput.value.trim() || !emailInput.value.trim() || !passInput.value) {
+        if (!fullNameInput.value.trim() || !phoneInput.value.trim() || !codeInput.value.trim()
+          || !emailInput.value.trim() || !passInput.value) {
           errBox.textContent = 'همه‌ی فیلدها را کامل کنید'; return;
         }
         if (passInput.value.length < 6) { errBox.textContent = 'رمز عبور باید حداقل ۶ کاراکتر باشد'; return; }
         if (passInput.value !== pass2Input.value) { errBox.textContent = 'تکرار رمز عبور با رمز عبور یکسان نیست'; return; }
         submitBtn.disabled = true;
-        submitBtn.textContent = 'در حال ارسال...';
+        submitBtn.textContent = 'در حال بررسی...';
         try {
+          const code = codeInput.value.trim();
+          if (await isPersonnelCodeTaken(code)) {
+            errBox.textContent = 'این کد پرسنلی قبلاً ثبت شده است — کد دیگری انتخاب کنید';
+            return;
+          }
+          submitBtn.textContent = 'در حال ارسال...';
           const result = await signUp({
             email: emailInput.value.trim(), password: passInput.value,
             full_name: fullNameInput.value.trim(), phone: phoneInput.value.trim(),
+            personnel_code: code,
           });
           if (result.needsEmailConfirm) {
             pendingSignupEmail = emailInput.value.trim();
@@ -153,7 +165,8 @@ export function mountLogin(root, onSuccess) {
     }, [
       el('label', {}, 'نام و نام خانوادگی'), fullNameInput,
       el('label', {}, 'تلفن همراه'), phoneInput,
-      el('label', {}, 'ایمیل'), emailInput,
+      el('label', {}, 'کد پرسنلی (برای ورودهای بعدی به‌جای ایمیل استفاده می‌شود)'), codeInput,
+      el('label', {}, 'ایمیل واقعی (برای دریافت کد تایید)'), emailInput,
       el('label', {}, 'رمز عبور'), passWrap,
       el('label', {}, 'تکرار رمز عبور'), pass2Wrap,
       errBox, submitBtn,

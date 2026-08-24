@@ -156,7 +156,8 @@ function renderPendingRow(u, refresh) {
   const row = el('div', { style: 'background:var(--amber-50);border-radius:var(--radius-md);padding:12px;margin-bottom:10px' }, [
     el('div', { style: 'margin-bottom:6px' }, [
       el('b', {}, u.full_name || u.email), ' ',
-      el('span', { style: 'color:var(--stone-600);font-size:var(--text-xs)' }, `${u.email} | ${u.phone || '-'}`),
+      el('span', { style: 'color:var(--stone-600);font-size:var(--text-xs)' },
+        `${u.email} | ${u.phone || '-'}${u.personnel_code ? ` | کد پرسنلی: ${u.personnel_code}` : ''}`),
     ]),
   ]);
   if (techInfo) row.append(techInfo);
