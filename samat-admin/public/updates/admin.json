@@ -1,6 +1,6 @@
 {
-  "versionCode": 0,
-  "versionName": "",
-  "url": "",
-  "notes": "این فایل به‌صورت خودکار توسط GitHub Actions (build-admin-android.yml) پس از هر build به‌روزرسانی می‌شود."
+  "versionCode": 15,
+  "versionName": "build 15",
+  "url": "https://github.com/samtqorve-lab/-/releases/download/admin-android-15/samat-admin-15.apk",
+  "notes": "به‌روزرسانی خودکار — commit 0c56e8bce550ea08c72259367cb5b49151357133"
 }
