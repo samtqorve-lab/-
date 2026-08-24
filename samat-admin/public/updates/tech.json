@@ -1,6 +1,6 @@
 {
-  "versionCode": 0,
-  "versionName": "",
-  "url": "",
-  "notes": "این فایل به‌صورت خودکار توسط GitHub Actions (build-android.yml) پس از هر build به‌روزرسانی می‌شود."
+  "versionCode": 33,
+  "versionName": "build 33",
+  "url": "https://github.com/samtqorve-lab/-/releases/download/tech-android-33/samat-tech-33.apk",
+  "notes": "به‌روزرسانی خودکار — commit dc5967595fd5029cb3c5cb2a107852f34969cba7"
 }
