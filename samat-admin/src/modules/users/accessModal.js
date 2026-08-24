@@ -19,6 +19,16 @@ export function openAccessModal(userRow, { myEmail, isSuper, onSaved }) {
   const editableNotif = isSuper || u.email === myEmail;
   const fields = {}; // نگاشت کلید → المنت ورودی، برای خواندن مقدار موقع ذخیره
 
+  // ── کد پرسنلی (برای ورود به‌جای ایمیل) — فقط سوپرادمین می‌تواند تنظیم/تغییر بدهد ──
+  if (isSuper) {
+    body.append(el('div', { style: 'font-weight:700;font-size:var(--text-sm);margin-bottom:6px' }, '🔑 کد پرسنلی (برای ورود)'));
+    body.append(el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:8px' },
+      'کاربر برای ورود روزمره به‌جای ایمیل از این کد استفاده می‌کند. باید بین همه‌ی کاربران یکتا باشد.'));
+    const codeInput = el('input', { type: 'text', dir: 'ltr', value: u.personnel_code || '' });
+    fields.personnel_code = codeInput;
+    body.append(el('div', { style: 'margin-bottom:14px' }, codeInput));
+  }
+
   // ── ماتریس دسترسی به بخش‌ها (فقط viewer/inspector/admin) ──
   if (['viewer', 'inspector', 'admin'].includes(u.role)) {
     body.append(el('div', { style: 'font-weight:700;font-size:var(--text-sm);margin-bottom:8px' }, 'بخش‌های قابل‌مشاهده'));
@@ -195,6 +205,7 @@ export function openAccessModal(userRow, { myEmail, isSuper, onSaved }) {
     saveBtn.textContent = 'در حال ذخیره...';
     try {
       const patch = {};
+      if (fields.personnel_code) patch.personnel_code = fields.personnel_code.value.trim() || null;
       if (['viewer', 'inspector', 'admin'].includes(u.role)) {
         const perms = {};
         PERM_SECTIONS.forEach((sec) => { perms[sec.key] = fields[`perm_${sec.key}`].checked; });
@@ -234,7 +245,10 @@ export function openAccessModal(userRow, { myEmail, isSuper, onSaved }) {
       close();
       onSaved?.();
     } catch (err) {
-      showToast(`⚠️ خطا در ذخیره: ${err.message}`);
+      const friendly = /personnel_code/.test(err.message || '') && /duplicate|unique/i.test(err.message || '')
+        ? 'این کد پرسنلی قبلاً برای کاربر دیگری ثبت شده — کد دیگری انتخاب کنید'
+        : err.message;
+      showToast(`⚠️ خطا در ذخیره: ${friendly}`);
     } finally {
       saveBtn.disabled = false;
       saveBtn.textContent = '💾 ذخیره';

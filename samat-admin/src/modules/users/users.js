@@ -242,6 +242,7 @@ function renderActiveRow(u, { myEmail, isSuper, isAdminRole, refresh }) {
   const row = el('div', { class: 'mine-row', style: 'cursor:default;flex-wrap:wrap;align-items:flex-start' }, [
     el('div', { style: 'flex:1;min-width:200px' }, [
       el('div', { class: 'mine-name' }, esc(u.email)),
+      u.personnel_code ? el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600)' }, `کد پرسنلی: ${esc(u.personnel_code)}`) : null,
     ]),
     btnRow,
   ]);
