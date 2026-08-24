@@ -98,7 +98,13 @@ jobs:
           git add samat-admin/public/updates/admin.json
           if git diff --cached --quiet; then
             echo "no manifest changes"
-          else
-            git commit -m "chore: به‌روزرسانی خودکار manifest آپدیت اندروید پنل ادمین [skip ci]"
-            git push
+            exit 0
           fi
+          git commit -m "chore: به‌روزرسانی خودکار manifest آپدیت اندروید پنل ادمین [skip ci]"
+          for i in 1 2 3 4 5; do
+            if git push; then exit 0; fi
+            echo "push rejected (احتمالاً به‌خاطر workflow اندروید دیگری که هم‌زمان push کرد) — تلاش دوباره..."
+            git pull --rebase origin main
+          done
+          echo "push نهایی هم شکست خورد" >&2
+          exit 1
