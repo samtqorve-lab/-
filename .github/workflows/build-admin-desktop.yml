@@ -7,6 +7,9 @@ on:
     paths:
       - 'samat-admin/**'
 
+permissions:
+  contents: write   # لازم برای ساخت GitHub Release (که آپدیت خودکار اپ از آن استفاده می‌کند)
+
 jobs:
   build:
     runs-on: windows-latest
@@ -38,9 +41,18 @@ jobs:
         working-directory: samat-admin/electron-app
         run: npm install
 
-      - name: Build Windows installer
+      # نسخه با شماره‌ی اجرای Actions تنظیم می‌شود (۱.۰.<run_number>) تا electron-updater
+      # بتواند «جدیدتر از نسخه‌ی نصب‌شده‌ی فعلی» بودن هر build را تشخیص دهد.
+      - name: Set version from run number
         working-directory: samat-admin/electron-app
-        run: npm run build:win
+        shell: bash
+        run: npm version "1.0.${{ github.run_number }}" --no-git-tag-version
+
+      - name: Build & publish Windows installer
+        working-directory: samat-admin/electron-app
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run build:win:publish
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v7

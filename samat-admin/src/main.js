@@ -8,6 +8,7 @@ import { el } from './lib/dom.js';
 import { setGeoScope } from './router.js';
 import { mountLogin } from './modules/shell/login.js';
 import { mountShell } from './modules/shell/shell.js';
+import { mountUpdateBadge } from './modules/shell/updateBadge.js';
 import { startInactivityGuard } from './modules/shell/inactivityGuard.js';
 import { renderDashboard } from './modules/dashboard/dashboard.js';
 
@@ -121,3 +122,4 @@ async function boot() {
 }
 
 boot();
+mountUpdateBadge();

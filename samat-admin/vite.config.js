@@ -1,6 +1,11 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+  // شماره‌ی build (از GitHub Actions run_number) برای مقایسه با manifest آپدیت اندروید؛
+  // در dev محلی همیشه ۰ است، یعنی هیچ‌وقت پیشنهاد آپدیت نمی‌دهد.
+  define: {
+    __APP_BUILD__: JSON.stringify(Number(process.env.APP_BUILD_NUMBER || 0)),
+  },
   build: {
     // terrain3d.js (Three.js) به‌صورت dynamic import فقط با کلیک روی دکمه‌ی «مدل سه‌بعدی» لود
     // می‌شود، نه در مسیر بارگذاری اولیه‌ی داشبورد — بنابراین هشدار پیش‌فرض ۵۰۰ کیلوبایتی Vite

@@ -5,11 +5,41 @@
 // در الکترون رفتار غیرقابل‌اعتماد/محدودی دارند؛ سرو کردن روی http://localhost دقیقاً همان محیطی
 // است که در مرورگر واقعی هم اجرا می‌شود — یعنی هیچ رفتار متفاوتی بین نسخه‌ی وب و دسکتاپ نیست.
 
-const { app, BrowserWindow, shell } = require('electron');
+const {
+  app, BrowserWindow, shell, dialog,
+} = require('electron');
 const path = require('path');
 const express = require('express');
+const { autoUpdater } = require('electron-updater');
 
 const PORT = 47821; // یک پورت محلی نسبتاً غیرمعمول، برای پرهیز از تصادم با برنامه‌های دیگر کاربر
+
+// آپدیت خودکار: با هر اجرا، از GitHub Releases (تنظیم‌شده در package.json → build.publish)
+// بررسی می‌شود که نسخه‌ی جدیدتری منتشر شده یا نه؛ اگر بله، در پس‌زمینه دانلود می‌شود و کاربر
+// فقط با یک پیام «آماده‌ی نصب است» مواجه می‌شود، نه یک دانلود دستی از GitHub.
+autoUpdater.autoDownload = true;
+autoUpdater.autoInstallOnAppQuit = true;
+
+function setupAutoUpdate(win) {
+  autoUpdater.on('update-downloaded', async () => {
+    const { response } = await dialog.showMessageBox(win, {
+      type: 'info',
+      title: 'نسخه‌ی جدید آماده است',
+      message: 'یک نسخه‌ی جدید از پنل ادمین صمت دانلود شد. برای نصب، برنامه باید بسته و دوباره باز شود.',
+      buttons: ['نصب و راه‌اندازی مجدد', 'بعداً (موقع بستن برنامه نصب می‌شود)'],
+      defaultId: 0,
+      cancelId: 1,
+    });
+    if (response === 0) autoUpdater.quitAndInstall();
+  });
+
+  autoUpdater.on('error', (err) => {
+    // خطای شبکه یا نبودِ نسخه‌ی جدید نباید کاربر را با پاپ‌آپ مزاحم کند؛ فقط لاگ می‌شود.
+    console.error('[auto-update]', err == null ? 'unknown' : (err.stack || err).toString());
+  });
+
+  autoUpdater.checkForUpdates();
+}
 
 function startLocalServer() {
   return new Promise((resolve) => {
@@ -50,6 +80,7 @@ function createWindow() {
 app.whenReady().then(async () => {
   await startLocalServer();
   createWindow();
+  setupAutoUpdate(BrowserWindow.getAllWindows()[0]);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

@@ -7,6 +7,9 @@ on:
     paths:
       - 'samat-admin/**'
 
+permissions:
+  contents: write   # لازم برای ساخت GitHub Release (منبع دانلود APK برای بنر «آپدیت موجود است»)
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -35,8 +38,12 @@ jobs:
         working-directory: samat-admin
         run: npm install
 
+      # APP_BUILD_NUMBER داخل خودِ جاوااسکریپت اپ (به‌عنوان __APP_BUILD__) جاسازی می‌شود تا
+      # با versionCode داخل manifest.json (پایین همین فایل) مقایسه شود و تشخیص دهد آپدیت جدیدتری هست یا نه.
       - name: Build web assets
         working-directory: samat-admin
+        env:
+          APP_BUILD_NUMBER: ${{ github.run_number }}
         run: npm run build
 
       - name: Sync Capacitor
@@ -55,3 +62,43 @@ jobs:
         with:
           name: samat-admin-debug-apk
           path: samat-admin/android/app/build/outputs/apk/debug/app-debug.apk
+
+      # --- انتشار عمومی + به‌روزرسانی manifest آپدیت خودکار ---
+      - name: Publish APK to a GitHub Release
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          TAG="admin-android-${{ github.run_number }}"
+          APK_NAME="samat-admin-${{ github.run_number }}.apk"
+          cp samat-admin/android/app/build/outputs/apk/debug/app-debug.apk "$APK_NAME"
+          gh release create "$TAG" "$APK_NAME" \
+            --repo samtqorve-lab/- \
+            --title "پنل ادمین (اندروید) — build ${{ github.run_number }}" \
+            --notes "Build خودکار از commit ${{ github.sha }}"
+          echo "url=https://github.com/samtqorve-lab/-/releases/download/$TAG/$APK_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Update Android update-manifest
+        working-directory: samat-admin/public/updates
+        run: |
+          cat > admin.json <<EOF
+          {
+            "versionCode": ${{ github.run_number }},
+            "versionName": "build ${{ github.run_number }}",
+            "url": "${{ steps.release.outputs.url }}",
+            "notes": "به‌روزرسانی خودکار — commit ${{ github.sha }}"
+          }
+          EOF
+
+      - name: Commit manifest update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add samat-admin/public/updates/admin.json
+          if git diff --cached --quiet; then
+            echo "no manifest changes"
+          else
+            git commit -m "chore: به‌روزرسانی خودکار manifest آپدیت اندروید پنل ادمین [skip ci]"
+            git push
+          fi

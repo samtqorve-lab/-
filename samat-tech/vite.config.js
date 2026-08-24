@@ -12,6 +12,11 @@ export default defineConfig(({ mode }) => {
 
   return {
     base,
+    // شماره‌ی build (از GitHub Actions run_number) برای مقایسه با manifest آپدیت اندروید؛
+    // در dev محلی همیشه ۰ است، یعنی هیچ‌وقت پیشنهاد آپدیت نمی‌دهد.
+    define: {
+      __APP_BUILD__: JSON.stringify(Number(process.env.APP_BUILD_NUMBER || 0)),
+    },
     build: {
       // خروجی جدا از dist اصلی، تا با build آندروید/PWA اصلی قاطی نشه
       outDir: isSubPath ? 'dist-web-sub' : 'dist',

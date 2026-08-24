@@ -15,6 +15,7 @@ import { checkIdentityGate, loadIdentitySettings, submitIdentityVerification } f
 import { registerSender, initOfflineQueueWatcher } from './lib/offlineQueue.js';
 import { startManagedGpsPrewarm, stopGpsPrewarm } from './lib/geo.js';
 import { mountOfflineBadge } from './modules/shell/offlineBadge.js';
+import { mountUpdateBadge } from './modules/shell/updateBadge.js';
 import { mountOnboarding, shouldShowOnboarding } from './modules/shell/onboarding.js';
 import { hasBiometricCred } from './lib/biometric.js';
 import { el, showToast } from './lib/dom.js';
@@ -26,6 +27,7 @@ const STAFF_FIELD_ROLES = ['admin', 'superadmin', 'inspector'];
 
 registerSender('identityVerification', submitIdentityVerification);
 mountOfflineBadge();
+mountUpdateBadge();
 initOfflineQueueWatcher(showToast);
 // GPS از همین لحظه‌ی باز شدن اپ پیش‌گرم می‌شود (نه بعد از ورود) — تا مسئول فنی زودتر
 // مجوز موقعیت‌مکانی را بدهد و اولین خوانش‌ها زودتر آماده باشند.

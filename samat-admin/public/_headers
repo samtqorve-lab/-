@@ -1,0 +1,6 @@
+# اپ‌های اندروید (Capacitor) از origin داخلی خودشان (https://localhost) این فایل‌ها را
+# fetch می‌کنند تا نسخه‌ی جدید را تشخیص دهند — بدون این هدر، مرورگر داخلی WebView درخواست
+# cross-origin را به‌خاطر نبود CORS رد می‌کند.
+/updates/*
+  Access-Control-Allow-Origin: *
+  Cache-Control: no-store
