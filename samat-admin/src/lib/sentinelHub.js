@@ -92,35 +92,47 @@ function setup() { return { input: ["B02","B03","B04"], output: { bands: 3 } }; 
 function evaluatePixel(s) { return [2.5*s.B04, 2.5*s.B03, 2.5*s.B02]; }`;
 
 // باند SCL برای حذف پیکسل‌های ابر/سایه/برف از محاسبه — بدون این کار، پیکسل‌های ابری
-// به‌اشتباه به‌عنوان «تغییر پوشش گیاهی» شناسایی می‌شدند و دقت را به‌شدت پایین می‌آوردند
+// به‌اشتباه به‌عنوان «تغییر پوشش گیاهی» شناسایی می‌شدند و دقت را به‌شدت پایین می‌آوردند.
+// نکته: این نسخه برای نمایش انسانی رنگی شده (قهوه‌ای←زرد←سبز) — نسخه‌ی خام تک‌کاناله (برای
+// تحلیل عددی خودکار) به‌صورت جدا و مستقل داخل Edge Function «boundary-monitor» نگه‌داری می‌شود
+// و به این فایل وابسته نیست، پس این تغییر رنگی روی پایش خودکار مرزی هیچ اثری ندارد.
 export const SAT_EVALSCRIPT_NDVI = `//VERSION=3
-function setup() { return { input: [{bands:["B04","B08","SCL"]}], output: { bands: 2 } }; }
+function setup() { return { input: [{bands:["B04","B08","SCL"]}], output: { bands: 4 } }; }
 function evaluatePixel(s) {
   let ndvi = (s.B08 - s.B04) / (s.B08 + s.B04 + 0.0001);
-  let value = (ndvi + 1) / 2;
   let cloudLike = (s.SCL===3 || s.SCL===8 || s.SCL===9 || s.SCL===10 || s.SCL===11);
-  let valid = cloudLike ? 0 : 1;
-  return [value, valid];
+  if (cloudLike) return [0.55, 0.55, 0.55, 0];
+  let r, g, b;
+  if (ndvi < 0.1) { r=0.68; g=0.52; b=0.35; }
+  else if (ndvi < 0.3) { r=0.85; g=0.78; b=0.35; }
+  else if (ndvi < 0.5) { r=0.55; g=0.75; b=0.3; }
+  else { r=0.1; g=0.5; b=0.15; }
+  return [r, g, b, 1];
 }`;
 
-// شاخص خاک‌برهنه (Bare Soil Index) — برای تشخیص خاک/باطله‌ی تازه‌جابه‌جاشده، مکمل NDVI برای معدن
+// شاخص خاک‌برهنه (Bare Soil Index) — برای تشخیص خاک/باطله‌ی تازه‌جابه‌جاشده، مکمل NDVI برای معدن.
+// رنگی‌شده برای نمایش انسانی (سبز=پوشش‌دار، زرد/نارنجی=خاک نسبی، قرمز=خاک شدیداً برهنه).
 export const SAT_EVALSCRIPT_BSI = `//VERSION=3
-function setup() { return { input: [{bands:["B02","B04","B08","B11","SCL"]}], output: { bands: 2 } }; }
+function setup() { return { input: [{bands:["B02","B04","B08","B11","SCL"]}], output: { bands: 4 } }; }
 function evaluatePixel(s) {
   let bsi = ((s.B11 + s.B04) - (s.B08 + s.B02)) / ((s.B11 + s.B04) + (s.B08 + s.B02) + 0.0001);
-  let value = (bsi + 1) / 2;
   let cloudLike = (s.SCL===3 || s.SCL===8 || s.SCL===9 || s.SCL===10 || s.SCL===11);
-  let valid = cloudLike ? 0 : 1;
-  return [value, valid];
+  if (cloudLike) return [0.55, 0.55, 0.55, 0];
+  let r, g, b;
+  if (bsi < -0.1) { r=0.1; g=0.5; b=0.2; }
+  else if (bsi < 0.05) { r=0.55; g=0.72; b=0.3; }
+  else if (bsi < 0.2) { r=0.88; g=0.72; b=0.2; }
+  else { r=0.82; g=0.2; b=0.12; }
+  return [r, g, b, 1];
 }`;
 
 export const SAT_EVALSCRIPT_S1 = `//VERSION=3
-function setup() { return { input: ["VV"], output: { bands: 1 } }; }
+function setup() { return { input: ["VV"], output: { bands: 4 } }; }
 function evaluatePixel(s) {
   let db = s.VV > 0 ? 10 * Math.log10(s.VV) : -30;
   let norm = (db + 25) / 25;
   norm = Math.min(1, Math.max(0, norm));
-  return [norm];
+  return [norm, norm, norm, 1];
 }`;
 
 export const SAT_LAYERS = {
