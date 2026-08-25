@@ -193,7 +193,7 @@ export function createFaceEquipCapture({
       faceCameraInput,
       faceThumbs,
       el('div', { style: 'height:1px;background:var(--stone-200);margin:16px 0' }),
-      el('label', {}, 'عکس ماشین‌آلات'),
+      el('label', {}, 'عکس سایر ماشین‌آلات (خارج از لیست پیش‌فرض معدن)'),
       el('button', { class: 'btn-sm', style: 'width:100%;background:var(--patina-700);color:#fff', onclick: triggerEquipCapture }, '📷 گرفتن عکس ماشین‌آلات'),
       equipCameraInput,
       equipThumbs,

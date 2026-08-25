@@ -13,6 +13,7 @@ export async function sendEquipmentPhotoPayload(p) {
   const { error } = await sb.from('mine_equipment').insert([{
     mine_name: p.mineName, submitted_by: p.submittedBy,
     machine_type: p.machineType, plate_no: p.plateNo, photo_url: photoUrl, photo_type: p.photoType, device_key: p.deviceKey,
+    serial_no: p.serialNo || null,
     lat: p.lat, lon: p.lon, inside_boundary: p.insideBoundary, department: p.department,
     status: p.insideBoundary ? 'approved' : 'pending',
     reviewed_by: p.insideBoundary ? 'تایید خودکار (داخل محدوده معدن)' : null,
@@ -50,6 +51,8 @@ export function mountEquipmentChecklist(container, mine, nameField, department, 
 
   function draw() {
     container.innerHTML = '';
+    container.append(el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:10px' },
+      'این ماشین‌آلات پیش‌فرض همین معدن‌اند (نفت‌گاز / گاز مایع / نفت سفید). برای هرکدام، شماره سریال را تایپ کنید و یک عکس نمای دور + یک عکس پلاک شماره سریال بگیرید تا برای درخواست سهمیه‌ی سوخت برای ادمین ارسال شود.'));
     if (!workingList.length) {
       container.append(el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);padding:6px 0' }, 'هنوز ماشین‌آلاتی برای این معدن ثبت نشده — با دکمه‌ی زیر اضافه کنید.'));
     }
@@ -82,7 +85,7 @@ export function mountEquipmentChecklist(container, mine, nameField, department, 
         return;
       }
 
-      if (!captures[eq.key]) captures[eq.key] = { overview: [], serial: [] };
+      if (!captures[eq.key]) captures[eq.key] = { overview: [], serial: [], serialNo: '' };
       const thumbBox = (photoType) => el('div', { style: 'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px' },
         captures[eq.key][photoType].map((c, i) => el('div', { style: 'position:relative;width:60px;height:60px' }, [
           el('img', { src: c.previewUrl, style: 'width:100%;height:100%;object-fit:cover;border-radius:6px;border:1px solid var(--stone-300)' }),
@@ -101,6 +104,7 @@ export function mountEquipmentChecklist(container, mine, nameField, department, 
           const payload = {
             mineName: mine[nameField], submittedBy: user ? user.email : '',
             machineType: eq.name || eq.type, plateNo: eq.model, photoBlob: blob, photoType, deviceKey: eq.key,
+            serialNo: captures[eq.key].serialNo.trim(),
             lat: coords?.latitude, lon: coords?.longitude, insideBoundary, department,
           };
           try {
@@ -146,6 +150,7 @@ export function mountEquipmentChecklist(container, mine, nameField, department, 
       };
 
       const triggerCapture = (photoType) => {
+        if (!captures[eq.key].serialNo.trim()) { showToast('⚠️ ابتدا شماره سریال دستگاه را در کادر بالا وارد کنید'); return; }
         if (liveCameraSupported()) captureViaLiveCamera(photoType);
         else (photoType === 'overview' ? overviewInput : serialInput).click();
       };
@@ -155,6 +160,12 @@ export function mountEquipmentChecklist(container, mine, nameField, department, 
       const serialInput = el('input', { type: 'file', accept: 'image/*', capture: 'environment', style: 'display:none' });
       serialInput.addEventListener('change', () => { if (serialInput.files[0]) captureViaLegacyInput('serial', serialInput.files[0]); serialInput.value = ''; });
 
+      const serialNoInput = el('input', {
+        type: 'text', dir: 'ltr', placeholder: 'شماره سریال دستگاه (برای سهمیه‌ی سوخت)', value: captures[eq.key].serialNo,
+        style: 'margin-bottom:8px',
+      });
+      serialNoInput.addEventListener('input', () => { captures[eq.key].serialNo = serialNoInput.value; });
+
       container.append(el('div', { style: 'background:var(--stone-50);border-radius:10px;padding:10px;margin-bottom:8px' }, [
         el('div', { style: 'display:flex;justify-content:space-between;align-items:flex-start' }, [
           el('div', {}, [
@@ -163,9 +174,11 @@ export function mountEquipmentChecklist(container, mine, nameField, department, 
           ]),
           el('button', { style: 'background:none;border:none;font-size:15px;cursor:pointer', onclick: () => { editingKey = eq.key; draw(); } }, '✏️'),
         ]),
+        el('div', { style: 'font-size:10.5px;color:var(--stone-500);margin-bottom:6px' }, '🛢️ برای درخواست سهمیه‌ی سوخت: شماره سریال را تایپ کنید، سپس یک عکس نمای دور از دستگاه و یک عکس واضح از پلاک شماره سریال بگیرید.'),
+        serialNoInput,
         el('div', { style: 'display:flex;gap:6px;flex-wrap:wrap' }, [
           el('button', { class: 'btn-sm', style: 'background:#e3f2fd;color:#1565c0', onclick: () => triggerCapture('overview') }, '📷 نمای دور'), overviewInput,
-          el('button', { class: 'btn-sm', style: 'background:var(--amber-100);color:var(--amber-700)', onclick: () => triggerCapture('serial') }, '🔢 شماره سریال'), serialInput,
+          el('button', { class: 'btn-sm', style: 'background:var(--amber-100);color:var(--amber-700)', onclick: () => triggerCapture('serial') }, '🔢 عکس شماره سریال'), serialInput,
         ]),
         thumbBox('overview'), thumbBox('serial'),
       ]));
