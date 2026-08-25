@@ -150,6 +150,10 @@ export function mountEquipmentChecklist(container, mine, nameField, department, 
       };
 
       const triggerCapture = (photoType) => {
+        if (!fullNameInput.value.trim() || !membershipInput.value.trim()) {
+          showToast('⚠️ ابتدا نام و شماره عضویت خود را از منو ☰ → «مشخصات و تنظیمات» وارد و ذخیره کنید (روی واترمارک عکس درج می‌شود)');
+          return;
+        }
         if (!captures[eq.key].serialNo.trim()) { showToast('⚠️ ابتدا شماره سریال دستگاه را در کادر بالا وارد کنید'); return; }
         if (liveCameraSupported()) captureViaLiveCamera(photoType);
         else (photoType === 'overview' ? overviewInput : serialInput).click();

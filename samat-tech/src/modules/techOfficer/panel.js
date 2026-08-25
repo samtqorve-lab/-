@@ -209,7 +209,7 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
         captureBox,
         el('div', { style: 'height:1px;background:var(--stone-200);margin:14px 0' }),
         el('button', {
-          class: 'btn-sm', style: 'width:100%;background:#fff3e0;color:#e65100',
+          class: 'btn-sm', style: 'width:100%;background:var(--amber-50);color:var(--amber-700)',
           onclick: requireMine((mine) => {
             const { body } = openModal({ title: '🛢️ ماشین‌آلات پیش‌فرض معدن (سهمیه‌ی سوخت)', width: '560px' });
             mountEquipmentChecklist(body, mine, nameField, meta.dept, fullNameInput, membershipInput);

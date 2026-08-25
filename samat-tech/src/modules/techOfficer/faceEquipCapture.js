@@ -99,12 +99,23 @@ export function createFaceEquipCapture({
     }
   }
 
+  function requireProfile() {
+    const { fullName, membershipNo } = getProfile();
+    if (!fullName || !membershipNo) {
+      showToast('⚠️ ابتدا نام و شماره عضویت خود را از منو ☰ → «مشخصات و تنظیمات» وارد و ذخیره کنید (روی واترمارک عکس درج می‌شود)');
+      return null;
+    }
+    return { fullName, membershipNo };
+  }
+
   async function captureFaceViaLiveCamera() {
     const mine = getMine();
     if (!mine) { showToast('⚠️ ابتدا معدن/محدوده را از بالای صفحه انتخاب کنید'); return; }
     const faceName = faceNameInput.value.trim();
     if (!faceName) { showToast('⚠️ ابتدا نام/توضیح کوتاه سینه‌کار فعال را بنویسید (مثلاً «سینه شماره یک جنوبی»)'); return; }
-    const { fullName, membershipNo } = getProfile();
+    const profile = requireProfile();
+    if (!profile) return;
+    const { fullName, membershipNo } = profile;
     try {
       const { blob } = await captureLivePhoto({
         buildLines: (c) => watermarkLinesForPhoto(c, mine, `سینه‌کار «${faceNameInput.value.trim() || faceName}»`, fullName, membershipNo),
@@ -122,7 +133,9 @@ export function createFaceEquipCapture({
     if (!mine) { showToast('⚠️ ابتدا معدن/محدوده را از بالای صفحه انتخاب کنید'); return; }
     const faceName = faceNameInput.value.trim();
     if (!faceName) { showToast('⚠️ ابتدا نام/توضیح کوتاه سینه‌کار فعال را بنویسید'); return; }
-    const { fullName, membershipNo } = getProfile();
+    const profile = requireProfile();
+    if (!profile) return;
+    const { fullName, membershipNo } = profile;
     showToast('⏳ در حال دریافت موقعیت مکانی...');
     try {
       const coords = await getGeoLocation();
@@ -136,7 +149,9 @@ export function createFaceEquipCapture({
   async function captureEquipViaLiveCamera() {
     const mine = getMine();
     if (!mine) { showToast('⚠️ ابتدا معدن/محدوده را از بالای صفحه انتخاب کنید'); return; }
-    const { fullName, membershipNo } = getProfile();
+    const profile = requireProfile();
+    if (!profile) return;
+    const { fullName, membershipNo } = profile;
     try {
       const { blob, coords } = await captureLivePhoto({
         buildLines: (c) => watermarkLinesForPhoto(c, mine, 'ماشین‌آلات', fullName, membershipNo),
@@ -152,7 +167,9 @@ export function createFaceEquipCapture({
   async function captureEquipViaLegacyInput(file) {
     const mine = getMine();
     if (!mine) { showToast('⚠️ ابتدا معدن/محدوده را از بالای صفحه انتخاب کنید'); return; }
-    const { fullName, membershipNo } = getProfile();
+    const profile = requireProfile();
+    if (!profile) return;
+    const { fullName, membershipNo } = profile;
     showToast('⏳ در حال دریافت موقعیت مکانی...');
     try {
       const coords = await getGeoLocation();

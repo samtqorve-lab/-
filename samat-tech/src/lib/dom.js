@@ -80,7 +80,7 @@ export function passwordFieldWithToggle(attrs = {}) {
  */
 export function openModal({ title, width = '480px' }) {
   const overlay = el('div', {
-    style: 'position:fixed;inset:0;background:rgba(28,27,23,.5);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px',
+    style: 'position:fixed;inset:0;background:rgba(28,27,23,.5);display:flex;align-items:center;justify-content:center;z-index:450;padding:20px',
     onclick: (e) => { if (e.target === overlay) close(); },
   });
   const body = el('div', { class: 'modal-body' });

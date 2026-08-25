@@ -48,7 +48,7 @@ body { background: var(--stone-100); }
 
 label { display: block; font-size: var(--text-xs); color: var(--stone-600); margin: 10px 0 4px; }
 input, select, textarea {
-  width: 100%; padding: 12px 14px; font-size: var(--text-base);
+  width: 100%; padding: 12px 14px; font-size: 16px;
   border: 1.5px solid var(--stone-300); border-radius: var(--radius-sm);
   background: #fff; color: var(--ink-900);
 }

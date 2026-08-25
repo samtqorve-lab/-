@@ -43,7 +43,7 @@ export function mountDrawerMenu(items) {
 
   const toggleBtn = el('button', {
     class: 'btn-sm',
-    style: 'background:rgba(255,255,255,.15);color:#fff;font-size:18px;padding:6px 12px',
+    style: 'background:rgba(255,255,255,.15);color:#fff;font-size:19px;padding:8px 14px;line-height:1',
     onclick: () => setOpen(!open),
   }, '☰');
 
