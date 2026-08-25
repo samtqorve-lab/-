@@ -65,7 +65,7 @@ export function mountMonthlyReport(container, getMine, nameField, department, ge
   }
   refreshCaptureCount();
 
-  const formalizeBtn = el('button', { class: 'btn-sm', style: 'background:#f3e5f5;color:#6a1b9a;margin-top:4px', onclick: () => {
+  const formalizeBtn = el('button', { class: 'btn-sm', style: 'background:var(--fluorite-100);color:var(--fluorite-700);margin-top:4px', onclick: () => {
     const text = noteInput.value.trim();
     if (!text) { showToast('⚠️ ابتدا متن را بنویسید'); return; }
     noteInput.value = formalizePersianText(text);

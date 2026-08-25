@@ -26,7 +26,7 @@ export function mountHistory(container, mineNames) {
       ['equip', '📷 ماشین‌آلات', fu.equip],
     ];
     const parts = groups.filter(([, , urls]) => urls && urls.length).map(([key, label, urls]) => urls.map((u, i) => el('a', {
-      href: u, target: '_blank', rel: 'noopener', style: 'color:#1565c0;margin-left:10px;font-size:var(--text-xs)',
+      href: u, target: '_blank', rel: 'noopener', style: 'color:var(--schist-600);margin-left:10px;font-size:var(--text-xs)',
     }, `${label}${urls.length > 1 ? ` ${i + 1}` : ''}`)));
     if (!parts.length) return null;
     return el('div', { style: 'margin-top:4px' }, parts.flat());

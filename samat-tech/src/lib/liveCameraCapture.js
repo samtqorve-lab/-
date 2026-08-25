@@ -49,7 +49,7 @@ export function captureLivePhoto({ buildLines, checkInside }) {
       if (checkInside && latestCoords) {
         const inside = checkInside(latestCoords);
         boundaryStatusSpan.textContent = inside ? '✅ داخل محدوده' : '⚠️ خارج از محدوده';
-        boundaryStatusSpan.style.color = inside ? '#8bd3a8' : '#ffb199';
+        boundaryStatusSpan.style.color = inside ? 'var(--patina-100)' : 'var(--rust-100)';
       }
     }
     updateOverlay();

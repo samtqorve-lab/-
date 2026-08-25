@@ -27,7 +27,7 @@ export function mountVoiceRecorder(container, onChange) {
   let startedAt = 0;
   let timerInterval = null;
 
-  const recordBtn = el('button', { class: 'btn-sm', style: 'background:#e3f2fd;color:#1565c0' }, '🎙️ ضبط یادداشت صوتی');
+  const recordBtn = el('button', { class: 'btn-sm', style: 'background:var(--schist-100);color:var(--schist-600)' }, '🎙️ ضبط یادداشت صوتی');
   const stopBtn = el('button', { class: 'btn-sm', style: 'background:var(--rust-100);color:var(--rust-700);display:none' }, '⏹ توقف');
   const timerLabel = el('span', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-right:8px' });
   const playbackBox = el('div', { style: 'margin-top:8px;display:none' });

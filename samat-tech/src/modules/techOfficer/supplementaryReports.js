@@ -156,7 +156,7 @@ export function openCorrectiveModal(mine, nameField, department) {
   const { body, close } = openModal({ title: `🛠️ اقدام اصلاحی — ${mineName}`, width: '400px' });
   const sourceSelect = el('select', {}, SOURCE_TYPES.map(([v, l]) => el('option', { value: v }, l)));
   const descInput = el('textarea', { rows: '2' });
-  const formalizeBtn = el('button', { class: 'btn-sm', style: 'background:#f3e5f5;color:#6a1b9a;margin-top:4px', onclick: () => {
+  const formalizeBtn = el('button', { class: 'btn-sm', style: 'background:var(--fluorite-100);color:var(--fluorite-700);margin-top:4px', onclick: () => {
     const text = descInput.value.trim();
     if (!text) return;
     descInput.value = formalizePersianText(text);

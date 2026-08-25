@@ -28,7 +28,7 @@ export function mountGpsStatusChip(container) {
     if (!coords) return;
     const good = coords.accuracy <= 20;
     chip.textContent = `${good ? '📍' : '📡'} GPS آماده (~${Math.round(coords.accuracy)} متر)`;
-    chip.style.color = good ? '#8bd3a8' : '#ffd699';
+    chip.style.color = good ? 'var(--patina-100)' : 'var(--amber-100)';
   }
 
   function renderError(err) {
@@ -41,7 +41,7 @@ export function mountGpsStatusChip(container) {
     } else {
       chip.textContent = '⚠️ GPS فعال نشد — برای تلاش دوباره ضربه بزنید';
     }
-    chip.style.color = '#ffb4a8';
+    chip.style.color = 'var(--rust-100)';
   }
 
   function armStuckTimer() {

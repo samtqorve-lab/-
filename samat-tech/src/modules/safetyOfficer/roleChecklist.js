@@ -75,7 +75,7 @@ export function openRoleChecklistModal(mine, department, role, submittedBy, onDo
       issueBtn.addEventListener('click', () => { st.status = 'issue'; drawItems(); });
       const row = el('div', { style: 'border-bottom:1px solid var(--stone-200);padding:8px 0' }, [
         el('div', { style: 'font-size:var(--text-sm);margin-bottom:4px' }, [
-          it.item_text, it.requires_photo ? el('span', { style: 'color:#6a1b9a;font-size:var(--text-xs);margin-right:6px' }, '📷 نیاز به عکس') : null,
+          it.item_text, it.requires_photo ? el('span', { style: 'color:var(--fluorite-700);font-size:var(--text-xs);margin-right:6px' }, '📷 نیاز به عکس') : null,
         ]),
         el('div', { style: 'display:flex;gap:6px' }, [okBtn, issueBtn]),
       ]);
@@ -92,7 +92,7 @@ export function openRoleChecklistModal(mine, department, role, submittedBy, onDo
             el('img', { src: st.photoPreviewUrl, style: 'width:56px;height:56px;object-fit:cover;border-radius:6px' }), retakeBtn,
           ]));
         } else {
-          const capBtn = el('button', { class: 'btn-sm', style: 'margin-top:6px;background:#f3e5f5;color:#6a1b9a;font-size:11px' }, '📷 گرفتن عکس (الزامی)');
+          const capBtn = el('button', { class: 'btn-sm', style: 'margin-top:6px;background:var(--fluorite-100);color:var(--fluorite-700);font-size:11px' }, '📷 گرفتن عکس (الزامی)');
           capBtn.addEventListener('click', () => capturePhoto(it.item_text));
           row.append(capBtn);
         }

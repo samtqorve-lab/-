@@ -50,8 +50,8 @@ export function openStakeoutModal(mine, nameField) {
       el('div', { style: 'font-size:13px;color:var(--stone-600)' }, `فاصله تا نقطه‌ی ${target.label}`),
       el('div', { style: 'font-size:30px;font-weight:800;color:var(--ink-700);margin:6px 0' }, `${Math.round(totalMeters)} متر`),
       el('div', { style: 'display:flex;justify-content:center;gap:18px;font-size:14px;font-weight:700' }, [
-        el('span', { style: 'color:#1565c0' }, `⬆️ ${Math.round(Math.abs(northMeters))} متر به ${nsLabel}`),
-        el('span', { style: 'color:#e65100' }, `➡️ ${Math.round(Math.abs(eastMeters))} متر به ${ewLabel}`),
+        el('span', { style: 'color:var(--schist-600)' }, `⬆️ ${Math.round(Math.abs(northMeters))} متر به ${nsLabel}`),
+        el('span', { style: 'color:var(--ochre-600)' }, `➡️ ${Math.round(Math.abs(eastMeters))} متر به ${ewLabel}`),
       ]),
     );
   }

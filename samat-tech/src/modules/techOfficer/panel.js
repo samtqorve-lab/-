@@ -155,10 +155,10 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
           el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:10px' }, 'ثبت سریع آموزش، تولید، پرسنل، اقدام اصلاحی و نقشه‌ی سه‌ماهه.'),
           el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:8px' }, [
             el('button', { class: 'btn-sm', style: 'background:var(--patina-100);color:var(--patina-700)', onclick: () => openTrainingModal(mine, nameField, meta.dept) }, '🎓 آموزش ایمنی'),
-            el('button', { class: 'btn-sm', style: 'background:#e3f2fd;color:#1565c0', onclick: () => openProductionModal(mine, nameField, meta.dept) }, '📈 تولید و عیار'),
-            el('button', { class: 'btn-sm', style: 'background:#e8eaf6;color:#3949ab', onclick: () => openPersonnelModal(mine, nameField, meta.dept) }, '👷 پرسنل تحت سرپرستی'),
+            el('button', { class: 'btn-sm', style: 'background:var(--schist-100);color:var(--schist-600)', onclick: () => openProductionModal(mine, nameField, meta.dept) }, '📈 تولید و عیار'),
+            el('button', { class: 'btn-sm', style: 'background:var(--patina-100);color:var(--patina-700)', onclick: () => openPersonnelModal(mine, nameField, meta.dept) }, '👷 پرسنل تحت سرپرستی'),
             el('button', { class: 'btn-sm', style: 'background:var(--amber-100);color:var(--amber-700)', onclick: () => openCorrectiveModal(mine, nameField, meta.dept) }, '🛠️ اقدام اصلاحی'),
-            el('button', { class: 'btn-sm', style: 'background:#f3e5f5;color:#6a1b9a;grid-column:1 / -1', onclick: () => openQuarterlyMapModal(mine, nameField, meta.dept) }, '🗺️ نقشه سه‌ماهه'),
+            el('button', { class: 'btn-sm', style: 'background:var(--fluorite-100);color:var(--fluorite-700);grid-column:1 / -1', onclick: () => openQuarterlyMapModal(mine, nameField, meta.dept) }, '🗺️ نقشه سه‌ماهه'),
           ]),
         );
       }),
@@ -200,7 +200,7 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
         mineSelect,
         multiMineBox,
         el('button', {
-          class: 'btn-sm', style: 'background:#e8f5e9;color:#1b5e20;margin-top:10px;width:100%',
+          class: 'btn-sm', style: 'background:var(--patina-50);color:var(--patina-700);margin-top:10px;width:100%',
           onclick: requireMine((mine) => openStakeoutModal(mine, nameField)),
         }, '🎯 پیاده کردن نقاط پروانه (استیک‌اوت GPS)'),
       ]),

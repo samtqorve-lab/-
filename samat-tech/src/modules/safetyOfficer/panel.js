@@ -67,10 +67,10 @@ export async function mountSafetyOfficerPanel(root, { email, mines, identityVeri
     data.forEach((c) => {
       const items = Array.isArray(c.items) ? c.items : [];
       const issues = items.filter((i) => i.status === 'issue');
-      historyBox.append(el('div', { style: `background:${c.overall_status === 'issues' ? '#fff8e1' : '#e8f5e9'};border-radius:8px;padding:10px 12px;margin-bottom:6px;font-size:var(--text-sm)` }, [
+      historyBox.append(el('div', { style: `background:${c.overall_status === 'issues' ? 'var(--amber-50)' : 'var(--patina-50)'};border-radius:8px;padding:10px 12px;margin-bottom:6px;font-size:var(--text-sm)` }, [
         el('div', { style: 'display:flex;justify-content:space-between' }, [
           el('b', {}, c.mine_name),
-          el('span', { style: `color:${c.overall_status === 'issues' ? '#f57c00' : '#2e7d32'};font-weight:700` }, c.overall_status === 'issues' ? `⚠️ ${issues.length} مورد` : '✅ سالم'),
+          el('span', { style: `color:${c.overall_status === 'issues' ? 'var(--amber-700)' : 'var(--patina-700)'};font-weight:700` }, c.overall_status === 'issues' ? `⚠️ ${issues.length} مورد` : '✅ سالم'),
         ]),
         el('div', { style: 'color:var(--stone-500);font-size:var(--text-xs)' }, `${new Date(c.shift_date).toLocaleDateString('fa-IR')}${c.inside_boundary === false ? ' | ⚠️ خارج از محدوده ثبت شده' : ''}`),
       ]));

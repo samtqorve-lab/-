@@ -58,6 +58,10 @@
   --schist-600: #5B6B72;
   --schist-100: #E1E7E9;
 
+  /* ── فلوئوریت (ویژگی‌های خاص/هوش مصنوعی) ── */
+  --fluorite-700: #5C4A87;
+  --fluorite-100: #E8E3F2;
+
   /* ── تایپوگرافی ── */
   --font-ui: 'Vazirmatn', 'Segoe UI', Tahoma, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;

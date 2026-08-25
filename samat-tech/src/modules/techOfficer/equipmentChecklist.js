@@ -181,14 +181,14 @@ export function mountEquipmentChecklist(container, mine, nameField, department, 
         el('div', { style: 'font-size:10.5px;color:var(--stone-500);margin-bottom:6px' }, '🛢️ برای درخواست سهمیه‌ی سوخت: شماره سریال را تایپ کنید، سپس یک عکس نمای دور از دستگاه و یک عکس واضح از پلاک شماره سریال بگیرید.'),
         serialNoInput,
         el('div', { style: 'display:flex;gap:6px;flex-wrap:wrap' }, [
-          el('button', { class: 'btn-sm', style: 'background:#e3f2fd;color:#1565c0', onclick: () => triggerCapture('overview') }, '📷 نمای دور'), overviewInput,
+          el('button', { class: 'btn-sm', style: 'background:var(--schist-100);color:var(--schist-600)', onclick: () => triggerCapture('overview') }, '📷 نمای دور'), overviewInput,
           el('button', { class: 'btn-sm', style: 'background:var(--amber-100);color:var(--amber-700)', onclick: () => triggerCapture('serial') }, '🔢 عکس شماره سریال'), serialInput,
         ]),
         thumbBox('overview'), thumbBox('serial'),
       ]));
     });
 
-    const addBtn = el('button', { class: 'btn-sm', style: 'background:#e8eaf6;color:#3949ab;flex:1', onclick: () => {
+    const addBtn = el('button', { class: 'btn-sm', style: 'background:var(--patina-100);color:var(--patina-700);flex:1', onclick: () => {
       const tempKey = `new_${Date.now()}`;
       workingList.push({ key: tempKey, field: 'تجهیزات_نفت_گاز', name: '', model: '', type: 'نفت‌گاز', count: '' });
       editingKey = tempKey;
