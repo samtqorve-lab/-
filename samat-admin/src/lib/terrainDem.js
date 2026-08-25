@@ -1,8 +1,9 @@
-// دیکود مدل ارتفاعی زمین (DEM) از کاشی‌های عمومی Terrarium — این سرویس (میراث پروژه‌ی متن‌باز
-// Mapzen، امروز روی S3 آمازون میزبانی می‌شود) رایگان است و به هیچ API Key/حساب کاربری نیاز ندارد؛
-// برخلاف Sentinel Hub که نیاز به احراز هویت Copernicus دارد، اینجا زیرساخت اعتبارنامه‌ی جداگانه
-// لازم نیست. فرمت رمزگذاری ارتفاع در کانال‌های RGB این کاشی‌ها یک استاندارد باز و پایدار است:
-// ارتفاع (متر) = (R×256 + G + B/256) − 32768
+// دیکود مدل ارتفاعی زمین (DEM) — دو منبع پشتیبانی می‌شود: کاشی‌های عمومی/رایگان Terrarium
+// (بدون نیاز به احراز هویت) و Copernicus DEM GLO-30 معتبرتر از طریق Sentinel Hub (نیازمند
+// همان Client ID/Secret که برای تصاویر ماهواره‌ای ذخیره شده). فرمت رمزگذاری ارتفاع در هر دو یکسان
+// است: ارتفاع (متر) = (R×256 + G + B/256) − 32768
+
+import { fetchSentinelImage, SAT_EVALSCRIPT_DEM_TERRARIUM } from './sentinelHub.js';
 
 const TILE_SIZE = 256;
 const TERRARIUM_URL = (z, x, y) => `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`;
@@ -17,6 +18,42 @@ function lat2tileY(lat, z) {
 
 function decodeTerrariumPixel(r, g, b) {
   return (r * 256 + g + b / 256) - 32768;
+}
+
+/**
+ * همان نتیجه‌ی fetchElevationGrid را می‌دهد، ولی از Copernicus DEM GLO-30 (ماموریت TanDEM-X)
+ * از طریق Sentinel Hub می‌گیرد — نیازمند Client ID/Secret ذخیره‌شده در پنل «پایش ماهواره‌ای»
+ * است (همان که برای تصاویر ماهواره‌ای استفاده می‌شود). چون Process API تصویر را دقیقاً به اندازه‌ی
+ * gridSize×gridSize و منطبق بر bbox درخواستی برمی‌گرداند، برخلاف مسیر رایگان (fetchElevationGrid)
+ * نیازی به کاشی‌بندی/نمونه‌برداری نیست — هر پیکسل مستقیماً یک نقطه‌ی شبکه است.
+ * @returns {Promise<{grid: Float32Array, gridSize: number, minElev: number, maxElev: number}>}
+ */
+export async function fetchElevationGridSentinelHub(token, bbox, gridSize = 64) {
+  const today = new Date();
+  const dateStr = `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, '0')}-${String(today.getUTCDate()).padStart(2, '0')}`;
+  const blob = await fetchSentinelImage(token, bbox, dateStr, SAT_EVALSCRIPT_DEM_TERRARIUM, gridSize, gridSize, 'dem', 15);
+
+  const img = await new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('دیکود تصویر ارتفاعی TanDEM-X ناموفق بود'));
+    image.src = URL.createObjectURL(blob);
+  });
+  const canvas = document.createElement('canvas');
+  canvas.width = gridSize; canvas.height = gridSize;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+  const { data } = ctx.getImageData(0, 0, gridSize, gridSize);
+
+  const grid = new Float32Array(gridSize * gridSize);
+  let minElev = Infinity; let maxElev = -Infinity;
+  for (let i = 0; i < gridSize * gridSize; i++) {
+    const elev = decodeTerrariumPixel(data[i * 4], data[i * 4 + 1], data[i * 4 + 2]);
+    grid[i] = elev;
+    if (elev < minElev) minElev = elev;
+    if (elev > maxElev) maxElev = elev;
+  }
+  return { grid, gridSize, minElev, maxElev };
 }
 
 async function loadTileElevations(z, x, y) {

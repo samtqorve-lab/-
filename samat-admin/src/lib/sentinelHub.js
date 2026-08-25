@@ -135,6 +135,24 @@ function evaluatePixel(s) {
   return [norm, norm, norm, 1];
 }`;
 
+// ارتفاع را دقیقاً با همان کدگذاری کاشی‌های عمومی Terrarium (R×256+G+B/256−32768) در سه کانال
+// RGB می‌ریزد — تا بشود از همان رمزگشای موجود (decodeTerrariumPixel در terrainDem.js) بدون
+// تغییر استفاده کرد. منبع داده اینجا دیگر آن کاشی‌های عمومی/رایگان (SRTM بازآمیخته) نیست؛
+// Sentinel Hub این را از dataset احرازهویت‌شده‌ی Copernicus DEM GLO-30 (ماموریت TanDEM-X، ماهواره
+// راداری آلمانی-فرانسوی با دقت افقی و عمودی به‌مراتب بهتر) می‌دهد — همان Client ID/Secret که برای
+// تصاویر ماهواره‌ای ذخیره شده کافی است، نیازی به تنظیمات جداگانه نیست.
+export const SAT_EVALSCRIPT_DEM_TERRARIUM = `//VERSION=3
+function setup() { return { input: ["DEM"], output: { bands: 3, sampleType: "UINT8" } }; }
+function evaluatePixel(s) {
+  let v = s.DEM + 32768.0;
+  if (v < 0) v = 0; if (v > 65535.999) v = 65535.999;
+  let r = Math.floor(v / 256.0);
+  let rem = v - r * 256.0;
+  let g = Math.floor(rem);
+  let b = Math.floor((rem - g) * 256.0);
+  return [r, g, b];
+}`;
+
 export const SAT_LAYERS = {
   truecolor: { label: '🛰️ تصویر رنگ طبیعی', script: SAT_EVALSCRIPT_TRUECOLOR, collection: 'sentinel-2-l2a', dayWindow: 15 },
   ndvi: { label: '🌿 شاخص پوشش گیاهی (NDVI)', script: SAT_EVALSCRIPT_NDVI, collection: 'sentinel-2-l2a', dayWindow: 15 },

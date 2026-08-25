@@ -5,7 +5,7 @@ import { getMineCorners } from '../../lib/geo.js';
 import {
   getMineBBox, checkCopernicusStatus, getCopernicusToken, fetchSentinelImage, SAT_LAYERS,
 } from '../../lib/sentinelHub.js';
-import { fetchElevationGrid } from '../../lib/terrainDem.js';
+import { fetchElevationGrid, fetchElevationGridSentinelHub } from '../../lib/terrainDem.js';
 
 // رنگ‌بندی بر اساس ارتفاع نسبی (کم → پرشیب) — یک گرادیان ساده‌ی زمین‌شناسی (سبز کم‌ارتفاع تا
 // قهوه‌ای/سفید پرارتفاع). این رنگ‌بندی به‌عنوان بازگشتی (fallback) استفاده می‌شود وقتی بافت
@@ -78,19 +78,41 @@ export function open3DTerrainModal(record, nameField) {
   let elevDone = false;
   let satDone = false;
   let satResult = null;
+  let demSource = null; // 'tandem' | 'terrarium'
 
   function maybeFinishStatus() {
     if (!elevDone) return;
+    const elevLine = demSource === 'tandem'
+      ? '🛰️ ارتفاع از Copernicus DEM GLO-30 (ماموریت TanDEM-X، دقت بهتر)'
+      : '🗺️ ارتفاع از منبع رایگان عمومی (Terrarium)';
     if (satResult && satResult.url) {
-      statusLine.textContent = '✅ بافت از تصویر ماهواره‌ای واقعی (Sentinel-2) ساخته شد';
+      statusLine.textContent = `✅ ${elevLine} — بافت از تصویر ماهواره‌ای واقعی (Sentinel-2)`;
     } else if (satDone) {
       statusLine.textContent = satResult && satResult.reason === 'not-configured'
-        ? 'ℹ️ برای بافت ماهواره‌ای واقعی، ابتدا Sentinel Hub را در پنل «پایش ماهواره‌ای» تنظیم کنید — فعلاً رنگ‌بندی ارتفاعی نمایش داده می‌شود.'
-        : `⚠️ دریافت تصویر ماهواره‌ای ناموفق بود — رنگ‌بندی ارتفاعی نمایش داده می‌شود.`;
+        ? `ℹ️ ${elevLine} — برای بافت ماهواره‌ای واقعی هم، Sentinel Hub را در پنل «پایش ماهواره‌ای» تنظیم کنید — فعلاً رنگ‌بندی ارتفاعی نمایش داده می‌شود.`
+        : `⚠️ ${elevLine} — دریافت تصویر ماهواره‌ای ناموفق بود؛ رنگ‌بندی ارتفاعی نمایش داده می‌شود.`;
     }
   }
 
-  const elevPromise = fetchElevationGrid(bbox, 64).then(({ grid, gridSize, minElev, maxElev }) => {
+  // ابتدا تلاش می‌کنیم ارتفاع را از Copernicus DEM GLO-30 (دقیق‌تر) از طریق Sentinel Hub بگیریم؛
+  // اگر Client ID/Secret تنظیم نشده یا درخواست ناموفق بود، بی‌صدا به منبع رایگان (Terrarium) برمی‌گردیم.
+  async function loadElevation() {
+    try {
+      const status = await checkCopernicusStatus();
+      if (status.configured) {
+        const token = await getCopernicusToken('', '');
+        const result = await fetchElevationGridSentinelHub(token, bbox, 64);
+        demSource = 'tandem';
+        return result;
+      }
+    } catch {
+      // بی‌صدا به منبع رایگان برمی‌گردیم
+    }
+    demSource = 'terrarium';
+    return fetchElevationGrid(bbox, 64);
+  }
+
+  const elevPromise = loadElevation().then(({ grid, gridSize, minElev, maxElev }) => {
     if (disposed) return;
     elevDone = true;
     buildScene(grid, gridSize, minElev, maxElev);
