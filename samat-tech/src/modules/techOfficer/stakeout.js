@@ -21,6 +21,16 @@ export function openStakeoutModal(mine, nameField) {
   const guidanceBox = el('div', { style: 'background:var(--stone-50);border-radius:12px;padding:16px;text-align:center' });
   const statusBox = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-top:10px;text-align:center' });
 
+  // مودال هنوز چیزی به body اضافه نکرده — اول همه‌ی ظرف‌ها را می‌چسبانیم، بعد نقشه را می‌سازیم.
+  // Leaflet هنگام ساخت، اندازه‌ی واقعی container را از DOM می‌خواند؛ اگر element هنوز به صفحه
+  // وصل نباشد، اندازه صفر محاسبه می‌شود و fitBounds نمی‌تواند مرکز/زوم درستی پیدا کند —
+  // نتیجه‌اش یک نقشه‌ی خاکستری/خالی است که پلی‌گون رویش دیده نمی‌شود، حتی بعد از invalidateSize.
+  body.append(
+    mapHost,
+    chipsBox, guidanceBox, statusBox,
+    el('div', { style: 'font-size:var(--text-xs);color:var(--stone-500);margin-top:10px;text-align:center' }, 'وقتی فاصله به کمتر از ۸ متر برسد، آن نقطه به‌طور خودکار «رسیده» علامت می‌خورد.'),
+  );
+
   // --- نقشه‌ی ماهواره‌ای + پلی‌گون محدوده‌ی قانونی ---
   const map = L.map(mapHost, { zoomControl: true, attributionControl: false });
   L.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { subdomains: ['0', '1', '2', '3'], maxZoom: 21 }).addTo(map);
@@ -98,13 +108,8 @@ export function openStakeoutModal(mine, nameField) {
   }
 
   drawChips();
-  body.append(
-    mapHost,
-    chipsBox, guidanceBox, statusBox,
-    el('div', { style: 'font-size:var(--text-xs);color:var(--stone-500);margin-top:10px;text-align:center' }, 'وقتی فاصله به کمتر از ۸ متر برسد، آن نقطه به‌طور خودکار «رسیده» علامت می‌خورد.'),
-  );
-  // مودال با انیمیشن باز می‌شود و ابعادش لحظه‌ی append هنوز نهایی نیست؛ بدون این، Leaflet نقشه
-  // را با اندازه‌ی صفر محاسبه می‌کند و گاهی خاکستری/بریده نشان می‌دهد.
+  // مودال بدون انیمیشن باز/بسته می‌شود (خط ۹۷ در dom.js مستقیم document.body.append انجام می‌دهد)
+  // پس همین الان هم اندازه‌ی نقشه درست است؛ این invalidateSize فقط یک لایه‌ی احتیاط اضافه است.
   setTimeout(() => map.invalidateSize(), 60);
 
   // چون نه دکمه‌ی ✖ و نه کلیک روی پس‌زمینه‌ی مودال دسترسی مستقیم به این تابع ندارند،
