@@ -1,41 +1,44 @@
 // ساختار فرم و رنگ‌بندی دسته‌ها به‌ازای هر بخش — منبع واحد برای فهرست، جزئیات و داشبورد.
 // عیناً از admin-index.html (نسخه‌ی قبلی) منتقل شده تا فرم‌ها با داده‌ی موجود سازگار بمانند.
 
+// رنگ‌ها عیناً برابر مقادیر توکن‌های طراحی سامانه‌اند (tokens.css) — این‌جا به‌صورت hex خام
+// نوشته شده‌اند (نه var(--x)) چون همین مقادیر برای رنگ خروجی KML/Excel هم استفاده می‌شوند و
+// آن ابزارها var() سی‌اس‌اس را نمی‌فهمند. اگر رنگ توکن در tokens.css عوض شد، اینجا هم به‌روز کنید.
 export const MINE_CAT_COLORS = {
-  'گروه ۱ - شن، ماسه و خاک رس': { bg: '#e3f2fd', badge: '#1565c0', border: '#2196f3' },
-  'گروه ۲ - سنگ لاشه ساختمانی': { bg: '#efebe9', badge: '#4e342e', border: '#8d6e63' },
-  'گروه ۳ - سایر مواد طبقه یک (آهک، گچ، نمک، مارن و ...)': { bg: '#fff8e1', badge: '#f57f17', border: '#ffca28' },
-  'گروه ۴ - سنگ‌های تزیینی و نما': { bg: '#e8f5e9', badge: '#2e7d32', border: '#4caf50' },
-  'گروه ۵ - طبقه دو غیرفلزی (غیر از زغال‌سنگ)': { bg: '#ede7f6', badge: '#5e35b1', border: '#7e57c2' },
-  'گروه ۶ - طبقه دو فلزی و زغال‌سنگ': { bg: '#fff3e0', badge: '#e65100', border: '#ff9800' },
-  غیره: { bg: '#eceff1', badge: '#546e7a', border: '#90a4ae' },
+  'گروه ۱ - شن، ماسه و خاک رس': { bg: '#E1E7E9', badge: '#5B6B72', border: '#5B6B72' }, // schist
+  'گروه ۲ - سنگ لاشه ساختمانی': { bg: '#EFE6DD', badge: '#5C4433', border: '#5C4433' }, // clay
+  'گروه ۳ - سایر مواد طبقه یک (آهک، گچ، نمک، مارن و ...)': { bg: '#F6E7CC', badge: '#8A5A16', border: '#8A5A16' }, // amber
+  'گروه ۴ - سنگ‌های تزیینی و نما': { bg: '#DCEBE6', badge: '#245349', border: '#245349' }, // patina
+  'گروه ۵ - طبقه دو غیرفلزی (غیر از زغال‌سنگ)': { bg: '#E8E3F2', badge: '#5C4A87', border: '#5C4A87' }, // fluorite
+  'گروه ۶ - طبقه دو فلزی و زغال‌سنگ': { bg: '#F3E1CE', badge: '#8F4A16', border: '#8F4A16' }, // ochre
+  غیره: { bg: '#F1EEE6', badge: '#6B6250', border: '#6B6250' }, // stone
 };
 
 export const INDUSTRY_CAT_COLORS = {
-  فعال: { bg: '#e8f5e9', badge: '#2e7d32', border: '#4caf50' },
-  'نیمه فعال': { bg: '#fffde7', badge: '#f57f17', border: '#ffc107' },
-  تعطیل: { bg: '#ffebee', badge: '#c62828', border: '#ef5350' },
-  'جمع آوری شده': { bg: '#eceff1', badge: '#546e7a', border: '#90a4ae' },
+  فعال: { bg: '#DCEBE6', badge: '#245349', border: '#245349' }, // patina
+  'نیمه فعال': { bg: '#F6E7CC', badge: '#8A5A16', border: '#8A5A16' }, // amber
+  تعطیل: { bg: '#F3DAD5', badge: '#7A2A20', border: '#7A2A20' }, // rust
+  'جمع آوری شده': { bg: '#F1EEE6', badge: '#6B6250', border: '#6B6250' }, // stone
 };
 
 export const EXPLORATION_CAT_COLORS = {
-  'در حال اکتشاف': { bg: '#e3f2fd', badge: '#1565c0', border: '#42a5f5' },
-  'تکمیل شده': { bg: '#e8f5e9', badge: '#2e7d32', border: '#4caf50' },
-  'متوقف شده': { bg: '#fffde7', badge: '#f57f17', border: '#ffc107' },
-  'باطل شده': { bg: '#ffebee', badge: '#c62828', border: '#ef5350' },
+  'در حال اکتشاف': { bg: '#E1E7E9', badge: '#5B6B72', border: '#5B6B72' }, // schist
+  'تکمیل شده': { bg: '#DCEBE6', badge: '#245349', border: '#245349' }, // patina
+  'متوقف شده': { bg: '#F6E7CC', badge: '#8A5A16', border: '#8A5A16' }, // amber
+  'باطل شده': { bg: '#F3DAD5', badge: '#7A2A20', border: '#7A2A20' }, // rust
 };
 
 export const PROCESSING_CAT_COLORS = {
-  فعال: { bg: '#e8f5e9', badge: '#2e7d32', border: '#4caf50' },
-  'نیمه فعال': { bg: '#fffde7', badge: '#f57f17', border: '#ffc107' },
-  تعطیل: { bg: '#ffebee', badge: '#c62828', border: '#ef5350' },
-  'در حال احداث': { bg: '#e3f2fd', badge: '#1565c0', border: '#42a5f5' },
+  فعال: { bg: '#DCEBE6', badge: '#245349', border: '#245349' }, // patina
+  'نیمه فعال': { bg: '#F6E7CC', badge: '#8A5A16', border: '#8A5A16' }, // amber
+  تعطیل: { bg: '#F3DAD5', badge: '#7A2A20', border: '#7A2A20' }, // rust
+  'در حال احداث': { bg: '#E1E7E9', badge: '#5B6B72', border: '#5B6B72' }, // schist
 };
 
 export const TRADE_CAT_COLORS = {
-  فعال: { bg: '#e8f5e9', badge: '#2e7d32', border: '#4caf50' },
-  تعلیق: { bg: '#fffde7', badge: '#f57f17', border: '#ffc107' },
-  'ابطال شده': { bg: '#ffebee', badge: '#c62828', border: '#ef5350' },
+  فعال: { bg: '#DCEBE6', badge: '#245349', border: '#245349' }, // patina
+  تعلیق: { bg: '#F6E7CC', badge: '#8A5A16', border: '#8A5A16' }, // amber
+  'ابطال شده': { bg: '#F3DAD5', badge: '#7A2A20', border: '#7A2A20' }, // rust
 };
 
 export const MINE_SECTIONS = [

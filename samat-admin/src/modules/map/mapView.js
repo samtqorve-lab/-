@@ -93,7 +93,7 @@ export async function renderMap(container, state) {
       await ensureNativeLocationPermission(); // در وب/دسکتاپ بی‌اثر است؛ فقط داخل اپ اندروید لازم می‌شود
       map.locate({ watch: true, enableHighAccuracy: true, setView: false });
       locateWatching = true;
-      locateBtn.style.background = 'var(--brand-50, #eef2ff)';
+      locateBtn.style.background = 'var(--schist-100)';
     },
   }, '📍 موقعیت من');
   mapBox.style.position = 'relative';
@@ -125,7 +125,7 @@ export async function renderMap(container, state) {
 
   const bounds = [];
   withBoundary.forEach(({ r, corners }) => {
-    const cat = catColors[r['دسته']] || catColors['غیره'] || { border: '#546e7a' };
+    const cat = catColors[r['دسته']] || catColors['غیره'] || { border: '#6B6250' };
     const name = r[nameField] || '—';
     const popup = el('div', {}, [
       el('b', {}, esc(name)),

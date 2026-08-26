@@ -52,7 +52,7 @@ export function openVolumeModal(record, department, nameField, onSaved) {
       resultBox.append(
         el('div', { class: 'kpi-grid' }, [
           el('div', { class: 'kpi-card', style: '--kpi-accent:var(--rust-600)' }, [el('div', { class: 'kpi-n' }, `${fmtNum(grid.cutVolume)}`), el('div', { class: 'kpi-l' }, 'حجم کات (m³)')]),
-          el('div', { class: 'kpi-card', style: '--kpi-accent:#1565c0' }, [el('div', { class: 'kpi-n' }, `${fmtNum(grid.fillVolume)}`), el('div', { class: 'kpi-l' }, 'حجم فیل (m³)')]),
+          el('div', { class: 'kpi-card', style: '--kpi-accent:var(--patina-600)' }, [el('div', { class: 'kpi-n' }, `${fmtNum(grid.fillVolume)}`), el('div', { class: 'kpi-l' }, 'حجم فیل (m³)')]),
           el('div', { class: 'kpi-card' }, [el('div', { class: 'kpi-n' }, `${fmtNum(grid.netVolume)}`), el('div', { class: 'kpi-l' }, 'خالص (m³)')]),
         ]),
         canvas,

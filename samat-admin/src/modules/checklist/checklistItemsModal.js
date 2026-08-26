@@ -34,7 +34,7 @@ export function openChecklistItemsModal(department) {
   const newPhotoCb = el('input', { type: 'checkbox', style: 'width:auto' });
   const addBtn = el('button', { class: 'btn-sm', style: 'background:var(--patina-100);color:var(--patina-700)' }, '➕ افزودن');
   body.append(el('div', { style: 'display:flex;gap:6px' }, [newTextInput, addBtn]));
-  body.append(el('label', { style: 'display:flex;align-items:center;gap:5px;font-size:11.5px;color:#6a1b9a;margin:6px 0 10px' },
+  body.append(el('label', { style: 'display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--fluorite-700);margin:6px 0 10px' },
     [newPhotoCb, 'این آیتم نیاز به عکس (با موقعیت مکانی و توضیح در واترمارک) دارد']));
 
   const listBox = el('div');
@@ -96,7 +96,7 @@ export function openChecklistItemsModal(department) {
       listBox.append(el('div', { style: 'display:flex;align-items:center;gap:6px;padding:7px 0;border-bottom:1px solid var(--stone-200);flex-wrap:wrap' }, [
         el('div', { style: 'display:flex;flex-direction:column;gap:2px' }, [upBtn, downBtn]),
         textInput,
-        el('label', { style: 'display:flex;align-items:center;gap:3px;font-size:10.5px;color:#6a1b9a;white-space:nowrap' }, [photoCb, '📷 نیاز به عکس']),
+        el('label', { style: 'display:flex;align-items:center;gap:3px;font-size:10.5px;color:var(--fluorite-700);white-space:nowrap' }, [photoCb, '📷 نیاز به عکس']),
         el('label', { style: `display:flex;align-items:center;gap:3px;font-size:11px;color:${it.active ? 'var(--patina-700)' : 'var(--stone-600)'};white-space:nowrap` }, [activeCb, 'فعال']),
         delBtn,
       ]));

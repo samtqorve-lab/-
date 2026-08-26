@@ -65,7 +65,7 @@ export function open3DTerrainModal(record, nameField) {
   if (!bbox) { showToast('⚠️ این رکورد مختصات ثبت‌شده ندارد'); return; }
 
   const { body, overlay } = openModal({ title: `🗻 مدل سه‌بعدی توپوگرافی — ${mineName}`, width: '90vw' });
-  const canvasHost = el('div', { style: 'width:100%;height:70vh;border-radius:var(--radius-md);overflow:hidden;background:#dfe7ec;position:relative' });
+  const canvasHost = el('div', { style: 'width:100%;height:70vh;border-radius:var(--radius-md);overflow:hidden;background:var(--stone-200);position:relative' });
   const statusLine = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-top:8px' }, '⏳ در حال دریافت داده‌ی ارتفاعی و تصویر ماهواره‌ای...');
   const hint = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-500);margin-top:4px' },
     'برای چرخاندن بکشید، برای زوم اسکرول کنید.');

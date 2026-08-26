@@ -69,7 +69,7 @@ export async function renderMineDetail(container, state, ctx) {
 
   function draw() {
     wrap.innerHTML = '';
-    const cat = catColors[record['دسته']] || catColors['غیره'] || { bg: '#eceff1', badge: '#546e7a', border: '#90a4ae' };
+    const cat = catColors[record['دسته']] || catColors['غیره'] || { bg: '#F1EEE6', badge: '#6B6250', border: '#6B6250' };
 
     const backBtn = el('button', { class: 'btn btn-ghost', onclick: () => setTab('mines') }, '← بازگشت به فهرست');
     const editBtn = el('button', {
@@ -249,7 +249,7 @@ export async function renderMineDetail(container, state, ctx) {
     L.tileLayer('https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
       subdomains: ['0', '1', '2', '3'], maxZoom: 21, attribution: 'Imagery © Google',
     }).addTo(map);
-    const polygon = L.polygon(corners, { color: '#c9822b', weight: 2, fillOpacity: 0.08 }).addTo(map);
+    const polygon = L.polygon(corners, { color: 'var(--ochre-500)', weight: 2, fillOpacity: 0.08 }).addTo(map);
     map.fitBounds(polygon.getBounds(), { padding: [20, 20] });
 
     const panelHost = el('div', {});

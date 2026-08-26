@@ -1,10 +1,10 @@
 import { sb } from './supabase.js';
 
 export const OFFICER_ROLE_TABS = [
-  { role: 'tech_officer', label: '🦺 مسئول فنی', color: '#1565c0' },
-  { role: 'safety_officer', label: '🦺 مسئول ایمنی', color: '#b71c1c' },
-  { role: 'health_officer', label: '⚕️ بهداشت حرفه‌ای', color: '#2e7d32' },
-  { role: 'owner', label: '🏗 بهره‌بردار', color: '#8d6e63' },
+  { role: 'tech_officer', label: '🦺 مسئول فنی', color: 'var(--schist-600)' },
+  { role: 'safety_officer', label: '🦺 مسئول ایمنی', color: 'var(--rust-700)' },
+  { role: 'health_officer', label: '⚕️ بهداشت حرفه‌ای', color: 'var(--patina-700)' },
+  { role: 'owner', label: '🏗 بهره‌بردار', color: 'var(--clay-700)' },
 ];
 
 export async function fetchChecklistItems(department, role) {

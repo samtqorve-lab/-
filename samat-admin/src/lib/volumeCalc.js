@@ -162,7 +162,7 @@ export function renderVolumeHeatmap(canvas, grid) {
   const ctx = canvas.getContext('2d');
   const W = canvas.width; const H = canvas.height;
   ctx.clearRect(0, 0, W, H);
-  ctx.fillStyle = '#eeeeee'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#E4DFD2'; ctx.fillRect(0, 0, W, H);
   const {
     minX, minY, maxX, maxY, triangles,
   } = grid;

@@ -28,7 +28,7 @@ export function openCornersEditModal(record, department, nameField, onSaved) {
       lonInput.addEventListener('input', () => { p.lon = parseFloat(lonInput.value) || 0; });
       const delBtn = el('button', { class: 'btn-sm', style: 'background:var(--rust-100);color:var(--rust-700)', onclick: () => { points.splice(i, 1); drawRows(); } }, '🗑');
       rowsBox.append(el('div', { style: 'display:flex;align-items:center;gap:6px;margin-bottom:6px' }, [
-        el('div', { style: 'width:22px;font-weight:700;color:#5e35b1;text-align:center' }, LETTERS[i] || `#${i + 1}`),
+        el('div', { style: 'width:22px;font-weight:700;color:var(--fluorite-700);text-align:center' }, LETTERS[i] || `#${i + 1}`),
         latInput, lonInput, delBtn,
       ]));
     });

@@ -21,10 +21,10 @@ function eachMine(rows, itemsFn) {
 }
 
 const ROLE_META = {
-  tech_officer: { l: '🦺 مسئول فنی', c: '#1565c0' },
-  safety_officer: { l: '🦺 مسئول ایمنی', c: '#b71c1c' },
-  health_officer: { l: '⚕️ بهداشت حرفه‌ای', c: '#2e7d32' },
-  owner: { l: '🏗 بهره‌بردار', c: '#8d6e63' },
+  tech_officer: { l: '🦺 مسئول فنی', c: 'var(--schist-600)' },
+  safety_officer: { l: '🦺 مسئول ایمنی', c: 'var(--rust-700)' },
+  health_officer: { l: '⚕️ بهداشت حرفه‌ای', c: 'var(--patina-700)' },
+  owner: { l: '🏗 بهره‌بردار', c: 'var(--clay-700)' },
 };
 
 export function renderChecklist(rows) {

@@ -138,9 +138,9 @@ export async function renderBoundaryMonitor(container, state, appCtx) {
     const svg = `
       <svg viewBox="0 0 ${w} ${h}" style="width:100%;max-width:${w}px;height:auto;background:var(--stone-50);border-radius:8px">
         <line x1="${pad}" y1="${zeroY}" x2="${w - pad}" y2="${zeroY}" stroke="var(--stone-300)" stroke-width="1" />
-        <line x1="${pad}" y1="${thresholdY}" x2="${w - pad}" y2="${thresholdY}" stroke="#e57373" stroke-width="1" stroke-dasharray="4,3" />
-        <polyline points="${points}" fill="none" stroke="#1565c0" stroke-width="2" />
-        ${values.map((v, i) => `<circle cx="${pad + i * xStep}" cy="${yScale(v)}" r="3" fill="#1565c0" />`).join('')}
+        <line x1="${pad}" y1="${thresholdY}" x2="${w - pad}" y2="${thresholdY}" stroke="var(--rust-600)" stroke-width="1" stroke-dasharray="4,3" />
+        <polyline points="${points}" fill="none" stroke="var(--ochre-600)" stroke-width="2" />
+        ${values.map((v, i) => `<circle cx="${pad + i * xStep}" cy="${yScale(v)}" r="3" fill="var(--ochre-600)" />`).join('')}
       </svg>`;
     box.innerHTML = '';
     box.append(el('div', { style: 'margin-top:8px' }));

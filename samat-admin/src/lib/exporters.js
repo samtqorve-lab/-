@@ -22,7 +22,7 @@ export function exportAllKML(rows, nameField, catColors, filename, descBuilder) 
   rows.forEach((m) => {
     const name = (m[nameField] || 'بدون نام').replace(/&/g, '&amp;').replace(/</g, '&lt;');
     const cat = m['دسته'] || 'غیره';
-    const color = (catColors[cat] || catColors['غیره'] || { badge: '#546e7a' }).badge;
+    const color = (catColors[cat] || catColors['غیره'] || { badge: '#6B6250' }).badge;
     const desc = descBuilder(m).replace(/&/g, '&amp;').replace(/</g, '&lt;');
     const points = getMineCorners(m);
     if (points.length >= 3) {
