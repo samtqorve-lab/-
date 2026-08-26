@@ -63,6 +63,23 @@
   color: #fff;
   font-weight: 600;
 }
+/* اکتشاف/فرآوری به‌صورت لایه‌ی زیرین (زیرمجموعه‌ی معدن) — کمی تورفتگی و کوچک‌تر، مثل
+   لایه‌های فرعی زیر یک چینه‌ی اصلی در نمودار زمین‌شناسی */
+.dept-item--child {
+  padding-inline-start: calc(12px + var(--space-4));
+  font-size: var(--text-xs);
+  color: var(--slate-300);
+  position: relative;
+}
+.dept-item--child::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: 14px;
+  top: 0; bottom: 0;
+  width: 1px;
+  background: rgba(143, 160, 150, 0.25);
+}
+.dept-item--child.active { color: #fff; }
 
 .nav-group { position: relative; padding: var(--space-2) var(--space-3); flex: 1; overflow-y: auto; }
 .nav-label { font-size: var(--text-xs); color: var(--slate-300); padding: var(--space-3) 12px 6px; text-transform: uppercase; letter-spacing: 0.04em; }

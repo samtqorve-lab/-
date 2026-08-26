@@ -3,7 +3,12 @@ import { getState, setTab, setDepartment, onChange } from '../../router.js';
 import { signOut } from '../../lib/auth.js';
 import { fetchPendingIdentityCount } from '../../lib/identity.js';
 
-const DEPARTMENTS = ['معدن', 'صنعت', 'اکتشاف', 'فرآوری', 'اصناف'];
+// اکتشاف و فرآوری زیرمجموعه‌ی معدن‌اند (پیش از استخراج و پس از آن)، نه بخش‌های هم‌تراز با صنعت/اصناف
+const DEPARTMENT_TREE = [
+  { dept: 'معدن', children: ['اکتشاف', 'فرآوری'] },
+  { dept: 'صنعت' },
+  { dept: 'اصناف' },
+];
 
 const NAV_ITEMS = [
   { tab: 'dashboard', label: 'داشبورد', icon: '◈' },
@@ -53,12 +58,17 @@ export function mountShell(root, { userLabel, renderContent }) {
 
   function renderDeptSwitch(activeDept) {
     deptSwitch.innerHTML = '';
-    DEPARTMENTS.forEach((d) => {
-      const btn = el('button', {
-        class: `dept-item${d === activeDept ? ' active' : ''}`,
-        onclick: () => setDepartment(d),
-      }, d);
-      deptSwitch.append(btn);
+    DEPARTMENT_TREE.forEach(({ dept, children }) => {
+      deptSwitch.append(el('button', {
+        class: `dept-item${dept === activeDept ? ' active' : ''}`,
+        onclick: () => setDepartment(dept),
+      }, dept));
+      (children || []).forEach((child) => {
+        deptSwitch.append(el('button', {
+          class: `dept-item dept-item--child${child === activeDept ? ' active' : ''}`,
+          onclick: () => setDepartment(child),
+        }, child));
+      });
     });
   }
 
