@@ -6,6 +6,7 @@ import { attachJalaliDatePicker } from '../../lib/jalaliDatePicker.js';
 import { getMineCorners } from '../../lib/geo.js';
 import { openCornersEditModal } from './cornersEditModal.js';
 import { openVolumeModal, openVolumeHistoryModal } from './volumeModal.js';
+import { openEquipmentDefaultsModal } from './equipmentDefaultsModal.js';
 import { setTab } from '../../router.js';
 import { sb } from '../../lib/supabase.js';
 
@@ -89,7 +90,13 @@ export async function renderMineDetail(container, state, ctx) {
         el('div', { style: `display:inline-block;font-size:var(--text-xs);font-weight:700;color:${cat.badge};background:${cat.bg};padding:3px 10px;border-radius:999px;margin-bottom:8px` }, record['دسته'] || 'بدون دسته'),
         el('h2', { style: 'font-size:var(--text-xl)' }, record[nameField] || '—'),
       ]),
-      el('div', { style: 'display:flex;gap:8px' }, [backBtn, editBtn]),
+      el('div', { style: 'display:flex;gap:8px' }, [
+        backBtn,
+        ...(isAdminRole && state.department === 'معدن'
+          ? [el('button', { class: 'btn btn-ghost', onclick: () => openEquipmentDefaultsModal(record, state.department, state.mineId) }, '🛢️ ماشین‌آلات پیش‌فرض')]
+          : []),
+        editBtn,
+      ]),
     ]);
     wrap.append(header);
 

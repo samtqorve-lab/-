@@ -46,11 +46,22 @@ export function watermarkLinesForIdentity(coords, mine, nameField) {
   ];
 }
 
-export function watermarkLinesForPhoto(coords, mine, typeLabel, fullName, membershipNo) {
+// نام فیلد پروانه/تاریخ صدور بسته به تخصص مسئول فنی فرق می‌کند (دقیقاً همان نگاشتی که در
+// samat-tech/src/lib/textMatch.js و mineCards.js هم استفاده شده) — قبلاً اینجا فقط فیلدهای
+// «معدن» (استخراج) هاردکد شده بود، پس برای مسئولین فنی اکتشاف/فرآوری این خطوط همیشه «-» نشان
+// می‌داد چون آن فیلدها روی رکورد آن‌ها اصلاً وجود ندارد.
+const LICENSE_FIELDS_BY_NAME_FIELD = {
+  نام_معدن: { license: 'شماره_پروانه', date: 'تاریخ_پروانه' },
+  نام_متقاضی: { license: 'شماره_پروانه_اکتشاف', date: 'تاریخ_صدور' },
+  نام_واحد: { license: 'شماره_پروانه_بهره_برداری', date: 'تاریخ_صدور' },
+};
+
+export function watermarkLinesForPhoto(coords, mine, typeLabel, fullName, membershipNo, nameField = 'نام_معدن') {
   const now = new Date();
+  const lic = LICENSE_FIELDS_BY_NAME_FIELD[nameField] || LICENSE_FIELDS_BY_NAME_FIELD.نام_معدن;
   return [
-    `⛏️ ${mine['نام_معدن'] || '-'}${typeLabel ? `   |   🏷️ نوع عکس: ${typeLabel}` : ''}`,
-    `📜 پروانه: ${mine['شماره_پروانه'] || '-'}   تاریخ: ${mine['تاریخ_پروانه'] || '-'}`,
+    `⛏️ ${mine[nameField] || '-'}${typeLabel ? `   |   🏷️ نوع عکس: ${typeLabel}` : ''}`,
+    `📜 پروانه: ${mine[lic.license] || '-'}   تاریخ: ${mine[lic.date] || '-'}`,
     `🗺️ کاداستر: ${mine['کد_کاداستر'] || '-'}`,
     coords ? `📍 ${coords.latitude.toFixed(6)}, ${coords.longitude.toFixed(6)}  (دقت ~${Math.round(coords.accuracy)}م)` : '📍 در حال دریافت GPS...',
     `👤 ${fullName || '-'}   عضویت نظام مهندسی: ${membershipNo || '-'}`,
@@ -64,8 +75,8 @@ export async function watermarkIdentityPhoto(file, coords, mine, nameField) {
   return canvasToJpegBlob(canvas);
 }
 
-export async function watermarkPhoto(file, coords, mine, typeLabel, fullName, membershipNo) {
+export async function watermarkPhoto(file, coords, mine, typeLabel, fullName, membershipNo, nameField) {
   const canvas = await loadScaledImage(file, 1600);
-  paintWatermark(canvas, watermarkLinesForPhoto(coords, mine, typeLabel, fullName, membershipNo));
+  paintWatermark(canvas, watermarkLinesForPhoto(coords, mine, typeLabel, fullName, membershipNo, nameField));
   return canvasToJpegBlob(canvas);
 }

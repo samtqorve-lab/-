@@ -1,22 +1,52 @@
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { el, showToast, openModal } from '../../lib/dom.js';
 import { getMineCornersLabeled, northSouthEastWestOffset } from '../../lib/geo.js';
 
 const VISIT_THRESHOLD_M = 8;
 
-/** ابزار پیاده‌کردن نقاط پروانه: فاصله‌ی شمال-جنوب/شرق-غرب زنده تا هر گوشه‌ی محدوده‌ی قانونی — بدون نیاز به قطب‌نمای گوشی */
+/** ابزار پیاده‌کردن نقاط پروانه: نقشه‌ی ماهواره‌ای با پلی‌گون محدوده + فاصله‌ی شمال-جنوب/شرق-غرب زنده تا هر گوشه */
 export function openStakeoutModal(mine, nameField) {
   const corners = getMineCornersLabeled(mine);
   if (!corners.length) { showToast('⚠️ مختصات گوشه‌های محدوده برای این معدن ثبت نشده'); return; }
 
-  const { body, overlay } = openModal({ title: `🎯 پیاده کردن نقاط پروانه — ${mine[nameField]}`, width: '420px' });
+  const { body, overlay } = openModal({ title: `🎯 پیاده کردن نقاط پروانه — ${mine[nameField]}`, width: '440px' });
 
   let targetIdx = 0;
   const visited = new Set();
   let watchId = null;
 
+  const mapHost = el('div', { style: 'width:100%;height:220px;border-radius:12px;overflow:hidden;margin-bottom:12px;background:var(--stone-200)' });
   const chipsBox = el('div', { style: 'display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px' });
   const guidanceBox = el('div', { style: 'background:var(--stone-50);border-radius:12px;padding:16px;text-align:center' });
   const statusBox = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-top:10px;text-align:center' });
+
+  // --- نقشه‌ی ماهواره‌ای + پلی‌گون محدوده‌ی قانونی ---
+  const map = L.map(mapHost, { zoomControl: true, attributionControl: false });
+  L.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { subdomains: ['0', '1', '2', '3'], maxZoom: 21 }).addTo(map);
+  const boundaryPolygon = L.polygon(corners.map((c) => [c.lat, c.lon]), {
+    color: '#C97A31', weight: 2, fillColor: '#C97A31', fillOpacity: 0.12,
+  }).addTo(map);
+  map.fitBounds(boundaryPolygon.getBounds(), { padding: [24, 24] });
+
+  const cornerMarkers = corners.map((c, i) => L.circleMarker([c.lat, c.lon], {
+    radius: 7, color: '#fff', weight: 2, fillColor: '#8A5A16', fillOpacity: 1,
+  }).bindTooltip(c.label, { permanent: true, direction: 'top', className: 'stakeout-corner-label' }).addTo(map));
+
+  let meMarker = null;
+  function updateCornerMarkerStyles() {
+    cornerMarkers.forEach((m, i) => {
+      const color = i === targetIdx ? '#C97A31' : visited.has(i) ? '#245349' : '#8A5A16';
+      m.setStyle({ fillColor: color });
+    });
+  }
+  function updateMePosition(lat, lon) {
+    if (!meMarker) {
+      meMarker = L.circleMarker([lat, lon], { radius: 8, color: '#fff', weight: 2, fillColor: '#1e88e5', fillOpacity: 1 }).addTo(map);
+    } else {
+      meMarker.setLatLng([lat, lon]);
+    }
+  }
 
   function drawChips() {
     chipsBox.innerHTML = '';
@@ -26,12 +56,14 @@ export function openStakeoutModal(mine, nameField) {
       chipsBox.append(el('button', {
         class: 'btn-sm',
         style: `background:${active ? 'var(--patina-700)' : done ? 'var(--patina-100)' : 'var(--stone-100)'};color:${active ? '#fff' : done ? 'var(--patina-700)' : 'var(--stone-700)'}`,
-        onclick: () => { targetIdx = i; drawChips(); },
+        onclick: () => { targetIdx = i; drawChips(); updateCornerMarkerStyles(); },
       }, `${done ? '✅ ' : '📍 '}${c.label}`));
     });
+    updateCornerMarkerStyles();
   }
 
   function renderGuidance(pos) {
+    updateMePosition(pos.latitude, pos.longitude);
     const target = corners[targetIdx];
     const { northMeters, eastMeters, totalMeters } = northSouthEastWestOffset(pos.latitude, pos.longitude, target.lat, target.lon);
     if (totalMeters <= VISIT_THRESHOLD_M) {
@@ -67,15 +99,19 @@ export function openStakeoutModal(mine, nameField) {
 
   drawChips();
   body.append(
+    mapHost,
     chipsBox, guidanceBox, statusBox,
     el('div', { style: 'font-size:var(--text-xs);color:var(--stone-500);margin-top:10px;text-align:center' }, 'وقتی فاصله به کمتر از ۸ متر برسد، آن نقطه به‌طور خودکار «رسیده» علامت می‌خورد.'),
   );
+  // مودال با انیمیشن باز می‌شود و ابعادش لحظه‌ی append هنوز نهایی نیست؛ بدون این، Leaflet نقشه
+  // را با اندازه‌ی صفر محاسبه می‌کند و گاهی خاکستری/بریده نشان می‌دهد.
+  setTimeout(() => map.invalidateSize(), 60);
 
   // چون نه دکمه‌ی ✖ و نه کلیک روی پس‌زمینه‌ی مودال دسترسی مستقیم به این تابع ندارند،
   // با MutationObserver حذف مودال از DOM را تشخیص می‌دهیم تا ردیابی GPS بی‌دلیل روشن نماند.
   const stopWatching = () => { if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; } };
   const observer = new MutationObserver(() => {
-    if (!document.body.contains(overlay)) { stopWatching(); observer.disconnect(); }
+    if (!document.body.contains(overlay)) { stopWatching(); map.remove(); observer.disconnect(); }
   });
   observer.observe(document.body, { childList: true });
 }

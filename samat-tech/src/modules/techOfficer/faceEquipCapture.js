@@ -118,7 +118,7 @@ export function createFaceEquipCapture({
     const { fullName, membershipNo } = profile;
     try {
       const { blob } = await captureLivePhoto({
-        buildLines: (c) => watermarkLinesForPhoto(c, mine, `سینه‌کار «${faceNameInput.value.trim() || faceName}»`, fullName, membershipNo),
+        buildLines: (c) => watermarkLinesForPhoto(c, mine, `سینه‌کار «${faceNameInput.value.trim() || faceName}»`, fullName, membershipNo, nameField),
       });
       await handleFaceCaptured(mine, blob, faceName);
     } catch (err) {
@@ -139,7 +139,7 @@ export function createFaceEquipCapture({
     showToast('⏳ در حال دریافت موقعیت مکانی...');
     try {
       const coords = await getGeoLocation();
-      const watermarked = await watermarkPhoto(file, coords, mine, `سینه‌کار «${faceName}»`, fullName, membershipNo);
+      const watermarked = await watermarkPhoto(file, coords, mine, `سینه‌کار «${faceName}»`, fullName, membershipNo, nameField);
       await handleFaceCaptured(mine, watermarked, faceName);
     } catch (err) {
       showToast(`⚠️ ${err.message}`);
@@ -154,7 +154,7 @@ export function createFaceEquipCapture({
     const { fullName, membershipNo } = profile;
     try {
       const { blob, coords } = await captureLivePhoto({
-        buildLines: (c) => watermarkLinesForPhoto(c, mine, 'ماشین‌آلات', fullName, membershipNo),
+        buildLines: (c) => watermarkLinesForPhoto(c, mine, 'ماشین‌آلات', fullName, membershipNo, nameField),
       });
       await handleEquipCaptured(mine, blob, coords);
     } catch (err) {
@@ -173,7 +173,7 @@ export function createFaceEquipCapture({
     showToast('⏳ در حال دریافت موقعیت مکانی...');
     try {
       const coords = await getGeoLocation();
-      const watermarked = await watermarkPhoto(file, coords, mine, 'ماشین‌آلات', fullName, membershipNo);
+      const watermarked = await watermarkPhoto(file, coords, mine, 'ماشین‌آلات', fullName, membershipNo, nameField);
       await handleEquipCaptured(mine, watermarked, coords);
     } catch (err) {
       showToast(`⚠️ ${err.message}`);

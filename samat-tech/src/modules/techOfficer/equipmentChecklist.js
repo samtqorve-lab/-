@@ -132,7 +132,7 @@ export function mountEquipmentChecklist(container, mine, nameField, department, 
         showToast('⏳ در حال دریافت موقعیت مکانی...');
         try {
           const coords = await getGeoLocation();
-          const watermarked = await watermarkPhoto(file, coords, mine, photoType === 'overview' ? 'نمای دور' : 'شماره سریال', fullNameInput.value, membershipInput.value);
+          const watermarked = await watermarkPhoto(file, coords, mine, photoType === 'overview' ? 'نمای دور' : 'شماره سریال', fullNameInput.value, membershipInput.value, nameField);
           await submitCapture(photoType, watermarked, coords);
         } catch (err) {
           showToast(`⚠️ ${err.message}`);
@@ -141,7 +141,7 @@ export function mountEquipmentChecklist(container, mine, nameField, department, 
 
       const captureViaLiveCamera = (photoType) => {
         captureLivePhoto({
-          buildLines: (c) => watermarkLinesForPhoto(c, mine, photoType === 'overview' ? 'نمای دور' : 'شماره سریال', fullNameInput.value, membershipInput.value),
+          buildLines: (c) => watermarkLinesForPhoto(c, mine, photoType === 'overview' ? 'نمای دور' : 'شماره سریال', fullNameInput.value, membershipInput.value, nameField),
         }).then(({ blob, coords }) => submitCapture(photoType, blob, coords)).catch((err) => {
           if (err.message === 'CANCELLED') return;
           showToast(`⚠️ دوربین زنده در دسترس نبود؛ از حالت معمولی استفاده می‌شود (${err.message})`);
