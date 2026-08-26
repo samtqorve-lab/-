@@ -45,7 +45,13 @@ export function mountShell(root, { userLabel, renderContent }) {
 
   const deptSwitch = el('div', { class: 'dept-switch' });
   const navGroup = el('nav', { class: 'nav-group' });
-  const footer = el('div', { class: 'sidebar-footer' }, userLabel || '');
+  const footer = el('div', { class: 'sidebar-footer' }, [
+    el('div', {}, userLabel || ''),
+    el('button', {
+      class: 'btn btn-ghost', style: 'width:100%;justify-content:center;margin-top:8px',
+      onclick: () => signOut().then(() => location.reload()),
+    }, '🚪 خروج از سامانه'),
+  ]);
 
   sidebar.append(header, deptSwitch, navGroup, footer);
 
@@ -119,7 +125,6 @@ export function mountShell(root, { userLabel, renderContent }) {
         el('h1', {}, title),
         el('div', { class: 'crumb' }, `بخش ${s.department}`),
       ]),
-      el('button', { class: 'btn btn-ghost', onclick: () => signOut().then(() => location.reload()) }, 'خروج'),
     );
   }
 

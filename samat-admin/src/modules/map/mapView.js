@@ -149,7 +149,7 @@ export async function renderMap(container, state) {
   }
 
   if (state.department === 'معدن') {
-    mountSatellitePanel(container, { map, records: withBoundary.map((x) => x.r), nameField });
+    mountSatellitePanel(mapBox, { map, records: withBoundary.map((x) => x.r), nameField });
 
     const terrainMineSelect = el('select', {}, withBoundary.map((x, i) => el('option', { value: i }, x.r[nameField] || `#${i}`)));
     const terrainBtn = el('button', { class: 'btn btn-primary', style: 'width:100%;justify-content:center;margin-top:10px' }, '🗻 نمایش مدل سه‌بعدی توپوگرافی');

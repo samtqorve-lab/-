@@ -14,18 +14,24 @@ import { getMineCorners } from '../../lib/geo.js';
  * (که به دیکود دقیق مقادیر خام هر پیکسل نیاز دارد، نه فقط تصویر رندرشده) پیاده‌سازی نشده؛
  * چون بدون تضمین از فرمت دقیق خروجی sentinel-proxy، هر عدد ادعایی می‌توانست گمراه‌کننده باشد —
  * و در ابزار بازرسی رسمی معدن، یک عدد نادرست بدتر از نبودن آن عدد است.
- * مدل سه‌بعدی توپوگرافی (Three.js + دیکود DEM) هم‌چنان در این پاس پیاده‌سازی نشده (نیاز به کتابخانه‌ی
- * سنگین سه‌بعدی و منبع Terrain-RGB جداگانه دارد که فراتر از این پاس است).
+ *
+ * ظاهر: به‌جای یک کارت جدا زیر نقشه، این پنل یک جعبه‌ی شناور نیمه‌شفاف روی خودِ نقشه است (گوشه‌ی
+ * چپ‌بالا) — پس به‌جای container، مستقیم mapBox (که position:relative دارد) را می‌گیرد.
  */
-export function mountSatellitePanel(container, { map, records, nameField }) {
+export function mountSatellitePanel(mapBox, { map, records, nameField }) {
   let credConfigured = false;
   let currentOverlay = null;
   let compareLayers = null; // {before: L.ImageOverlay, after: L.ImageOverlay}
   let mode = 'single'; // 'single' | 'compare'
+  let credsOpen = false; // تب کوچیک تنظیمات اتصال Copernicus — پیش‌فرض بسته
 
-  const wrap = el('div', { class: 'card', style: 'margin-top:16px' });
+  const wrap = el('div', {
+    style: 'position:absolute;top:10px;right:10px;z-index:1000;max-width:300px;max-height:calc(100% - 20px);overflow-y:auto;'
+      + 'background:rgba(255,255,255,0.9);backdrop-filter:blur(3px);border-radius:var(--radius-md);'
+      + 'padding:12px;box-shadow:var(--shadow-md);font-size:var(--text-sm)',
+  });
   wrap.append(el('div', { class: 'loading-state' }, 'در حال بررسی تنظیمات Copernicus...'));
-  container.append(wrap);
+  mapBox.append(wrap);
 
   checkCopernicusStatus().then((status) => {
     credConfigured = status.configured;
@@ -39,7 +45,7 @@ export function mountSatellitePanel(container, { map, records, nameField }) {
 
   function drawPanel(status) {
     wrap.innerHTML = '';
-    wrap.append(el('h3', {}, '🛰️ پایش ماهواره‌ای (Sentinel Hub)'));
+    wrap.append(el('h3', { style: 'margin-top:0' }, '🛰️ پایش ماهواره‌ای'));
 
     if (status.unreachable) {
       wrap.append(el('div', { style: 'font-size:var(--text-xs);color:var(--rust-600)' },
@@ -47,32 +53,51 @@ export function mountSatellitePanel(container, { map, records, nameField }) {
       return;
     }
 
-    wrap.append(el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:10px' },
-      'این ابزار از سرویس رایگان Copernicus Data Space Ecosystem استفاده می‌کند. Client ID/Secret فقط یک‌بار لازم است وارد شود.'));
+    // ── تب کوچیک قابل‌باز-و-بسته برای Client ID/Secret — چون فقط یک‌بار لازم است وارد شود،
+    // نیازی نیست همیشه فضای پنل را اشغال کند ──
+    const credsToggle = el('button', {
+      class: 'btn-sm', style: 'background:var(--stone-100);color:var(--ink-700);width:100%;justify-content:space-between;margin-bottom:8px',
+      onclick: () => { credsOpen = !credsOpen; drawPanel(status); },
+    }, `🔑 تنظیمات اتصال Copernicus ${credConfigured ? '(تنظیم‌شده) ' : ''}${credsOpen ? '▲' : '▼'}`);
+    wrap.append(credsToggle);
 
-    const idInput = el('input', { type: 'text', dir: 'ltr', value: status.clientId || '' });
-    const { wrap: secretWrap, input: secretInput } = passwordFieldWithToggle({ dir: 'ltr', placeholder: status.configured ? '●●●●●●●● (قبلاً ذخیره شده — برای تغییر مقدار جدید بدهید)' : '••••••••' });
-    const saveBtn = el('button', { class: 'btn-sm', style: 'background:var(--stone-100);color:var(--ink-700);margin-top:6px' }, '💾 ذخیره Client ID/Secret');
-    saveBtn.addEventListener('click', async () => {
-      if (!idInput.value.trim() || (!secretInput.value.trim() && !credConfigured)) { showToast('⚠️ Client ID/Secret را وارد کنید'); return; }
-      saveBtn.disabled = true; saveBtn.textContent = '⏳ در حال ذخیره...';
-      try {
-        await saveCopernicusCreds(idInput.value.trim(), secretInput.value.trim());
-        credConfigured = true;
-        showToast('✅ ذخیره شد');
-      } catch (err) {
-        showToast(`⚠️ ${err.message}`);
-      } finally {
-        saveBtn.disabled = false; saveBtn.textContent = '💾 ذخیره Client ID/Secret';
-      }
-    });
-    wrap.append(el('label', {}, 'Client ID'), idInput, el('label', {}, 'Client Secret'), secretWrap, saveBtn);
+    let idInput; let secretInput;
+    if (credsOpen) {
+      const credsBox = el('div', { style: 'margin-bottom:10px;padding:8px;background:var(--stone-50);border-radius:8px' });
+      credsBox.append(el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:8px' },
+        'این ابزار از سرویس رایگان Copernicus Data Space Ecosystem استفاده می‌کند. Client ID/Secret فقط یک‌بار لازم است وارد شود.'));
+      idInput = el('input', { type: 'text', dir: 'ltr', value: status.clientId || '' });
+      const secretField = passwordFieldWithToggle({ dir: 'ltr', placeholder: status.configured ? '●●●●●●●● (قبلاً ذخیره شده)' : '••••••••' });
+      secretInput = secretField.input;
+      const saveBtn = el('button', { class: 'btn-sm', style: 'background:var(--stone-100);color:var(--ink-700);margin-top:6px' }, '💾 ذخیره');
+      saveBtn.addEventListener('click', async () => {
+        if (!idInput.value.trim() || (!secretInput.value.trim() && !credConfigured)) { showToast('⚠️ Client ID/Secret را وارد کنید'); return; }
+        saveBtn.disabled = true; saveBtn.textContent = '⏳ در حال ذخیره...';
+        try {
+          await saveCopernicusCreds(idInput.value.trim(), secretInput.value.trim());
+          credConfigured = true;
+          showToast('✅ ذخیره شد');
+        } catch (err) {
+          showToast(`⚠️ ${err.message}`);
+        } finally {
+          saveBtn.disabled = false; saveBtn.textContent = '💾 ذخیره';
+        }
+      });
+      credsBox.append(el('label', {}, 'Client ID'), idInput, el('label', {}, 'Client Secret'), secretField.wrap, saveBtn);
+      wrap.append(credsBox);
+    } else {
+      // این دو مقدار فقط توسط حالت‌های زیر برای فراخوانی fetchSentinelImage/getCopernicusToken خوانده
+      // می‌شوند (خودشان خالی می‌مانند وقتی تب بسته است — چون credsConfigured از قبل ذخیره شده، مقدار
+      // واقعی سمت سرور استفاده می‌شود، نه این ورودی‌ها)
+      idInput = el('input', { type: 'hidden', value: status.clientId || '' });
+      secretInput = el('input', { type: 'hidden', value: '' });
+    }
 
     const modeSingleBtn = el('button', { class: `btn-sm${mode === 'single' ? '' : ' btn-ghost'}`, style: 'flex:1' }, '🖼️ تک‌تصویر');
     const modeCompareBtn = el('button', { class: `btn-sm${mode === 'compare' ? '' : ' btn-ghost'}`, style: 'flex:1' }, '↔️ مقایسه دو تاریخ');
     modeSingleBtn.addEventListener('click', () => { mode = 'single'; clearMapLayers(); drawPanel(status); });
     modeCompareBtn.addEventListener('click', () => { mode = 'compare'; clearMapLayers(); drawPanel(status); });
-    wrap.append(el('div', { style: 'display:flex;gap:6px;margin:12px 0' }, [modeSingleBtn, modeCompareBtn]));
+    wrap.append(el('div', { style: 'display:flex;gap:6px;margin:8px 0' }, [modeSingleBtn, modeCompareBtn]));
 
     const mineSelect = el('select', {}, records.map((r, i) => el('option', { value: i }, r[nameField] || `#${i}`)));
     const layerSelect = el('select', {}, Object.entries(SAT_LAYERS).map(([k, v]) => el('option', { value: k }, v.label)));
