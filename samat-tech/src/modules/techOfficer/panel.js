@@ -2,12 +2,6 @@ import { el, showToast, openModal } from '../../lib/dom.js';
 import { sb } from '../../lib/supabase.js';
 import { specialtyMeta } from '../../lib/records.js';
 import { monthlyReminderStatus, licenseExpiryStatus } from '../../lib/banners.js';
-import { openSafetyChecklistModal } from './safetyChecklist.js';
-import { mountEquipmentChecklist } from './equipmentChecklist.js';
-import { mountHistory } from './history.js';
-import { mountMonthlyReport } from './monthlyReport.js';
-import { mountGovLinks } from './mineCards.js';
-import { openIncidentModal } from './incidentModal.js';
 import { createFaceEquipCapture } from './faceEquipCapture.js';
 import { mountDrawerMenu } from '../shell/drawerMenu.js';
 import { mountBiometricToggle } from '../shell/biometricToggle.js';
@@ -16,11 +10,11 @@ import { mountGpsStatusChip } from '../shell/gpsStatusChip.js';
 import { mountSafetyCheckin } from '../shell/safetyCheckinWidget.js';
 import { mountNotificationToggle } from '../shell/notificationToggle.js';
 import { checkAndNotify } from '../../lib/localNotifications.js';
-import { openStakeoutModal } from './stakeout.js';
 import { mountMultiMineOverview } from './multiMineOverview.js';
-import {
-  openTrainingModal, openProductionModal, openPersonnelModal, openCorrectiveModal, openQuarterlyMapModal,
-} from './supplementaryReports.js';
+// نکته‌ی کارایی: بقیه‌ی ماژول‌ها (چک‌لیست‌ها، گزارش‌ها، نقشه‌ی استیک‌اوت با Leaflet، و...) عمداً
+// این‌جا import نمی‌شوند — هرکدام فقط با import() پویا، دقیقاً لحظه‌ای که کاربر همان دکمه را
+// می‌زند بارگذاری می‌شوند. چون این اپ اغلب در سایت‌های معدنیِ با اینترنت ضعیف باز می‌شود، این کار
+// حجم دانلود اولیه‌ی اپ را به‌طور محسوس کم می‌کند (Leaflet به‌تنهایی ده‌ها کیلوبایت است).
 
 const SPEC_ICONS = { استخراج: '⛏️', اکتشاف: '🔍', فرآوری: '⚗️' };
 
@@ -118,17 +112,24 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
     {
       icon: '✅',
       label: 'چک‌لیست ایمنی نوبت‌کاری',
-      onClick: requireMine((mine) => openSafetyChecklistModal(mine, nameField, meta.dept)),
+      onClick: requireMine(async (mine) => {
+        const { openSafetyChecklistModal } = await import('./safetyChecklist.js');
+        openSafetyChecklistModal(mine, nameField, meta.dept);
+      }),
     },
     {
       icon: '🚨',
       label: 'اعلام حادثه',
-      onClick: requireMine((mine) => openIncidentModal(mine, nameField, meta.dept, { email })),
+      onClick: requireMine(async (mine) => {
+        const { openIncidentModal } = await import('./incidentModal.js');
+        openIncidentModal(mine, nameField, meta.dept, { email });
+      }),
     },
     {
       icon: '⚙️',
       label: 'چک‌لیست تجهیزات/ماشین‌آلات تایید‌شده',
-      onClick: requireMine((mine) => {
+      onClick: requireMine(async (mine) => {
+        const { mountEquipmentChecklist } = await import('./equipmentChecklist.js');
         const { body } = openModal({ title: '⚙️ چک‌لیست تجهیزات/ماشین‌آلات تایید‌شده', width: '560px' });
         mountEquipmentChecklist(body, mine, nameField, meta.dept, fullNameInput, membershipInput);
       }),
@@ -136,7 +137,8 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
     {
       icon: '📤',
       label: 'ارسال گزارش دوره‌ای ماهانه',
-      onClick: () => {
+      onClick: async () => {
+        const { mountMonthlyReport } = await import('./monthlyReport.js');
         const { body } = openModal({ title: '📤 گزارش دوره‌ای ماهانه', width: '560px' });
         mountMonthlyReport(
           body, currentMine, nameField, meta.dept,
@@ -149,7 +151,10 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
     {
       icon: '🗂️',
       label: 'گزارش‌های تکمیلی',
-      onClick: requireMine((mine) => {
+      onClick: requireMine(async (mine) => {
+        const {
+          openTrainingModal, openProductionModal, openPersonnelModal, openCorrectiveModal, openQuarterlyMapModal,
+        } = await import('./supplementaryReports.js');
         const { body } = openModal({ title: '🗂️ گزارش‌های تکمیلی' });
         body.append(
           el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:10px' }, 'ثبت سریع آموزش، تولید، پرسنل، اقدام اصلاحی و نقشه‌ی سه‌ماهه.'),
@@ -166,7 +171,8 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
     {
       icon: '🗂️',
       label: 'گزارش‌های ارسالی قبلی',
-      onClick: () => {
+      onClick: async () => {
+        const { mountHistory } = await import('./history.js');
         const { body } = openModal({ title: '🗂️ گزارش‌های ارسالی قبلی', width: '560px' });
         historyMount = mountHistory(body, mines.map((m) => m[nameField]));
       },
@@ -174,7 +180,8 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
     {
       icon: '🏛️',
       label: 'سامانه‌های دولتی مرتبط',
-      onClick: () => {
+      onClick: async () => {
+        const { mountGovLinks } = await import('./mineCards.js');
         const { body } = openModal({ title: '🏛️ سامانه‌های دولتی مرتبط' });
         mountGovLinks(body, roleRow.membership_no, roleRow.national_code);
       },
@@ -201,7 +208,10 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
         multiMineBox,
         el('button', {
           class: 'btn-sm', style: 'background:var(--patina-50);color:var(--patina-700);margin-top:10px;width:100%',
-          onclick: requireMine((mine) => openStakeoutModal(mine, nameField)),
+          onclick: requireMine(async (mine) => {
+            const { openStakeoutModal } = await import('./stakeout.js');
+            openStakeoutModal(mine, nameField);
+          }),
         }, '🎯 پیاده کردن نقاط پروانه (استیک‌اوت GPS)'),
       ]),
       el('div', { class: 'card' }, [
@@ -210,7 +220,8 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
         el('div', { style: 'height:1px;background:var(--stone-200);margin:14px 0' }),
         el('button', {
           class: 'btn-sm', style: 'width:100%;background:var(--amber-50);color:var(--amber-700)',
-          onclick: requireMine((mine) => {
+          onclick: requireMine(async (mine) => {
+            const { mountEquipmentChecklist } = await import('./equipmentChecklist.js');
             const { body } = openModal({ title: '🛢️ ماشین‌آلات پیش‌فرض معدن (سهمیه‌ی سوخت)', width: '560px' });
             mountEquipmentChecklist(body, mine, nameField, meta.dept, fullNameInput, membershipInput);
           }),

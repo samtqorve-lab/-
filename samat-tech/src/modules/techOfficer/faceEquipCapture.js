@@ -4,7 +4,7 @@ import { getGeoLocation, isInsideMineBoundary } from '../../lib/geo.js';
 import { watermarkPhoto, watermarkLinesForPhoto } from '../../lib/watermark.js';
 import { captureLivePhoto, liveCameraSupported } from '../../lib/liveCameraCapture.js';
 import { queueOfflineSubmission, newQueueId, isLikelyNetworkError } from '../../lib/offlineQueue.js';
-import { sendEquipmentPhotoPayload } from './equipmentChecklist.js';
+import { sendEquipmentPhotoPayload } from './equipmentSubmit.js';
 
 /**
  * منطق مشترک گرفتن عکس «سینه‌کار» (با نام کوتاه دلخواه، که همان روی واترمارک درج می‌شود) و

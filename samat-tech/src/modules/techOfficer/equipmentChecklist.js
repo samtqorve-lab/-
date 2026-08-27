@@ -3,25 +3,8 @@ import { sb } from '../../lib/supabase.js';
 import { getGeoLocation, isInsideMineBoundary } from '../../lib/geo.js';
 import { watermarkPhoto, watermarkLinesForPhoto } from '../../lib/watermark.js';
 import { captureLivePhoto, liveCameraSupported } from '../../lib/liveCameraCapture.js';
-import { uploadTechFile } from '../../lib/storage.js';
-import { queueOfflineSubmission, newQueueId, isLikelyNetworkError, registerSender } from '../../lib/offlineQueue.js';
-
-// جدا از تابع capture تا هم مسیر آنلاین مستقیم و هم sync بعدی از صف آفلاین از همین استفاده کنند
-// (قبلاً فقط چک‌لیست ایمنی نوبت‌کاری به صف آفلاین وصل بود؛ عکس ماشین‌آلات با قطع اینترنت از دست می‌رفت).
-export async function sendEquipmentPhotoPayload(p) {
-  const photoUrl = await uploadTechFile(p.photoBlob, `equip_${p.deviceKey}_${p.photoType}.jpg`, p.mineName, 'equipment', 'equip_submit');
-  const { error } = await sb.from('mine_equipment').insert([{
-    mine_name: p.mineName, submitted_by: p.submittedBy,
-    machine_type: p.machineType, plate_no: p.plateNo, photo_url: photoUrl, photo_type: p.photoType, device_key: p.deviceKey,
-    serial_no: p.serialNo || null,
-    lat: p.lat, lon: p.lon, inside_boundary: p.insideBoundary, department: p.department,
-    status: p.insideBoundary ? 'approved' : 'pending',
-    reviewed_by: p.insideBoundary ? 'تایید خودکار (داخل محدوده معدن)' : null,
-    reviewed_at: p.insideBoundary ? new Date().toISOString() : null,
-  }]);
-  if (error) throw new Error(error.message);
-}
-registerSender('equipmentPhoto', sendEquipmentPhotoPayload);
+import { queueOfflineSubmission, newQueueId, isLikelyNetworkError } from '../../lib/offlineQueue.js';
+import { sendEquipmentPhotoPayload } from './equipmentSubmit.js';
 
 const EQUIP_FIELD_KEYS = [
   { field: 'تجهیزات_نفت_گاز', label: 'نفت‌گاز' },

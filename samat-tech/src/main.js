@@ -6,9 +6,10 @@ import { sb } from './lib/supabase.js';
 import { mountLogin } from './modules/login/login.js';
 import { mountIdentityPending, mountIdentityCapture, mountIdentityQueuedOffline } from './modules/identity/identityGate.js';
 import { mountBiometricGate } from './modules/identity/biometricGate.js';
-import { mountTechOfficerPanel } from './modules/techOfficer/panel.js';
-import { mountSafetyOfficerPanel } from './modules/safetyOfficer/panel.js';
-import { mountOwnerPanel } from './modules/owner/panel.js';
+// نکته‌ی کارایی: mountTechOfficerPanel/mountSafetyOfficerPanel/mountOwnerPanel این‌جا import
+// نمی‌شوند — نقش هر کاربر ثابت است (یکی از این سه)، پس همیشه دو تای دیگر بی‌مصرف در باندل اولیه
+// دانلود می‌شدند؛ حالا هرکدام درست همان لحظه‌ای که نقش واقعی کاربر مشخص شد، با import() پویا
+// بارگذاری می‌شود.
 import { fetchAssignedMines, fetchMinesByGeoScope, specialtyMeta } from './lib/records.js';
 import { mountStaffFieldPicker } from './modules/shell/staffFieldPicker.js';
 import { checkIdentityGate, loadIdentitySettings, submitIdentityVerification } from './lib/identity.js';
@@ -93,10 +94,12 @@ async function boot() {
       startManagedGpsPrewarm();
       const staffRow = { ...row, role: chosenRole, tech_officer_specialty: specialty };
       if (chosenRole === 'tech_officer') {
+        const { mountTechOfficerPanel } = await import('./modules/techOfficer/panel.js');
         await mountTechOfficerPanel(root, {
           email, mines, identityVerifiedAt: Date.now(), roleRow: staffRow, identitySettings: { monthlyMs: Infinity, reminderMs: Infinity }, onLogout: logoutAndReload,
         });
       } else {
+        const { mountSafetyOfficerPanel } = await import('./modules/safetyOfficer/panel.js');
         await mountSafetyOfficerPanel(root, {
           email, mines, identityVerifiedAt: Date.now(), roleRow: staffRow, identitySettings: { monthlyMs: Infinity, reminderMs: Infinity }, onLogout: logoutAndReload,
         });
@@ -110,6 +113,7 @@ async function boot() {
   if (row.role === 'owner') {
     const mines = await fetchAssignedMines(row.tech_officer_specialty || 'استخراج', row.assigned_mines);
     startManagedGpsPrewarm();
+    const { mountOwnerPanel } = await import('./modules/owner/panel.js');
     await mountOwnerPanel(root, { email, mines, roleRow: row, department: specialtyMeta(row.tech_officer_specialty || 'استخراج').dept, onLogout: logoutAndReload });
     return;
   }
@@ -136,10 +140,12 @@ async function boot() {
   }
 
   if (row.role === 'tech_officer') {
+    const { mountTechOfficerPanel } = await import('./modules/techOfficer/panel.js');
     await mountTechOfficerPanel(root, {
       email, mines, identityVerifiedAt: row.identity_verified_at, roleRow: row, identitySettings, onLogout: logoutAndReload,
     });
   } else {
+    const { mountSafetyOfficerPanel } = await import('./modules/safetyOfficer/panel.js');
     await mountSafetyOfficerPanel(root, {
       email, mines, identityVerifiedAt: row.identity_verified_at, roleRow: row, identitySettings, onLogout: logoutAndReload,
     });
