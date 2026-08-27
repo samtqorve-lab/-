@@ -1,6 +1,7 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { el, showToast } from '../../lib/dom.js';
+import { cachedTileLayer, prefetchTilesForBounds } from '../../lib/cachedTileLayer.js';
 import {
   getMineCornersLabeled, northSouthEastWestOffset, bearingDegrees, haversineMeters, decToDms, dmsToDec, polygonAreaM2,
 } from '../../lib/geo.js';
@@ -60,7 +61,24 @@ export function openStakeoutModal(mine, nameField) {
     onclick: () => close(),
   }, '→ بازگشت');
   const titleEl = el('div', { style: 'font-weight:700;font-size:14px;flex:1' }, `🎯 پیاده کردن نقاط پروانه — ${mine[nameField]}`);
-  topBar.append(backBtn, titleEl);
+  const downloadBtn = el('button', {
+    style: 'background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer;white-space:nowrap',
+    onclick: async () => {
+      if (!navigator.onLine) { showToast('⚠️ برای دانلود نقشه ابتدا باید اینترنت داشته باشید'); return; }
+      downloadBtn.disabled = true;
+      const lats = corners.map((c) => c.lat); const lons = corners.map((c) => c.lon);
+      const bounds = {
+        minLat: Math.min(...lats), maxLat: Math.max(...lats), minLon: Math.min(...lons), maxLon: Math.max(...lons),
+      };
+      await prefetchTilesForBounds('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', bounds, (done, total) => {
+        downloadBtn.textContent = `⏳ ${Math.round((done / total) * 100)}٪`;
+      });
+      downloadBtn.textContent = '✅ آماده‌ی آفلاین';
+      showToast('✅ نقشه‌ی این محدوده برای استفاده‌ی بدون اینترنت ذخیره شد');
+      setTimeout(() => { downloadBtn.disabled = false; downloadBtn.textContent = '⬇️ نقشه برای آفلاین'; }, 3000);
+    },
+  }, '⬇️ نقشه برای آفلاین');
+  topBar.append(backBtn, titleEl, downloadBtn);
 
   const toolbar = el('div', { style: 'display:flex;gap:6px;overflow-x:auto;padding:8px 10px;background:var(--stone-100);border-bottom:1px solid var(--stone-200)' });
   const mapHost = el('div', { style: 'flex:1;min-height:0;background:var(--stone-200)' });
@@ -71,7 +89,7 @@ export function openStakeoutModal(mine, nameField) {
 
   // --- نقشه‌ی ماهواره‌ای + پلی‌گون محدوده‌ی قانونی ---
   const map = L.map(mapHost, { zoomControl: true, attributionControl: false });
-  L.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { subdomains: ['0', '1', '2', '3'], maxZoom: 21 }).addTo(map);
+  cachedTileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { subdomains: ['0', '1', '2', '3'], maxZoom: 21 }).addTo(map);
   const boundaryPolygon = L.polygon(corners.map((c) => [c.lat, c.lon]), {
     color: '#C97A31', weight: 2, fillColor: '#C97A31', fillOpacity: 0.12,
   }).addTo(map);
