@@ -1,4 +1,4 @@
-import { el } from '../../lib/dom.js';
+import { el, showToast } from '../../lib/dom.js';
 import { fetchDeptRecords, applyGeoScope } from '../../lib/records.js';
 import { DEPT_NAME_FIELD } from '../../lib/sections.js';
 import { licenseExpiryInfo } from '../../lib/jalali.js';
@@ -59,7 +59,26 @@ export async function renderDashboard(container, state, appCtx, opts = {}) {
     class: 'btn-sm', style: 'background:var(--stone-100);color:var(--ink-700);float:left',
     onclick: async () => { container.innerHTML = ''; await renderDashboard(container, state, appCtx, { force: true }); },
   }, '↻ به‌روزرسانی');
-  container.append(refreshBtn);
+  const reportBtn = el('button', {
+    class: 'btn-sm', style: 'background:var(--ochre-100);color:var(--ochre-700);float:left;margin-inline-end:8px',
+    onclick: async () => {
+      reportBtn.disabled = true; reportBtn.textContent = '⏳ در حال آماده‌سازی...';
+      try {
+        const { generatePeriodicReport } = await import('../../lib/periodicReportGenerator.js');
+        const blob = await generatePeriodicReport({ assignedProvince: state.assignedProvince, assignedCounty: state.assignedCounty });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `گزارش-دوره‌ای-سامت-${new Date().toISOString().slice(0, 10)}.docx`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        showToast(`❌ خطا در تولید گزارش: ${err.message}`);
+      } finally {
+        reportBtn.disabled = false; reportBtn.textContent = '📄 گزارش دوره‌ای Word';
+      }
+    },
+  }, '📄 گزارش دوره‌ای Word');
+  container.append(reportBtn, refreshBtn);
   container.append(el('div', {
     style: 'font-size:var(--text-xs);color:var(--stone-500);margin-bottom:10px;clear:both',
   }, 'داده‌ها تا ۱ دقیقه کش می‌شوند — اگر همین الان جای دیگری تغییری داده‌اید، از دکمه‌ی بالا استفاده کنید.'));

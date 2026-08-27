@@ -107,4 +107,5 @@ export async function fetchAssignableEntities(specialty) {
 export async function saveUserAccess(userRow, patch) {
   const { error } = await sb.from('user_roles').update(patch).eq('email', userRow.email);
   if (error) throw error;
+  await logUserAccessChange('ویرایش دسترسی/تنظیمات کاربر', userRow.email, patch);
 }
