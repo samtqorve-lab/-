@@ -291,12 +291,54 @@ function pointInPolygon(lat, lon, corners) {
   return inside;
 }
 
-function haversineMeters(lat1, lon1, lat2, lon2) {
+export function haversineMeters(lat1, lon1, lat2, lon2) {
   const R = 6371000;
   const toRad = (d) => (d * Math.PI) / 180;
   const dLat = toRad(lat2 - lat1); const dLon = toRad(lon2 - lon1);
   const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(Math.min(1, a)));
+}
+
+/** جهت (بر حسب درجه، ۰=شمال، ۹۰=شرق) از یک نقطه به نقطه‌ی دیگر — برای چرخاندن فلش راهنما روی نقشه */
+export function bearingDegrees(fromLat, fromLon, toLat, toLon) {
+  const toRad = (d) => (d * Math.PI) / 180;
+  const toDeg = (r) => (r * 180) / Math.PI;
+  const dLon = toRad(toLon - fromLon);
+  const y = Math.sin(dLon) * Math.cos(toRad(toLat));
+  const x = Math.cos(toRad(fromLat)) * Math.sin(toRad(toLat)) - Math.sin(toRad(fromLat)) * Math.cos(toRad(toLat)) * Math.cos(dLon);
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
+}
+
+/** عدد اعشاری را به فرمت درجه-دقیقه-ثانیه (برای ابزار تبدیل مختصات) تبدیل می‌کند */
+export function decToDms(dec) {
+  if (dec === null || dec === undefined || Number.isNaN(dec)) return '-';
+  const sign = dec < 0 ? '-' : '';
+  const abs = Math.abs(dec);
+  const d = Math.floor(abs);
+  const minFloat = (abs - d) * 60;
+  const m = Math.floor(minFloat);
+  const s = (minFloat - m) * 60;
+  return `${sign}${d}° ${m}' ${s.toFixed(2)}"`;
+}
+
+/**
+ * مساحت یک چندضلعی از روی رأس‌های lat/lon (به متر مربع) — با تصویر تخت‌سازی ساده (equirectangular)
+ * حول اولین رأس؛ برای مساحت‌های کوچک (در حد یک محدوده‌ی معدنی) دقت کافی دارد.
+ */
+export function polygonAreaM2(points) {
+  if (points.length < 3) return 0;
+  const R = 6371000;
+  const refLat = (points[0].lat * Math.PI) / 180;
+  const xy = points.map((p) => ({
+    x: ((p.lon * Math.PI) / 180) * R * Math.cos(refLat),
+    y: ((p.lat * Math.PI) / 180) * R,
+  }));
+  let area = 0;
+  for (let i = 0; i < xy.length; i++) {
+    const j = (i + 1) % xy.length;
+    area += xy[i].x * xy[j].y - xy[j].x * xy[i].y;
+  }
+  return Math.abs(area / 2);
 }
 
 /**
