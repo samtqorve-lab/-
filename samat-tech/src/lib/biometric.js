@@ -1,87 +1,84 @@
 // ورود سریع‌تر با اثر انگشت/Face ID — این یک قفل محلیِ روی همان نشست ذخیره‌شده‌ی Supabase است
 // (نه یک مکانیزم امنیتی سمت سرور جدا): وقتی روی این گوشی فعال شود، دفعات بعد قبل از نمایش
-// داشبورد، مرورگر اثر انگشت/Face ID کاربر را می‌خواهد؛ در صورت تایید، از همان نشست موجود
-// استفاده می‌شود. اگر مرورگر/گوشی این قابلیت را نداشته باشد، اصلاً نمایش داده نمی‌شود و
-// ورود همیشه با ایمیل/رمز عادی کار می‌کند.
+// داشبورد، سیستم‌عامل اثر انگشت/Face ID کاربر را می‌خواهد؛ در صورت تایید، از همان نشست موجود
+// استفاده می‌شود. اگر گوشی/محیط این قابلیت را نداشته باشد، اصلاً نمایش داده نمی‌شود.
+//
+// نکته‌ی مهم: طبق مستندات رسمی اندروید (passkeys.dev)، WebAuthn/navigator.credentials داخل
+// WebView جاسازی‌شده‌ی اپ‌های Capacitor پشتیبانی نمی‌شود — به همین دلیل نسخه‌ی قبلی این فایل
+// (که مستقیم از navigator.credentials.create/get استفاده می‌کرد) روی هیچ گوشی‌ای واقعاً کار
+// نمی‌کرد. این نسخه به‌جای WebAuthn، از پلاگین بومی @capgo/capacitor-native-biometric استفاده
+// می‌کند که مستقیم BiometricPrompt واقعی اندروید/iOS را صدا می‌زند — چون این‌جا فقط یک قفل محلی
+// لازم داریم (نه گواهی رمزنگاری‌شده‌ی سمت سرور)، نیازی به پیچیدگی WebAuthn هم نبود.
+
+import { Capacitor } from '@capacitor/core';
+
+async function getPlugin() {
+  if (!Capacitor.isNativePlatform()) return null; // روی وب/PWA این پلاگین اصلاً کار نمی‌کند
+  const { NativeBiometric } = await import('@capgo/capacitor-native-biometric');
+  return NativeBiometric;
+}
 
 export function bioSupported() {
-  return !!(window.PublicKeyCredential && navigator.credentials);
+  return Capacitor.isNativePlatform();
 }
 
 export async function biometricHardwareAvailable() {
-  if (!bioSupported()) return false;
+  const plugin = await getPlugin();
+  if (!plugin) return false;
   try {
-    return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+    const result = await plugin.isAvailable({ useFallback: false });
+    return !!result.isAvailable;
   } catch {
     return false;
   }
 }
 
-function b64encode(buf) {
-  return btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-function b64decode(str) {
-  let s = str.replace(/-/g, '+').replace(/_/g, '/');
-  while (s.length % 4) s += '=';
-  const bin = atob(s);
-  const buf = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
-  return buf;
-}
 function storageKey(email) {
-  return `bio_cred_${btoa(unescape(encodeURIComponent(email.toLowerCase())))}`;
+  return `bio_enabled_${btoa(unescape(encodeURIComponent(email.toLowerCase())))}`;
 }
 
-export function getBiometricCred(email) {
+export function hasBiometricCred(email) {
   try {
-    const raw = localStorage.getItem(storageKey(email));
-    return raw ? JSON.parse(raw) : null;
+    return localStorage.getItem(storageKey(email)) === '1';
   } catch {
-    return null;
+    return false;
   }
 }
-export function hasBiometricCred(email) {
-  return !!getBiometricCred(email);
-}
-function setBiometricCred(email, credIdB64) {
-  localStorage.setItem(storageKey(email), JSON.stringify({ credId: credIdB64 }));
-}
 export function removeBiometricCred(email) {
-  localStorage.removeItem(storageKey(email));
+  try {
+    localStorage.removeItem(storageKey(email));
+  } catch {
+    // نادیده گرفتن خطا عمدی است
+  }
 }
 
-/** یک اعتبارنامه‌ی WebAuthn جدید روی همین دستگاه ثبت می‌کند و به این ایمیل گره می‌زند */
+/** بعد از یک تاییدیه‌ی موفق اثر انگشت/Face ID، این گوشی را برای این ایمیل «فعال» علامت می‌زند */
 export async function enableBiometric(email) {
-  if (!(await biometricHardwareAvailable())) throw new Error('روی این دستگاه سنسور اثر انگشت/Face ID فعال یافت نشد');
-  const challenge = crypto.getRandomValues(new Uint8Array(32));
-  const userId = crypto.getRandomValues(new Uint8Array(16));
-  const cred = await navigator.credentials.create({
-    publicKey: {
-      challenge,
-      rp: { name: 'سامات — مسئول فنی/ایمنی', id: window.location.hostname },
-      user: { id: userId, name: email, displayName: email },
-      pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
-      authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required' },
-      timeout: 60000,
-    },
+  const plugin = await getPlugin();
+  if (!plugin || !(await biometricHardwareAvailable())) {
+    throw new Error('روی این دستگاه سنسور اثر انگشت/Face ID فعال یافت نشد');
+  }
+  await plugin.verifyIdentity({
+    reason: 'برای فعال‌سازی ورود سریع با اثر انگشت/Face ID',
+    title: 'تایید هویت',
+    subtitle: 'سامانه سامت',
   });
-  if (!cred) throw new Error('ثبت اثر انگشت لغو شد');
-  setBiometricCred(email, b64encode(cred.rawId));
+  localStorage.setItem(storageKey(email), '1');
 }
 
-/** پیش از نمایش داشبورد صدا زده می‌شود؛ اگر اعتبارنامه‌ای برای این ایمیل ثبت نشده، true برمی‌گرداند (نیازی به قفل نیست) */
+/** پیش از نمایش داشبورد صدا زده می‌شود؛ اگر برای این ایمیل فعال نشده، true برمی‌گرداند (نیازی به قفل نیست) */
 export async function verifyBiometricGate(email) {
-  const cred = getBiometricCred(email);
-  if (!cred) return true;
-  if (!bioSupported()) return true; // مرورگر عوض شده/پشتیبانی نمی‌کند — به رمز عادی برنگردیم، فقط رد شویم
-  const challenge = crypto.getRandomValues(new Uint8Array(32));
-  const assertion = await navigator.credentials.get({
-    publicKey: {
-      challenge,
-      allowCredentials: [{ id: b64decode(cred.credId), type: 'public-key' }],
-      userVerification: 'required',
-      timeout: 60000,
-    },
-  });
-  return !!assertion;
+  if (!hasBiometricCred(email)) return true;
+  const plugin = await getPlugin();
+  if (!plugin) return true; // پلتفرم عوض شده (مثلاً نسخه‌ی وب) — به رمز عادی برنگردیم، فقط رد شویم
+  try {
+    await plugin.verifyIdentity({
+      reason: 'برای ورود به سامت',
+      title: 'تایید هویت',
+      subtitle: 'اثر انگشت یا Face ID خود را نشان دهید',
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
