@@ -53,6 +53,15 @@ jobs:
       - name: Grant execute permission to gradlew
         run: chmod +x samat-tech/android/gradlew
 
+      # بدون این قدم، هر اجرای CI روی یه رانر تازه یه debug.keystore تصادفی جدید می‌ساخت — یعنی هر
+      # build با یه امضای متفاوت منتشر می‌شد و اندروید موقع آپدیت می‌گفت «امضاها مطابقت ندارند»
+      # (کاربر مجبور می‌شد اول نسخه‌ی قبلی رو پاک کنه). با این کلید ثابت (یک‌بار ساخته و به‌عنوان
+      # Secret ذخیره شده)، همه‌ی نسخه‌ها همیشه با همون امضا منتشر می‌شن و آپدیت بدون حذف نصب می‌شود.
+      - name: Restore persistent debug keystore
+        run: |
+          mkdir -p ~/.android
+          echo "${{ secrets.ANDROID_DEBUG_KEYSTORE_B64 }}" | base64 -d > ~/.android/debug.keystore
+
       - name: Build debug APK
         working-directory: samat-tech/android
         run: ./gradlew assembleDebug
