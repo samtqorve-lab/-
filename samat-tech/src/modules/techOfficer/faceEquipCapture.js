@@ -76,9 +76,9 @@ export function createFaceEquipCapture({
     showToast('✅ عکس ثبت شد');
     try {
       const insideBoundary = coords ? isInsideMineBoundary(coords, mine) : false;
-      const { data: { user } } = await sb.auth.getUser();
+      const { data: { session } } = await sb.auth.getSession();
       const payload = {
-        mineName: mine[nameField], submittedBy: user ? user.email : '',
+        mineName: mine[nameField], submittedBy: session?.user?.email || '',
         machineType: 'سایر ماشین‌آلات (خارج از لیست)', plateNo: '', photoBlob: blob, photoType: 'general',
         deviceKey: `other_${Date.now()}`, lat: coords?.latitude, lon: coords?.longitude, insideBoundary, department,
       };

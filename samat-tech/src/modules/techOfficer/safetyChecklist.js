@@ -77,15 +77,15 @@ export function openSafetyChecklistModal(mine, nameField, department) {
     submitBtn.disabled = true; submitBtn.textContent = '⏳ در حال ارسال...';
     const items = itemsList.map((it) => ({ item: it, status: itemStates[it].status, note: itemStates[it].note || null }));
     const issueItems = items.filter((i) => i.status === 'issue');
-    const { data: { user } } = await sb.auth.getUser();
+    const { data: { session } } = await sb.auth.getSession();
     const payload = {
       checklistRow: {
-        mine_name: mine[nameField], department, submitted_by: user ? user.email : '',
+        mine_name: mine[nameField], department, submitted_by: session?.user?.email || '',
         shift_date: dateInput.value || todayStr(), shift_type: shiftSelect.value,
         items, overall_status: issueItems.length ? 'issues' : 'ok', notes: notesInput.value.trim() || null,
       },
       correctiveRows: issueItems.map((i) => ({
-        mine_name: mine[nameField], department, submitted_by: user ? user.email : '',
+        mine_name: mine[nameField], department, submitted_by: session?.user?.email || '',
         description: `چک‌لیست ایمنی — ${i.item}${i.note ? `: ${i.note}` : ''}`,
         source_type: 'other', status: 'open',
       })),

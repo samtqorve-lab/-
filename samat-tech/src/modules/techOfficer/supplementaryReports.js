@@ -6,8 +6,8 @@ import { uploadTechFile } from '../../lib/storage.js';
 import { formalizePersianText } from '../../lib/formalize.js';
 
 async function currentUserEmail() {
-  const { data: { user } } = await sb.auth.getUser();
-  return user ? user.email : '';
+  const { data: { session } } = await sb.auth.getSession();
+  return session?.user?.email || '';
 }
 
 // ── ۱) آموزش ایمنی کارکنان ──────────────────────────────────────────────

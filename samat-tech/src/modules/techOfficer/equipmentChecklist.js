@@ -82,10 +82,10 @@ export function mountEquipmentChecklist(container, mine, nameField, department, 
         captures[eq.key][photoType].push({ blob, previewUrl: URL.createObjectURL(blob) });
         draw();
         try {
-          const { data: { user } } = await sb.auth.getUser();
+          const { data: { session } } = await sb.auth.getSession();
           const insideBoundary = coords ? isInsideMineBoundary(coords, mine) : false;
           const payload = {
-            mineName: mine[nameField], submittedBy: user ? user.email : '',
+            mineName: mine[nameField], submittedBy: session?.user?.email || '',
             machineType: eq.name || eq.type, plateNo: eq.model, photoBlob: blob, photoType, deviceKey: eq.key,
             serialNo: captures[eq.key].serialNo.trim(),
             lat: coords?.latitude, lon: coords?.longitude, insideBoundary, department,

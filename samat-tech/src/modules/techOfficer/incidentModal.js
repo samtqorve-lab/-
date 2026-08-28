@@ -119,7 +119,7 @@ export function openIncidentModal(mine, nameField, department, profileCtx) {
     const description = descInput.value.trim();
     if (!description) { errBox.textContent = 'شرح حادثه را وارد کنید'; return; }
     submitBtn.disabled = true; submitBtn.textContent = '⏳ در حال ارسال...';
-    const { data: { user } } = await sb.auth.getUser();
+    const { data: { session } } = await sb.auth.getSession();
     const payload = {
       mineName, department,
       incidentType: typeSelect.value,
@@ -129,7 +129,7 @@ export function openIncidentModal(mine, nameField, department, profileCtx) {
       fatalityCount: parseInt(fatalInput.value, 10) || 0,
       description,
       immediateActions: actionsInput.value.trim(),
-      submittedBy: user ? user.email : (profileCtx && profileCtx.email) || '',
+      submittedBy: session?.user?.email || (profileCtx && profileCtx.email) || '',
       photoBlobs: [],
       voiceBlob,
     };

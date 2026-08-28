@@ -85,9 +85,13 @@ export function mountMonthlyReport(container, getMine, nameField, department, ge
     const equipBlobs = captureApi.getEquipBlobs();
     if (!reportFile && !faceBlobs.length && !equipBlobs.length) { showToast('⚠️ حداقل یک فایل یا عکس (از صفحه‌ی اصلی) ثبت کنید'); return; }
 
-    const { data: { user } } = await sb.auth.getUser();
+    // نکته: عمداً getSession (محلی، بدون شبکه) به‌جای getUser (که یک درخواست شبکه‌ی واقعی برای
+    // اعتبارسنجی توکن می‌زند) استفاده شده — چون این تابع باید حتی بدون اینترنت هم کار کند؛
+    // getUser() در آن حالت throw می‌کرد و کل ارسال را، پیش از رسیدن به منطق «ذخیره در صف
+    // آفلاین»، خراب می‌کرد.
+    const { data: { session } } = await sb.auth.getSession();
     const payload = {
-      mineName: mine[nameField], department, period, note: noteInput.value.trim(), submittedBy: user ? user.email : '',
+      mineName: mine[nameField], department, period, note: noteInput.value.trim(), submittedBy: session?.user?.email || '',
       reportBlob: reportFile ? { blob: reportFile, name: reportFile.name } : null,
       faceBlobs,
       equipBlobs,
