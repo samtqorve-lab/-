@@ -11,6 +11,7 @@ import { mountShell } from './modules/shell/shell.js';
 import { mountUpdateBadge } from './modules/shell/updateBadge.js';
 import { startInactivityGuard } from './modules/shell/inactivityGuard.js';
 import { renderMap } from './modules/map/mapView.js';
+import { hasBiometricCred } from './lib/biometric.js';
 
 // بقیه‌ی تب‌ها به‌صورت تنبل (dynamic import) لود می‌شوند — چون هرکدام یک کتابخانه‌ی نسبتاً سنگین
 // با خودشان می‌آورند (الزامات قانونی/هویت→تقویم شمسی، مدیریت کاربران→فرم‌های حجیم) و اکثر
@@ -101,6 +102,15 @@ async function boot() {
   setGeoScope(roleRow.assigned_province, roleRow.assigned_county);
   appCtx = { myEmail: session.user.email, myRole: roleRow.role };
   startInactivityGuard();
+
+  if (hasBiometricCred(session.user.email)) {
+    const { mountBiometricGate } = await import('./modules/identity/biometricGate.js');
+    const ok = await mountBiometricGate(root, session.user.email, async () => {
+      await signOut();
+      window.location.reload();
+    });
+    if (!ok) return; // کاربر از گیت خارج شد (ورود مجدد با رمز)
+  }
 
   // اگر این حساب قبلاً «ورود با تایید Push» را روی این دستگاه فعال کرده، هر بار اپ باز می‌شود
   // باید شنونده‌ی دریافت اعلان دوباره سوار شود (چون handlerAttached در حافظه‌ی هر اجرای تازه صفر است)

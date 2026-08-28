@@ -1,14 +1,46 @@
 import { el, showToast } from '../../lib/dom.js';
 import { sb } from '../../lib/supabase.js';
+import {
+  bioSupported, hasBiometricCred, enableBiometric, removeBiometricCred,
+} from '../../lib/biometric.js';
+
+function renderBiometricCard(email) {
+  const card = el('div', { class: 'card', style: 'max-width:520px;margin-top:16px' });
+  card.append(el('h3', { style: 'margin-top:0' }, '👆 ورود سریع با اثر انگشت/Face ID'));
+  if (!bioSupported()) {
+    card.append(el('p', { style: 'color:var(--stone-600);font-size:var(--text-sm)' },
+      'این قابلیت فقط داخل اپ اندروید/ویندوز نصب‌شده در دسترس است، نه در مرورگر وب معمولی.'));
+    return card;
+  }
+  function draw() {
+    card.querySelectorAll('.bio-row').forEach((n) => n.remove());
+    const enabled = hasBiometricCred(email);
+    const row = el('div', { class: 'bio-row' }, [
+      el('p', { style: 'color:var(--stone-600);font-size:var(--text-sm)' },
+        enabled ? '✅ فعال — دفعات بعد قبل از ورود، اثر انگشت/Face ID این گوشی را می‌خواهد.'
+          : 'وقتی فعال کنید، دفعات بعد به‌جای رمز عبور کافی است اثر انگشت/Face ID خودتان را نشان دهید (این یک قفل محلی روی همین دستگاه است).'),
+      enabled
+        ? el('button', { class: 'btn btn-ghost', onclick: () => { removeBiometricCred(email); showToast('🔓 غیرفعال شد'); draw(); } }, 'غیرفعال‌سازی')
+        : el('button', { class: 'btn btn-primary', onclick: async () => {
+          try { await enableBiometric(email); showToast('✅ ورود با اثر انگشت فعال شد'); } catch (err) { showToast(`⚠️ ${err.message}`); }
+          draw();
+        } }, 'فعال‌سازی روی این دستگاه'),
+    ]);
+    card.append(row);
+  }
+  draw();
+  return card;
+}
 
 /**
- * تب «تنظیمات من»: در حال حاضر فقط شامل سوییچ «ورود با تایید Push» است. چون گرفتن توکن FCM فقط
- * داخل اپ اندروید صمت ممکن است (وب معمولی زیرساخت Web Push جدا می‌خواهد که نصب نشده)، این سوییچ
- * فقط داخل همان اپ فعال است — در وب/دسکتاپ یک توضیح غیرفعال نمایش داده می‌شود.
+ * تب «تنظیمات من»: شامل سوییچ «ورود با تایید Push» و «ورود سریع با اثر انگشت/Face ID». چون گرفتن
+ * توکن FCM فقط داخل اپ اندروید صمت ممکن است (وب معمولی زیرساخت Web Push جدا می‌خواهد که نصب
+ * نشده)، سوییچ Push فقط داخل همان اپ فعال است — در وب/دسکتاپ یک توضیح غیرفعال نمایش داده می‌شود.
  */
 export async function renderMySettings(container, state, appCtx) {
   container.innerHTML = '';
   const email = appCtx.myEmail;
+  container.append(renderBiometricCard(email));
 
   const card = el('div', { class: 'card', style: 'max-width:520px' });
   card.append(el('h3', { style: 'margin-top:0' }, '🔐 ورود با تایید Push'));
