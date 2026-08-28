@@ -65,9 +65,35 @@ export async function renderMap(container, state) {
     return;
   }
 
-  const mapBox = el('div', { style: 'height:65vh;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--stone-200)' });
+  const mapBox = el('div', { class: 'map-box', style: 'height:65vh;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--stone-200)' });
   const toolsHost = el('div', { class: 'card', style: 'margin-bottom:12px' });
-  container.append(toolsHost, mapBox);
+  const printInfo = el('div', { class: 'map-print-only' });
+  const printBtn = el('button', {
+    class: 'btn-sm map-print-hide', style: 'background:var(--stone-100);color:var(--ink-700);margin-bottom:8px',
+    onclick: () => {
+      printInfo.innerHTML = '';
+      const today = new Intl.DateTimeFormat('fa-IR', { dateStyle: 'full' }).format(new Date());
+      printInfo.append(
+        el('h2', {}, `نقشه‌ی معادن — بخش ${state.department}`),
+        el('div', { style: 'font-size:12px;color:#555;margin-bottom:10px' }, `اداره صنعت، معدن و تجارت قروه — تاریخ چاپ: ${today}`),
+      );
+      const legend = el('div', { class: 'map-print-legend' });
+      Object.entries(catColors).forEach(([label, c]) => {
+        legend.append(el('div', { class: 'map-print-legend-item' }, [
+          el('span', { class: 'map-print-swatch', style: `background:${c.badge}` }),
+          el('span', {}, label),
+        ]));
+      });
+      printInfo.append(legend);
+      mapBox.classList.add('map-box--printing');
+      setTimeout(() => {
+        map.invalidateSize();
+        window.print();
+        setTimeout(() => mapBox.classList.remove('map-box--printing'), 500);
+      }, 50);
+    },
+  }, '🖨️ چاپ نقشه');
+  container.append(printBtn, toolsHost, printInfo, mapBox);
 
   if (mapInstance) { mapInstance.remove(); mapInstance = null; }
   const map = L.map(mapBox);

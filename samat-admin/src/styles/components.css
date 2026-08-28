@@ -119,6 +119,23 @@
 .content { padding: var(--space-6); overflow-y: auto; flex: 1; }
 
 /* =============================================================
+   چاپ نقشه — فقط عنوان/راهنما/خود نقشه چاپ شود، نه سایدبار/نوار ابزار/بقیه‌ی صفحه
+   ============================================================= */
+.map-print-only { display: none; }
+.map-box--printing { height: 90vh !important; }
+.map-print-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+.map-print-legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; }
+.map-print-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+
+@media print {
+  .sidebar, .sidebar-backdrop, .topbar, .map-print-hide, .card { display: none !important; }
+  .map-print-only { display: block !important; }
+  .content { padding: 0; overflow: visible; }
+  .main { display: block; }
+  .map-box { page-break-inside: avoid; }
+}
+
+/* =============================================================
    کارت‌ها
    ============================================================= */
 .card {
