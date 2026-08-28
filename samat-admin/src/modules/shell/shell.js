@@ -2,6 +2,7 @@ import { el } from '../../lib/dom.js';
 import { getState, setTab, setDepartment, onChange } from '../../router.js';
 import { signOut } from '../../lib/auth.js';
 import { fetchPendingIdentityCount } from '../../lib/identity.js';
+import { mountGlobalSearch } from './globalSearch.js';
 
 // اکتشاف و فرآوری زیرمجموعه‌ی معدن‌اند (پیش از استخراج و پس از آن)، نه بخش‌های هم‌تراز با صنعت/اصناف
 const DEPARTMENT_TREE = [
@@ -58,9 +59,13 @@ export function mountShell(root, { userLabel, renderContent }) {
   const main = el('div', { class: 'main' });
   const topbar = el('div', { class: 'topbar' });
   const content = el('div', { class: 'content' });
+  const topbarTitle = el('div', { style: 'display:flex;align-items:center;gap:10px;flex:1' });
+  const topbarSearch = el('div', { style: 'display:flex;align-items:center' });
+  topbar.append(topbarTitle, topbarSearch);
   main.append(topbar, content);
 
   root.append(sidebar, backdrop, main);
+  mountGlobalSearch(topbarSearch);
 
   function renderDeptSwitch(activeDept) {
     deptSwitch.innerHTML = '';
@@ -118,8 +123,8 @@ export function mountShell(root, { userLabel, renderContent }) {
   function renderTopbar(s) {
     const activeItem = NAV_ITEMS.find((i) => i.tab === s.tab);
     const title = activeItem ? activeItem.label : (s.tab === 'mineDetail' ? 'جزئیات رکورد' : '');
-    topbar.innerHTML = '';
-    topbar.append(
+    topbarTitle.innerHTML = '';
+    topbarTitle.append(
       el('button', { class: 'menu-toggle-btn', onclick: () => toggleSidebar(), 'aria-label': 'باز کردن منو' }, '☰'),
       el('div', {}, [
         el('h1', {}, title),

@@ -108,7 +108,7 @@
 }
 
 .topbar {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap;
   padding: var(--space-4) var(--space-6);
   background: #fff;
   border-bottom: 1px solid var(--stone-200);

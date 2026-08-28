@@ -35,6 +35,14 @@ export function setMine(id) {
   emit();
 }
 
+/** برای پرش از جست‌وجوی سراسری، وقتی رکورد هدف در بخش دیگری غیر از بخش فعلی است */
+export function setMineInDept(id, department) {
+  state.department = department;
+  state.mineId = id;
+  state.tab = 'mineDetail';
+  emit();
+}
+
 export function setGeoScope(province, county) {
   state.assignedProvince = province || '';
   state.assignedCounty = county || '';
