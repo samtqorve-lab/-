@@ -1,14 +1,16 @@
 import { el, showToast } from '../../lib/dom.js';
 import { sb } from '../../lib/supabase.js';
-import { uploadTechFile } from '../../lib/storage.js';
+import { uploadTechFile, uploadVoiceNote } from '../../lib/storage.js';
 import { recentPeriodOptions } from '../../lib/jalali.js';
 import { formalizePersianText } from '../../lib/formalize.js';
+import { mountVoiceRecorder } from '../../lib/voiceRecorder.js';
 import { queueOfflineSubmission, newQueueId, isLikelyNetworkError, registerSender } from '../../lib/offlineQueue.js';
 
 // منطق واقعی ارسال گزارش دوره‌ای — هم مسیر آنلاین مستقیم و هم sync بعدی از صف آفلاین از این استفاده می‌کنند.
 async function sendTechReportPayload(p) {
-  const fileUrls = { report: [], face: [], equip: [], equipmentDetail: [] };
+  const fileUrls = { report: [], face: [], equip: [], equipmentDetail: [], voice: [] };
   if (p.reportBlob) fileUrls.report.push(await uploadTechFile(p.reportBlob.blob, p.reportBlob.name, p.mineName, p.period, 'report'));
+  if (p.voiceBlob) fileUrls.voice.push(await uploadVoiceNote(p.voiceBlob, p.mineName));
   // eslint-disable-next-line no-restricted-syntax
   for (const item of p.faceBlobs) {
     // eslint-disable-next-line no-await-in-loop
@@ -56,6 +58,9 @@ export function mountMonthlyReport(container, getMine, nameField, department, ge
   const periodSelect = el('select', {}, recentPeriodOptions(6).map((p) => el('option', { value: p }, p)));
   const reportFileInput = el('input', { type: 'file', accept: '.pdf,.doc,.docx,image/*' });
   const noteInput = el('textarea', { rows: '3', placeholder: 'توضیحات تکمیلی...' });
+  const voiceBox = el('div', { style: 'margin-top:8px' });
+  let voiceBlob = null;
+  mountVoiceRecorder(voiceBox, (blob) => { voiceBlob = blob; });
   const statusBox = el('div', { style: 'margin-top:10px;font-size:var(--text-sm)' });
   const captureCountBox = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin:8px 0' });
 
@@ -93,6 +98,7 @@ export function mountMonthlyReport(container, getMine, nameField, department, ge
     const payload = {
       mineName: mine[nameField], department, period, note: noteInput.value.trim(), submittedBy: session?.user?.email || '',
       reportBlob: reportFile ? { blob: reportFile, name: reportFile.name } : null,
+      voiceBlob,
       faceBlobs,
       equipBlobs,
     };
@@ -130,6 +136,9 @@ export function mountMonthlyReport(container, getMine, nameField, department, ge
   function resetForm() {
     reportFileInput.value = '';
     noteInput.value = '';
+    voiceBlob = null;
+    voiceBox.innerHTML = '';
+    mountVoiceRecorder(voiceBox, (blob) => { voiceBlob = blob; });
     captureApi.resetAll();
     refreshCaptureCount();
     periodSelect.innerHTML = '';
@@ -142,6 +151,7 @@ export function mountMonthlyReport(container, getMine, nameField, department, ge
     el('label', {}, 'فایل گزارش ماهانه (PDF/Word/عکس)'), reportFileInput,
     captureCountBox,
     el('label', {}, 'توضیحات'), noteInput, formalizeBtn,
+    el('label', { style: 'margin-top:10px' }, 'یادداشت صوتی (اختیاری — سریع‌تر از تایپ توی صحرا)'), voiceBox,
     submitBtn, statusBox,
   );
 }
