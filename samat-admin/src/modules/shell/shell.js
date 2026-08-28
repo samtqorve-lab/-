@@ -11,13 +11,13 @@ const DEPARTMENT_TREE = [
 ];
 
 const NAV_ITEMS = [
-  { tab: 'dashboard', label: 'داشبورد', icon: '◈' },
+  { tab: 'dashboard', label: 'نقشه معادن', icon: '🗺' },
   { tab: 'mines', label: 'فهرست معادن', icon: '⛏' },
   { tab: 'legal', label: 'الزامات قانونی', icon: '⚖' },
   { tab: 'checklist', label: 'گزارش‌های تکمیلی', icon: '🛠' },
   { tab: 'notices', label: 'اطلاعیه‌ها', icon: '📢' },
   { tab: 'identity', label: 'احراز هویت', icon: '🪪', hideForDept: 'صنعت' },
-  { tab: 'map', label: 'نقشه', icon: '🗺' },
+  { tab: 'stats', label: 'آمار و پیگیری', icon: '◈' },
   { tab: 'users', label: 'کاربران', icon: '◐' },
   { tab: 'audit', label: 'تاریخچه تغییرات', icon: '📜' },
   { tab: 'boundaryMonitor', label: 'پایش مرزی', icon: '🛰️', hideForDept: 'اصناف' },

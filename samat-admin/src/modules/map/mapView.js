@@ -7,6 +7,7 @@ import { DEPT_NAME_FIELD, DEPT_CAT_COLORS } from '../../lib/sections.js';
 import { getMineCorners, ensureNativeLocationPermission } from '../../lib/geo.js';
 import { setMine, onChange } from '../../router.js';
 import { mountSatellitePanel } from './satellitePanel.js';
+import { mountMapToolbar } from './mapTools.js';
 
 let mapInstance = null;
 
@@ -14,7 +15,7 @@ let mapInstance = null;
 // خودمان با گوش‌دادن به تغییر مسیر، اگر دیگر روی تب نقشه نبودیم، نمونه‌ی Leaflet را آزاد می‌کنیم —
 // وگرنه نمونه‌ی قدیمی به یک گره DOM جدا از صفحه (detached) وصل می‌ماند و حافظه نشت می‌کند.
 onChange((s) => {
-  if (s.tab !== 'map' && mapInstance) {
+  if (s.tab !== 'dashboard' && mapInstance) {
     mapInstance.remove();
     mapInstance = null;
   }
@@ -64,12 +65,18 @@ export async function renderMap(container, state) {
     return;
   }
 
-  const mapBox = el('div', { style: 'height:70vh;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--stone-200)' });
-  container.append(mapBox);
+  const mapBox = el('div', { style: 'height:65vh;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--stone-200)' });
+  const toolsHost = el('div', { class: 'card', style: 'margin-bottom:12px' });
+  container.append(toolsHost, mapBox);
 
   if (mapInstance) { mapInstance.remove(); mapInstance = null; }
   const map = L.map(mapBox);
   mapInstance = map;
+
+  const cleanupToolbar = mountMapToolbar(toolsHost, map);
+  const unsubscribeToolbar = onChange((s) => {
+    if (s.tab !== 'dashboard') { cleanupToolbar(); unsubscribeToolbar(); }
+  });
 
   const layers = createSatelliteLayers();
   layers.hybrid.addTo(map);
@@ -117,7 +124,7 @@ export async function renderMap(container, state) {
     locateBtn.style.background = '';
   });
   const unsubscribeLocate = onChange((s) => {
-    if (s.tab !== 'map') {
+    if (s.tab !== 'dashboard') {
       if (locateWatching) { map.stopLocate(); locateWatching = false; }
       unsubscribeLocate();
     }
