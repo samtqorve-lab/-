@@ -198,6 +198,13 @@ export async function renderMineDetail(container, state, ctx) {
         ]),
       ]);
       wrap.append(volCard);
+
+      // ── مقایسه‌ی سال جاری با سال قبل ──
+      const yoyCard = el('div', { class: 'card', style: 'margin-bottom:16px' }, [
+        el('h3', { style: 'font-size:var(--text-sm);margin-bottom:8px' }, '📊 مقایسه‌ی سال جاری با سال قبل'),
+      ]);
+      wrap.append(yoyCard);
+      import('./yearComparison.js').then(({ mountYearComparison }) => mountYearComparison(yoyCard, record[nameField]));
     }
 
     // ── مدل سه‌بعدی + پایش ماهواره‌ای ──
