@@ -198,15 +198,13 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
 
   const shell = el('div', { class: 'app-shell' }, [
     el('div', { class: 'topbar' }, [
-      el('div', {}, [
+      drawer.toggleBtn,
+      el('div', { style: 'flex:1' }, [
         el('div', { class: 'title' }, roleRow.membership_no || roleRow.full_name || email),
         el('div', { class: 'sub' }, `${SPEC_ICONS[specialty] || '🦺'} مسئول فنی — تخصص: ${specialty}`),
         gpsChipBox,
       ]),
-      el('div', { style: 'display:flex;gap:6px;align-items:center' }, [
-        drawer.toggleBtn,
-        el('button', { class: 'btn-sm', style: 'background:rgba(255,255,255,.15);color:#fff', onclick: onLogout }, 'خروج'),
-      ]),
+      el('button', { class: 'btn-sm', style: 'background:rgba(255,255,255,.15);color:#fff', onclick: onLogout }, 'خروج'),
     ]),
     el('div', { class: 'content' }, [
       banners,

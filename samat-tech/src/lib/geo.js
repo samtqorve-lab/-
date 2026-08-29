@@ -77,11 +77,25 @@ export async function openLocationSettings() {
   }
 }
 
+/** برخلاف openLocationSettings (صفحه‌ی مجوزهای همین اپ)، این صفحه‌ی «موقعیت مکانی» کل گوشی را
+ * باز می‌کند — جایی که GPS خودِ دستگاه (نه مجوز اپ) روشن/خاموش می‌شود. لازم است چون POSITION_
+ * UNAVAILABLE (کد ۲) معمولاً یعنی GPS گوشی کلاً خاموش است، نه این‌که این اپ مجوز نداشته باشد؛
+ * صفحه‌ی «جزئیات اپ» در آن حالت هیچ کمکی نمی‌کند. */
+export async function openDeviceLocationSettings() {
+  try {
+    const { NativeSettings, AndroidSettings } = await import('capacitor-native-settings');
+    await NativeSettings.open({ optionAndroid: AndroidSettings.Location });
+  } catch {
+    // در وب/محیط بدون این پلاگین، کاری از دستمان ساخته نیست جز پیام متنی که رابط‌کاربری نشان می‌دهد
+  }
+}
+
 /** برای دکمه‌ی «تلاش دوباره» در رابط‌کاربری: وقتی مجوز رد شده یا خطا رخ داده، ناظر فعلی را می‌بندد
  * و از نو شروع می‌کند. اگر قبلاً حداقل یک‌بار رد شده (یعنی اندروید احتمالاً دیگر دیالوگ نشان
  * نمی‌دهد)، به‌جای درخواست بی‌فایده‌ی مجدد، مستقیم صفحه‌ی تنظیمات را باز می‌کند. */
 export function retryGpsPrewarm() {
   if (prewarmWatchId !== null) { navigator.geolocation.clearWatch(prewarmWatchId); prewarmWatchId = null; }
+  if (isDeviceGpsOffError(lastGpsError)) { openDeviceLocationSettings(); return; }
   nativePermissionRequested = false;
   lastGpsError = null;
   if (permissionDenialCount >= 1) { openLocationSettings(); return; }
@@ -92,6 +106,13 @@ export function retryGpsPrewarm() {
  * (بعد از حداقل یک رد قبلی) یا فقط یک درخواست مجوز معمولی دوباره بزند. */
 export function willOpenSettingsOnRetry() {
   return permissionDenialCount >= 1;
+}
+
+/** کد ۲ (POSITION_UNAVAILABLE) استاندارد Geolocation API معمولاً یعنی GPS/موقعیت‌مکانی خودِ
+ * گوشی کلاً خاموش است (نه این‌که فقط این اپ مجوز نداشته باشد) — در آن حالت باز کردن صفحه‌ی
+ * «جزئیات اپ» بی‌فایده است؛ باید صفحه‌ی «موقعیت مکانی» کل گوشی باز شود. */
+export function isDeviceGpsOffError(err) {
+  return !!err && err.code === 2;
 }
 
 export function startGpsPrewarm() {
@@ -200,7 +221,12 @@ export function getGeoLocation() {
     if (!navigator.geolocation) { reject(new Error('مرورگر شما از موقعیت‌مکانی پشتیبانی نمی‌کند')); return; }
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve(pos.coords),
-      (err) => reject(new Error(`برای ثبت عکس باید GPS/لوکیشن گوشی فعال باشد و دسترسی موقعیت‌مکانی را تایید کنید (${err.message})`)),
+      (err) => {
+        const msg = isDeviceGpsOffError(err)
+          ? 'GPS گوشی خاموش است — از تنظیمات گوشی، «موقعیت مکانی» را روشن کنید'
+          : `برای ثبت عکس باید GPS/لوکیشن گوشی فعال باشد و دسترسی موقعیت‌مکانی را تایید کنید (${err.message})`;
+        reject(new Error(msg));
+      },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
     );
   });
