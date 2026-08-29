@@ -8,30 +8,32 @@ import { parseJalaliString, toGregorian, todayJalali, formatJalali } from '../..
 import { getMineCorners } from '../../lib/geo.js';
 
 /**
- * پنل پایش ماهواره‌ای — روی نقشه‌ی Leaflet موجود یک لایه‌ی تصویری (ImageOverlay) اضافه/جایگزین می‌کند.
+ * پنل پایش ماهواره‌ای — کاملاً مستقل از نقشه‌ی اصلی معادن (mapView.js) است: خودش یک نقشه‌ی کوچک
+ * Leaflet جدا می‌سازد (نه روی نقشه‌ی معادن سوار می‌شود، نه با آن نمونه‌ی مشترک دارد) — چون این دو
+ * قرار است دو ابزار جدا باشند، نه یک لایه‌ی روی هم.
+ *
  * دو حالت دارد: «تک‌تصویر» (یک تاریخ) و «مقایسه‌ی دو تاریخ» (اسلایدر قبل/بعد روی همان محدوده).
  * توجه: حالت مقایسه فقط یک ابزار کمکیِ دیداری برای بازرس است — هشدار خودکار عددیِ درصد تغییر
- * (که به دیکود دقیق مقادیر خام هر پیکسل نیاز دارد، نه فقط تصویر رندرشده) پیاده‌سازی نشده؛
- * چون بدون تضمین از فرمت دقیق خروجی sentinel-proxy، هر عدد ادعایی می‌توانست گمراه‌کننده باشد —
- * و در ابزار بازرسی رسمی معدن، یک عدد نادرست بدتر از نبودن آن عدد است.
- *
- * ظاهر: به‌جای یک کارت جدا زیر نقشه، این پنل یک جعبه‌ی شناور نیمه‌شفاف روی خودِ نقشه است (گوشه‌ی
- * چپ‌بالا) — پس به‌جای container، مستقیم mapBox (که position:relative دارد) را می‌گیرد.
+ * پیاده‌سازی نشده؛ چون بدون تضمین از فرمت دقیق خروجی sentinel-proxy، هر عدد ادعایی می‌توانست
+ * گمراه‌کننده باشد — و در ابزار بازرسی رسمی معدن، یک عدد نادرست بدتر از نبودن آن عدد است.
+ * (تشخیص خودکار تخلف، جدا و به‌صورت عددی صحیح‌تر، در Edge Function «boundary-monitor» انجام
+ * می‌شود — نگاه کنید به boundaryMonitor.js برای بررسی آن نتایج.)
  */
-export function mountSatellitePanel(mapBox, { map, records, nameField }) {
+export function mountSatellitePanel(hostContainer, { records, nameField }) {
   let credConfigured = false;
   let currentOverlay = null;
   let compareLayers = null; // {before: L.ImageOverlay, after: L.ImageOverlay}
   let mode = 'single'; // 'single' | 'compare'
   let credsOpen = false; // تب کوچیک تنظیمات اتصال Copernicus — پیش‌فرض بسته
 
-  const wrap = el('div', {
-    style: 'position:absolute;top:10px;right:10px;z-index:1000;max-width:300px;max-height:calc(100% - 20px);overflow-y:auto;'
-      + 'background:rgba(255,255,255,0.9);backdrop-filter:blur(3px);border-radius:var(--radius-md);'
-      + 'padding:12px;box-shadow:var(--shadow-md);font-size:var(--text-sm)',
-  });
+  const mapBox = el('div', { style: 'height:280px;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--stone-200);margin-bottom:10px' });
+  const wrap = el('div', {});
+  hostContainer.append(mapBox, wrap);
+
+  const map = L.map(mapBox, { attributionControl: false }).setView([35.16, 47.8], 12);
+  L.tileLayer('https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', { subdomains: ['0', '1', '2', '3'], maxZoom: 21 }).addTo(map);
+
   wrap.append(el('div', { class: 'loading-state' }, 'در حال بررسی تنظیمات Copernicus...'));
-  mapBox.append(wrap);
 
   checkCopernicusStatus().then((status) => {
     credConfigured = status.configured;
@@ -45,7 +47,6 @@ export function mountSatellitePanel(mapBox, { map, records, nameField }) {
 
   function drawPanel(status) {
     wrap.innerHTML = '';
-    wrap.append(el('h3', { style: 'margin-top:0' }, '🛰️ پایش ماهواره‌ای'));
 
     if (status.unreachable) {
       wrap.append(el('div', { style: 'font-size:var(--text-xs);color:var(--rust-600)' },
@@ -53,8 +54,6 @@ export function mountSatellitePanel(mapBox, { map, records, nameField }) {
       return;
     }
 
-    // ── تب کوچیک قابل‌باز-و-بسته برای Client ID/Secret — چون فقط یک‌بار لازم است وارد شود،
-    // نیازی نیست همیشه فضای پنل را اشغال کند ──
     const credsToggle = el('button', {
       class: 'btn-sm', style: 'background:var(--stone-100);color:var(--ink-700);width:100%;justify-content:space-between;margin-bottom:8px',
       onclick: () => { credsOpen = !credsOpen; drawPanel(status); },
@@ -86,9 +85,6 @@ export function mountSatellitePanel(mapBox, { map, records, nameField }) {
       credsBox.append(el('label', {}, 'Client ID'), idInput, el('label', {}, 'Client Secret'), secretField.wrap, saveBtn);
       wrap.append(credsBox);
     } else {
-      // این دو مقدار فقط توسط حالت‌های زیر برای فراخوانی fetchSentinelImage/getCopernicusToken خوانده
-      // می‌شوند (خودشان خالی می‌مانند وقتی تب بسته است — چون credsConfigured از قبل ذخیره شده، مقدار
-      // واقعی سمت سرور استفاده می‌شود، نه این ورودی‌ها)
       idInput = el('input', { type: 'hidden', value: status.clientId || '' });
       secretInput = el('input', { type: 'hidden', value: '' });
     }
@@ -247,4 +243,7 @@ export function mountSatellitePanel(mapBox, { map, records, nameField }) {
       }
     });
   }
+
+  /** برای صدا زدن از بیرون (drawer) موقع بسته‌شدن، تا نمونه‌ی Leaflet جدا از DOM آزاد شود */
+  return { destroy: () => map.remove() };
 }

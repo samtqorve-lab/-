@@ -28,7 +28,6 @@ const LAZY_RENDERERS = {
   identity: () => import('./modules/identity/identity.js').then((m) => m.renderIdentity),
   users: () => import('./modules/users/users.js').then((m) => m.renderUsers),
   audit: () => import('./modules/audit/auditLog.js').then((m) => m.renderAuditLog),
-  boundaryMonitor: () => import('./modules/map/boundaryMonitor.js').then((m) => m.renderBoundaryMonitor),
   mySettings: () => import('./modules/settings/mySettings.js').then((m) => m.renderMySettings),
 };
 
@@ -130,6 +129,13 @@ async function boot() {
     userLabel: `${roleRow.full_name || session.user.email} — ${roleRow.role}`,
     renderContent,
   });
+
+  // دکمه‌ی شناور ثابتِ پایش ماهواره‌ای — از هر تبی در دسترس است (مستقل از نقشه‌ی معادن، نگاه کنید
+  // به satelliteDrawer.js). فقط مختص معدن است، برای همین برای بخش اصناف نمایش داده نمی‌شود.
+  if (roleRow.department !== 'اصناف') {
+    const { mountSatelliteDrawer } = await import('./modules/map/satelliteDrawer.js');
+    mountSatelliteDrawer(root, appCtx);
+  }
 }
 
 boot();

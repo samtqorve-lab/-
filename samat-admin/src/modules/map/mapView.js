@@ -6,7 +6,6 @@ import { fetchDeptRecords, applyGeoScope } from '../../lib/records.js';
 import { DEPT_NAME_FIELD, DEPT_CAT_COLORS } from '../../lib/sections.js';
 import { getMineCorners, ensureNativeLocationPermission } from '../../lib/geo.js';
 import { setMine, onChange } from '../../router.js';
-import { mountSatellitePanel } from './satellitePanel.js';
 import { mountMapToolbar } from './mapTools.js';
 
 let mapInstance = null;
@@ -182,8 +181,6 @@ export async function renderMap(container, state) {
   }
 
   if (state.department === 'معدن') {
-    mountSatellitePanel(mapBox, { map, records: withBoundary.map((x) => x.r), nameField });
-
     const terrainMineSelect = el('select', {}, withBoundary.map((x, i) => el('option', { value: i }, x.r[nameField] || `#${i}`)));
     const terrainBtn = el('button', { class: 'btn btn-primary', style: 'width:100%;justify-content:center;margin-top:10px' }, '🗻 نمایش مدل سه‌بعدی توپوگرافی');
     terrainBtn.addEventListener('click', async () => {

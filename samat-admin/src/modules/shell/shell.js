@@ -22,7 +22,6 @@ const NAV_ITEMS = [
   { tab: 'compliance', label: 'رتبه‌بندی معادن', icon: '📋', hideForDept: ['صنعت', 'اکتشاف', 'فرآوری', 'اصناف'] },
   { tab: 'users', label: 'کاربران', icon: '◐' },
   { tab: 'audit', label: 'تاریخچه تغییرات', icon: '📜' },
-  { tab: 'boundaryMonitor', label: 'پایش مرزی', icon: '🛰️', hideForDept: 'اصناف' },
   { tab: 'mySettings', label: 'تنظیمات من', icon: '⚙' },
 ];
 
