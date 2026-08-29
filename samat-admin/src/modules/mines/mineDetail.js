@@ -95,6 +95,7 @@ export async function renderMineDetail(container, state, ctx) {
         ...(isAdminRole && state.department === 'معدن'
           ? [
             el('button', { class: 'btn btn-ghost', onclick: () => openEquipmentDefaultsModal(record, state.department, state.mineId) }, '🛢️ ماشین‌آلات پیش‌فرض'),
+            el('button', { class: 'btn btn-ghost', onclick: async () => { const { openQrCheckinModal } = await import('./qrCheckinModal.js'); openQrCheckinModal(record, state.department, state.mineId); } }, '🔳 QR ورود'),
             el('button', { class: 'btn btn-ghost', onclick: async () => { const { openPhotoTimelineModal } = await import('./photoTimeline.js'); openPhotoTimelineModal(record[nameField]); } }, '🖼️ گالری زمانی'),
           ]
           : []),

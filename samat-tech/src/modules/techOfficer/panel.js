@@ -118,6 +118,14 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
       }),
     },
     {
+      icon: '🔳',
+      label: 'تایید حضور با اسکن QR',
+      onClick: requireMine(async (mine) => {
+        const { scanQrCheckin } = await import('./qrCheckin.js');
+        scanQrCheckin(mine, nameField, meta.dept);
+      }),
+    },
+    {
       icon: '🚨',
       label: 'اعلام حادثه',
       onClick: requireMine(async (mine) => {

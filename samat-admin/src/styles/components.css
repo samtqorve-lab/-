@@ -139,6 +139,11 @@
   .content { padding: 0; overflow: visible; }
   .main { display: block; }
   .map-box { page-break-inside: avoid; }
+
+  /* برگه‌ی چاپ QR ورود: فقط خود کارت QR چاپ شود، بدون نیاز به دانستن دقیق ساختار مودال */
+  body:has(.qr-print-area) * { visibility: hidden; }
+  body:has(.qr-print-area) .qr-print-area, body:has(.qr-print-area) .qr-print-area * { visibility: visible; }
+  body:has(.qr-print-area) .qr-print-area { position: absolute; top: 40px; right: 0; left: 0; }
 }
 
 /* =============================================================
