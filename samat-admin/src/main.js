@@ -24,6 +24,7 @@ const LAZY_RENDERERS = {
   checklist: () => import('./modules/checklist/checklist.js').then((m) => m.renderChecklist),
   notices: () => import('./modules/notices/notices.js').then((m) => m.renderNotices),
   stats: () => import('./modules/dashboard/dashboard.js').then((m) => m.renderDashboard),
+  compliance: () => import('./modules/mines/complianceRanking.js').then((m) => m.renderComplianceRanking),
   identity: () => import('./modules/identity/identity.js').then((m) => m.renderIdentity),
   users: () => import('./modules/users/users.js').then((m) => m.renderUsers),
   audit: () => import('./modules/audit/auditLog.js').then((m) => m.renderAuditLog),

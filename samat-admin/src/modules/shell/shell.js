@@ -19,6 +19,7 @@ const NAV_ITEMS = [
   { tab: 'notices', label: 'اطلاعیه‌ها', icon: '📢' },
   { tab: 'identity', label: 'احراز هویت', icon: '🪪', hideForDept: 'صنعت' },
   { tab: 'stats', label: 'آمار و پیگیری', icon: '◈' },
+  { tab: 'compliance', label: 'رتبه‌بندی معادن', icon: '📋', hideForDept: ['صنعت', 'اکتشاف', 'فرآوری', 'اصناف'] },
   { tab: 'users', label: 'کاربران', icon: '◐' },
   { tab: 'audit', label: 'تاریخچه تغییرات', icon: '📜' },
   { tab: 'boundaryMonitor', label: 'پایش مرزی', icon: '🛰️', hideForDept: 'اصناف' },
@@ -87,7 +88,10 @@ export function mountShell(root, { userLabel, renderContent }) {
     navGroup.innerHTML = '';
     navGroup.append(el('div', { class: 'nav-label' }, 'بخش‌ها'));
     const effectiveTab = state.tab === 'mineDetail' ? 'mines' : state.tab;
-    NAV_ITEMS.filter((item) => item.hideForDept !== state.department).forEach((item) => {
+    NAV_ITEMS.filter((item) => {
+      if (!item.hideForDept) return true;
+      return Array.isArray(item.hideForDept) ? !item.hideForDept.includes(state.department) : item.hideForDept !== state.department;
+    }).forEach((item) => {
       const btn = el('button', {
         class: `nav-item${item.tab === effectiveTab ? ' active' : ''}`,
         onclick: () => { setTab(item.tab); closeSidebar(); },

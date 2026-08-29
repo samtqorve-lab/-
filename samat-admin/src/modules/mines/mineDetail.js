@@ -93,7 +93,10 @@ export async function renderMineDetail(container, state, ctx) {
       el('div', { style: 'display:flex;gap:8px' }, [
         backBtn,
         ...(isAdminRole && state.department === 'معدن'
-          ? [el('button', { class: 'btn btn-ghost', onclick: () => openEquipmentDefaultsModal(record, state.department, state.mineId) }, '🛢️ ماشین‌آلات پیش‌فرض')]
+          ? [
+            el('button', { class: 'btn btn-ghost', onclick: () => openEquipmentDefaultsModal(record, state.department, state.mineId) }, '🛢️ ماشین‌آلات پیش‌فرض'),
+            el('button', { class: 'btn btn-ghost', onclick: async () => { const { openPhotoTimelineModal } = await import('./photoTimeline.js'); openPhotoTimelineModal(record[nameField]); } }, '🖼️ گالری زمانی'),
+          ]
           : []),
         editBtn,
       ]),

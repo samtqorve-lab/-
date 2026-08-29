@@ -118,6 +118,12 @@
 
 .content { padding: var(--space-6); overflow-y: auto; flex: 1; }
 
+.data-table { border-collapse: collapse; background: #fff; border-radius: var(--radius-md); overflow: hidden; box-shadow: var(--shadow-sm); }
+.data-table th { text-align: right; font-size: var(--text-xs); color: var(--stone-600); font-weight: 600; padding: 10px 14px; background: var(--stone-50); border-bottom: 1px solid var(--stone-200); user-select: none; }
+.data-table td { padding: 10px 14px; font-size: var(--text-sm); border-bottom: 1px solid var(--stone-100); }
+.data-table tbody tr:hover { background: var(--stone-50); }
+.data-table tbody tr:last-child td { border-bottom: none; }
+
 /* =============================================================
    چاپ نقشه — فقط عنوان/راهنما/خود نقشه چاپ شود، نه سایدبار/نوار ابزار/بقیه‌ی صفحه
    ============================================================= */
