@@ -1,5 +1,7 @@
 import { el, showToast, fmtDateTime } from '../../lib/dom.js';
 import { sb } from '../../lib/supabase.js';
+import { fetchDeptRecords } from '../../lib/records.js';
+import { getMineCorners } from '../../lib/geo.js';
 
 /**
  * پایش خودکار ماهانه‌ی تجاوز به حریم قانونی معدن (با تصاویر ماهواره‌ای Sentinel-2 و شاخص خاک
@@ -16,6 +18,28 @@ import { sb } from '../../lib/supabase.js';
  */
 export async function renderBoundaryMonitor(container, state, appCtx) {
   container.innerHTML = '';
+
+  // ── مشاهده‌ی زنده‌ی تصویر ماهواره‌ای (قبلاً یک دکمه‌ی شناور جدا روی نقشه بود؛ حالا این‌جا،
+  // کنار همان فهرست پایش خودکار، یک‌جا در دسترس است) ──
+  const liveSection = el('div', { class: 'card' });
+  container.append(liveSection);
+  liveSection.append(el('div', { class: 'loading-state' }, 'در حال بارگذاری معادن...'));
+  fetchDeptRecords('معدن').then((all) => {
+    const withCorners = all.filter((r) => getMineCorners(r).length >= 3);
+    liveSection.innerHTML = '';
+    if (!withCorners.length) {
+      liveSection.append(el('div', { style: 'color:var(--stone-600)' }, 'هیچ معدنی با مختصات چهارگوش ثبت‌شده یافت نشد.'));
+      return;
+    }
+    import('./satellitePanel.js').then(({ mountSatellitePanel }) => {
+      mountSatellitePanel(liveSection, { records: withCorners, nameField: 'نام_معدن' });
+    });
+  }).catch((err) => {
+    liveSection.innerHTML = '';
+    liveSection.append(el('div', {}, `⚠️ خطا در بارگذاری معادن: ${err.message}`));
+  });
+
+  container.append(el('h3', { style: 'margin:20px 0 10px' }, '📋 موارد پایش خودکار ماهانه'));
 
   const intro = el('div', { class: 'card', style: 'font-size:var(--text-xs);color:var(--stone-600)' },
     '🛰️ این فهرست از پایش خودکار ماهانه‌ی تصاویر ماهواره‌ای می‌آید. هر مورد را با تصویر قبل/بعد بررسی کنید — تایید یا رد به‌عنوان مورد غلط‌انداز (false positive)، بعد از بازدید میدانی توصیه می‌شود.');

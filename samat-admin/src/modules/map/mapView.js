@@ -105,20 +105,18 @@ export async function renderMap(container, state) {
 
   const layers = createSatelliteLayers();
   layers.hybrid.addTo(map);
-  L.control.layers({
-    '🛰️ ماهواره + عوارض (جاده/نام مکان)': layers.hybrid,
-    '🛰️ ماهواره خالص': layers.pure,
-    '🗺️ خیابانی': layers.street,
-  }, null, { position: 'topleft', collapsed: true }).addTo(map);
 
   // ── نمایش موقعیت فعلی کاربر روی نقشه (GPS مرورگر/دستگاه) ────────────────────────────
   // از L.control.locate خودمان استفاده نمی‌کنیم (وابستگی اضافه)؛ مستقیم روی Geolocation API
   // مرورگر (navigator.geolocation) که لیفلت هم داخلی همین را صدا می‌زند (map.locate) سوار می‌شویم.
   // watch:true یعنی نقطه با حرکت کاربر (مثلاً روی گوشی، سر معدن) زنده به‌روزرسانی می‌شود.
+  // عمداً به‌عنوان یک L.Control واقعی (نه یک دکمه‌ی مطلق‌موقعیت‌یافته‌ی جدا) اضافه می‌شود تا
+  // لیفلت خودش آن را زیر دکمه‌ی بزرگ‌نمایی/کوچک‌نمایی بچیند، نه روی دکمه‌ی تعویض لایه‌ها که
+  // قبلاً به‌خاطر مختصات ثابت (top:80px) گاهی رویش می‌افتاد.
   let locateWatching = false;
   const locateBtn = el('button', {
     class: 'btn btn-ghost',
-    style: 'position:absolute;top:80px;left:10px;z-index:1000;padding:8px 10px;box-shadow:var(--shadow-md)',
+    style: 'padding:8px 10px;box-shadow:var(--shadow-md);border-radius:4px',
     title: 'نمایش موقعیت من روی نقشه',
     onclick: async () => {
       if (locateWatching) { map.stopLocate(); locateWatching = false; locateBtn.style.background = ''; return; }
@@ -128,8 +126,19 @@ export async function renderMap(container, state) {
       locateBtn.style.background = 'var(--schist-100)';
     },
   }, '📍 موقعیت من');
-  mapBox.style.position = 'relative';
-  mapBox.append(locateBtn);
+  const LocateControl = L.Control.extend({
+    onAdd: () => {
+      L.DomEvent.disableClickPropagation(locateBtn);
+      return locateBtn;
+    },
+  });
+  new LocateControl({ position: 'topleft' }).addTo(map);
+
+  L.control.layers({
+    '🛰️ ماهواره + عوارض (جاده/نام مکان)': layers.hybrid,
+    '🛰️ ماهواره خالص': layers.pure,
+    '🗺️ خیابانی': layers.street,
+  }, null, { position: 'topleft', collapsed: true }).addTo(map);
 
   let userMarker = null;
   let userAccuracyCircle = null;
