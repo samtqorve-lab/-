@@ -21,7 +21,7 @@ export function attachJalaliDatePicker(input) {
     const parsed = parseJalaliString(input.value) || todayJalali();
     view = { jy: parsed.jy, jm: parsed.jm };
     panel = el('div', {
-      style: 'position:absolute;z-index:200;background:#fff;border:1px solid var(--stone-200);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:10px;width:240px;font-size:var(--text-sm)',
+      style: 'position:absolute;z-index:1100;background:#fff;border:1px solid var(--stone-200);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:10px;width:240px;font-size:var(--text-sm)',
     });
     positionPanel();
     document.body.append(panel);

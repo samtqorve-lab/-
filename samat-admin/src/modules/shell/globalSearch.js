@@ -44,7 +44,7 @@ export function mountGlobalSearch(hostEl) {
   });
   const results = el('div', {
     style: 'position:absolute;top:100%;right:0;left:0;background:#fff;border:1px solid var(--stone-200);'
-      + 'border-radius:var(--radius-md);box-shadow:var(--shadow-lg);max-height:60vh;overflow-y:auto;z-index:60;display:none',
+      + 'border-radius:var(--radius-md);box-shadow:var(--shadow-lg);max-height:60vh;overflow-y:auto;z-index:1100;display:none',
   });
   const wrap = el('div', { style: 'position:relative;flex:1;max-width:360px' }, [input, results]);
   hostEl.append(wrap);
