@@ -54,6 +54,15 @@ export async function updateDeptRecord(department, rowId, record) {
   invalidateDeptCache(department);
 }
 
+/** حذف کامل یک رکورد (نه فقط تغییر وضعیت/دسته) — قابل بازگشت نیست، هشدار تاییدیه در UI است. */
+export async function deleteDeptRecord(department, rowId) {
+  const table = DEPT_TABLES[department];
+  if (!table) throw new Error(`جدول این بخش (${department}) تعریف نشده است`);
+  const { error } = await sb.from(table).delete().eq('id', rowId);
+  if (error) throw error;
+  invalidateDeptCache(department);
+}
+
 /** درج گروهی رکورد جدید (برای ایمپورت اکسل/CSV) — هر رکورد باید یک آبجکت ساده‌ی فیلد باشد (بدون _rowId). */
 export async function insertDeptRecords(department, records, userEmail) {
   const table = DEPT_TABLES[department];

@@ -4,6 +4,7 @@ import { DEPT_SEARCH_PLACEHOLDER, DEPT_NAME_FIELD, DEPT_CAT_COLORS } from '../..
 import { setMine } from '../../router.js';
 import { openImportModal } from './importModal.js';
 import { openBoundaryImportModal } from './boundaryImportModal.js';
+import { openAddRecordModal } from './addRecordModal.js';
 import { exportCSV, exportAllKML, exportXLSX } from '../../lib/exporters.js';
 
 export async function renderMineList(container, state, ctx) {
@@ -36,6 +37,11 @@ export async function renderMineList(container, state, ctx) {
 
   const isAdminRole = ctx && ['admin', 'superadmin'].includes(ctx.myRole);
   if (isAdminRole) {
+    const addBtn = el('button', {
+      class: 'btn btn-primary',
+      onclick: () => openAddRecordModal(state.department, nameField, ctx.myEmail, () => renderMineList(container, state, ctx)),
+    }, '➕ رکورد جدید');
+    toolbar.append(addBtn);
     const importBtn = el('button', { class: 'btn btn-ghost', onclick: () => openImportModal(state.department, allRows, () => renderMineList(container, state, ctx)) }, '📥 ایمپورت اکسل/CSV');
     toolbar.append(importBtn);
     const boundaryBtn = el('button', { class: 'btn btn-ghost', onclick: () => openBoundaryImportModal(state.department, allRows, () => renderMineList(container, state, ctx)) }, '📐 ایمپورت مختصات کاداستر');

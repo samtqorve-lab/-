@@ -1,5 +1,5 @@
 import { el, esc, showToast, openModal } from '../../lib/dom.js';
-import { fetchDeptRecords, updateDeptRecord } from '../../lib/records.js';
+import { fetchDeptRecords, updateDeptRecord, deleteDeptRecord } from '../../lib/records.js';
 import { DEPT_SECTIONS, DEPT_CAT_COLORS, DEPT_NAME_FIELD } from '../../lib/sections.js';
 import { fetchCustomFields, saveCustomFields, supportsCustomFields } from '../../lib/customFields.js';
 import { attachJalaliDatePicker } from '../../lib/jalaliDatePicker.js';
@@ -85,6 +85,29 @@ export async function renderMineDetail(container, state, ctx) {
       },
     }, editMode ? '💾 ذخیره' : '✏️ ویرایش');
 
+    const deleteBtn = isAdminRole
+      ? el('button', {
+        class: 'btn btn-ghost',
+        style: 'color:var(--rust-700)',
+        onclick: async () => {
+          const typed = prompt(`برای حذف کامل و غیرقابل‌بازگشت این رکورد، نام آن را دقیقاً تایپ کنید:\n${record[nameField] || ''}`);
+          if (typed !== (record[nameField] || '')) {
+            if (typed !== null) showToast('❌ نام واردشده مطابقت نداشت — حذف انجام نشد');
+            return;
+          }
+          deleteBtn.disabled = true; const orig = deleteBtn.textContent; deleteBtn.textContent = '⏳ در حال حذف...';
+          try {
+            await deleteDeptRecord(state.department, state.mineId);
+            showToast('✅ رکورد حذف شد');
+            setTab('mines');
+          } catch (err) {
+            showToast(`❌ خطا در حذف: ${err.message}`);
+            deleteBtn.disabled = false; deleteBtn.textContent = orig;
+          }
+        },
+      }, '🗑️ حذف رکورد')
+      : null;
+
     const header = el('div', { class: 'card', style: 'margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px' }, [
       el('div', {}, [
         el('div', { style: `display:inline-block;font-size:var(--text-xs);font-weight:700;color:${cat.badge};background:${cat.bg};padding:3px 10px;border-radius:999px;margin-bottom:8px` }, record['دسته'] || 'بدون دسته'),
@@ -99,6 +122,7 @@ export async function renderMineDetail(container, state, ctx) {
             el('button', { class: 'btn btn-ghost', onclick: async () => { const { openPhotoTimelineModal } = await import('./photoTimeline.js'); openPhotoTimelineModal(record[nameField]); } }, '🖼️ گالری زمانی'),
           ]
           : []),
+        ...(deleteBtn ? [deleteBtn] : []),
         editBtn,
       ]),
     ]);
