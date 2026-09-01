@@ -39,7 +39,7 @@ jobs:
 
       # همان شماره‌ی build (برای این‌که __APP_BUILD__ نسخه‌ی وب هم با بقیه هم‌راستا بماند،
       # هرچند نسخه‌ی وب خودش چک آپدیت اندرویدی ندارد — appUpdate.js فقط روی Capacitor فعال است).
-      - name: Build web-sub bundle (base: /tech-officer/)
+      - name: "Build web-sub bundle (base: /tech-officer/)"
         working-directory: samat-tech
         env:
           APP_BUILD_NUMBER: ${{ github.run_number }}
