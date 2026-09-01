@@ -118,3 +118,11 @@ npm run build     # خروجی نهایی در dist/ — شامل service worker
 
 
 
+
+## نکته‌ی دیپلوی نسخه‌ی وب (novinproduct.ir/tech-officer/)
+
+قبلاً پوشه‌ی `samat-admin/public/tech-officer/` فقط یک‌بار دستی از این پروژه build و کپی شده بود
+و رفع‌باگ‌های بعدی (مثلاً رفع گیرکردن پشت گیت بیومتریک، commit `8d6978b`) به نسخه‌ی وب نمی‌رسید.
+حالا ورک‌فلوی `.github/workflows/build-tech-web.yml` با هر پوش به این پوشه، خودکار
+`npm run build:web-sub` می‌گیرد و نتیجه را جایگزین نسخه‌ی قدیمی داخل `samat-admin/public/tech-officer/`
+می‌کند — نیازی به کپی دستی دیگر نیست.
