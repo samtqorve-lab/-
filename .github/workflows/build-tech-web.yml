@@ -1,0 +1,72 @@
+name: Build & Deploy Tech-Officer Web (tech-officer subpath)
+
+# قبلاً هیچ ورک‌فلویی نسخه‌ی وبِ اپ مسئول فنی (novinproduct.ir/tech-officer/) را نمی‌ساخت —
+# بر خلاف اندروید که با هر پوش خودکار build می‌شد، این ساب‌پث فقط با یک build دستی و کپی قدیمی
+# در samat-admin/public/tech-officer/ باقی مانده بود و رفع‌باگ‌های بعدی سورس هرگز به آن نمی‌رسید
+# (مثلاً رفع گیرکردن پشت گیت بیومتریک). این ورک‌فلو با هر تغییر در samat-tech، خروجی
+# build:web-sub را می‌سازد و به‌جای پوشه‌ی قدیمی داخل samat-admin/public/tech-officer می‌گذارد.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    paths:
+      - 'samat-tech/**'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Create .env file
+        working-directory: samat-tech
+        run: |
+          echo "VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}" >> .env
+          echo "VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}" >> .env
+
+      - name: Install dependencies
+        working-directory: samat-tech
+        run: npm install
+
+      # همان شماره‌ی build (برای این‌که __APP_BUILD__ نسخه‌ی وب هم با بقیه هم‌راستا بماند،
+      # هرچند نسخه‌ی وب خودش چک آپدیت اندرویدی ندارد — appUpdate.js فقط روی Capacitor فعال است).
+      - name: Build web-sub bundle (base: /tech-officer/)
+        working-directory: samat-tech
+        env:
+          APP_BUILD_NUMBER: ${{ github.run_number }}
+        run: npm run build:web-sub
+
+      # --delete تا فایل‌های hashed قدیمی (که دیگر در build جدید نیستند) باقی نمانند و تکه‌های
+      # ناسازگار بین نسخه‌ی قدیم و جدید سرو نشوند.
+      - name: Replace old tech-officer build with fresh one
+        run: |
+          rm -rf samat-admin/public/tech-officer
+          mkdir -p samat-admin/public/tech-officer
+          cp -r samat-tech/dist-web-sub/. samat-admin/public/tech-officer/
+
+      - name: Commit and push updated web build
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add samat-admin/public/tech-officer
+          if git diff --cached --quiet; then
+            echo "no changes in tech-officer web build"
+            exit 0
+          fi
+          git commit -m "chore: به‌روزرسانی خودکار build وب مسئول فنی (tech-officer) از commit ${{ github.sha }} [skip ci]"
+          for i in 1 2 3 4 5; do
+            if git push; then exit 0; fi
+            echo "push rejected (احتمالاً به‌خاطر workflow دیگری که هم‌زمان push کرد) — تلاش دوباره..."
+            git pull --rebase origin main
+          done
+          echo "push نهایی هم شکست خورد" >&2
+          exit 1
