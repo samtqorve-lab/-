@@ -58,9 +58,15 @@ export async function renderMap(container, state) {
   const withBoundary = records
     .map((r) => ({ r, corners: getMineCorners(r) }))
     .filter((x) => x.corners.length >= 3);
+  // برخی بخش‌ها (مثل صنعت) به‌جای ۴ گوشه‌ی محدوده، فقط یک مختصات نقطه‌ای (_lat/_lon) دارند —
+  // قبلاً نقشه فقط پلی‌گون محدوده را می‌فهمید، پس این رکوردها اصلاً روی نقشه نشان داده نمی‌شدند
+  // (و چون بیشتر/همه‌ی رکوردهای صنعت همین‌طورند، کل نقشه برای آن بخش خالی به نظر می‌رسید).
+  const withPoint = records.filter((r) => (
+    getMineCorners(r).length < 3 && typeof r._lat === 'number' && typeof r._lon === 'number'
+  ));
 
-  if (!withBoundary.length) {
-    container.append(el('div', { class: 'empty-state' }, 'هیچ رکوردی مختصات چهارگوش محدوده (طول_A/عرض_A و ...) ثبت‌شده ندارد.'));
+  if (!withBoundary.length && !withPoint.length) {
+    container.append(el('div', { class: 'empty-state' }, 'هیچ رکوردی مختصات محدوده یا موقعیت ثبت‌شده ندارد.'));
     return;
   }
 
@@ -179,14 +185,30 @@ export async function renderMap(container, state) {
     poly.bindPopup(popup);
     corners.forEach((pt) => bounds.push(pt));
   });
+  withPoint.forEach((r) => {
+    const cat = catColors[r['دسته']] || catColors['غیره'] || { badge: '#6B6250' };
+    const name = r[nameField] || '—';
+    const popup = el('div', {}, [
+      el('b', {}, esc(name)),
+      el('br'),
+      esc(r['دسته'] || ''),
+      el('br'),
+      el('a', { href: '#', onclick: (e) => { e.preventDefault(); setMine(r._rowId); } }, 'مشاهده جزئیات'),
+    ]);
+    const marker = L.circleMarker([r._lat, r._lon], {
+      radius: 8, color: '#fff', weight: 2, fillColor: cat.badge, fillOpacity: 1,
+    }).addTo(map);
+    marker.bindPopup(popup);
+    bounds.push([r._lat, r._lon]);
+  });
 
   map.fitBounds(bounds, { padding: [30, 30] });
   setTimeout(() => map.invalidateSize(), 200);
 
-  const noBoundaryCount = records.length - withBoundary.length;
-  if (noBoundaryCount > 0) {
+  const noLocationCount = records.length - withBoundary.length - withPoint.length;
+  if (noLocationCount > 0) {
     container.append(el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-top:8px' },
-      `${noBoundaryCount} رکورد دیگر مختصات چهارگوش ندارد و روی نقشه نشان داده نشده.`));
+      `${noLocationCount} رکورد دیگر مختصات محدوده یا موقعیت ندارد و روی نقشه نشان داده نشده.`));
   }
 
   // توجه: باکس «مدل سه‌بعدی توپوگرافی» که قبلاً اینجا زیر نقشه بود، به یک تب/صفحه‌ی جدا

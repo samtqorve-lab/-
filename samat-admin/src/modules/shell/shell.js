@@ -22,6 +22,7 @@ const NAV_ITEMS = [
   { tab: 'identity', label: 'احراز هویت', icon: '🪪', hideForDept: 'صنعت' },
   { tab: 'stats', label: 'آمار و پیگیری', icon: '◈' },
   { tab: 'compliance', label: 'رتبه‌بندی معادن', icon: '📋', hideForDept: ['صنعت', 'اکتشاف', 'فرآوری', 'اصناف'] },
+  { tab: 'boundaryMonitor', label: 'پایش مرزی', icon: '🛰️', hideForDept: 'اصناف' },
   { tab: 'users', label: 'کاربران', icon: '◐' },
   { tab: 'audit', label: 'تاریخچه تغییرات', icon: '📜' },
   { tab: 'mySettings', label: 'تنظیمات من', icon: '⚙' },
