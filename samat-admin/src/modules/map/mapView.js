@@ -189,28 +189,6 @@ export async function renderMap(container, state) {
       `${noBoundaryCount} رکورد دیگر مختصات چهارگوش ندارد و روی نقشه نشان داده نشده.`));
   }
 
-  if (state.department === 'معدن') {
-    const terrainMineSelect = el('select', {}, withBoundary.map((x, i) => el('option', { value: i }, x.r[nameField] || `#${i}`)));
-    const terrainBtn = el('button', { class: 'btn btn-primary', style: 'width:100%;justify-content:center;margin-top:10px' }, '🗻 نمایش مدل سه‌بعدی توپوگرافی');
-    terrainBtn.addEventListener('click', async () => {
-      const chosen = withBoundary[parseInt(terrainMineSelect.value, 10)];
-      if (!chosen) { showToast('⚠️ ابتدا یک معدن انتخاب کنید'); return; }
-      terrainBtn.disabled = true; const orig = terrainBtn.textContent; terrainBtn.textContent = '⏳ در حال بارگذاری کتابخانه‌ی سه‌بعدی...';
-      try {
-        // بارگذاری تنبل (dynamic import): Three.js حجیم است (~۷۰۰ کیلوبایت) و فقط وقتی این دکمه
-        // زده می‌شود لازم است — این‌طوری حجم بارگذاری اولیه‌ی داشبورد برای همه‌ی کاربران ثابت می‌ماند.
-        const { open3DTerrainModal } = await import('./terrain3d.js');
-        open3DTerrainModal(chosen.r, nameField);
-      } finally {
-        terrainBtn.disabled = false; terrainBtn.textContent = orig;
-      }
-    });
-    container.append(el('div', { class: 'card', style: 'margin-top:16px' }, [
-      el('h3', {}, '🗻 مدل سه‌بعدی توپوگرافی'),
-      el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:10px' },
-        'داده‌ی ارتفاعی از کاشی‌های عمومی Terrarium گرفته می‌شود (بدون نیاز به تنظیمات یا اعتبارنامه‌ی جدا). رنگ‌بندی بر اساس ارتفاع نسبی است، نه بافت ماهواره‌ای.'),
-      el('label', {}, 'معدن'), terrainMineSelect,
-      terrainBtn,
-    ]));
-  }
+  // توجه: باکس «مدل سه‌بعدی توپوگرافی» که قبلاً اینجا زیر نقشه بود، به یک تب/صفحه‌ی جدا
+  // منتقل شد (ببینید terrain3dPage.js) — این صفحه فقط خودِ نقشه‌ی معادن را نشان می‌دهد.
 }
