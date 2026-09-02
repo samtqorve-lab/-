@@ -3,6 +3,7 @@ import { getState, setTab, setDepartment, onChange } from '../../router.js';
 import { signOut } from '../../lib/auth.js';
 import { fetchPendingIdentityCount } from '../../lib/identity.js';
 import { mountGlobalSearch } from './globalSearch.js';
+import { DEPT_PLURAL_LABEL } from '../../lib/sections.js';
 
 // اکتشاف و فرآوری زیرمجموعه‌ی معدن‌اند (پیش از استخراج و پس از آن)، نه بخش‌های هم‌تراز با صنعت/اصناف
 const DEPARTMENT_TREE = [
@@ -11,11 +12,13 @@ const DEPARTMENT_TREE = [
   { dept: 'اصناف' },
 ];
 
+// label می‌تواند رشته‌ی ثابت باشد یا تابعی که بخش فعال را می‌گیرد و عنوان مخصوص همان بخش را
+// می‌سازد — قبلاً «نقشه معادن»/«فهرست معادن» برای همه‌ی بخش‌ها (حتی صنعت/اکتشاف/...) ثابت بود.
 const NAV_ITEMS = [
-  { tab: 'dashboard', label: 'نقشه معادن', icon: '🗺' },
+  { tab: 'dashboard', label: (d) => `نقشه ${DEPT_PLURAL_LABEL[d] || 'معادن'}`, icon: '🗺' },
   { tab: 'satelliteMonitor', label: 'پایش ماهواره‌ای', icon: '🛰' },
   { tab: 'terrain3d', label: 'مدل سه‌بعدی', icon: '🗻', hideForDept: ['صنعت', 'اکتشاف', 'فرآوری', 'اصناف'] },
-  { tab: 'mines', label: 'فهرست معادن', icon: '⛏' },
+  { tab: 'mines', label: (d) => `فهرست ${DEPT_PLURAL_LABEL[d] || 'معادن'}`, icon: '⛏' },
   { tab: 'legal', label: 'الزامات قانونی', icon: '⚖' },
   { tab: 'checklist', label: 'گزارش‌های تکمیلی', icon: '🛠' },
   { tab: 'notices', label: 'اطلاعیه‌ها', icon: '📢' },
@@ -27,6 +30,10 @@ const NAV_ITEMS = [
   { tab: 'audit', label: 'تاریخچه تغییرات', icon: '📜' },
   { tab: 'mySettings', label: 'تنظیمات من', icon: '⚙' },
 ];
+
+function navLabel(item, department) {
+  return typeof item.label === 'function' ? item.label(department) : item.label;
+}
 
 /**
  * پوسته‌ی اصلی برنامه را می‌سازد و یک تابع برمی‌گرداند که هر بار تب/بخش فعال عوض شود،
@@ -99,7 +106,7 @@ export function mountShell(root, { userLabel, renderContent }) {
         onclick: () => { setTab(item.tab); closeSidebar(); },
       }, [
         el('span', { class: 'ic' }, item.icon),
-        el('span', {}, item.label),
+        el('span', {}, navLabel(item, state.department)),
       ]);
       navGroup.append(btn);
       if (item.tab === 'identity') {
@@ -128,7 +135,7 @@ export function mountShell(root, { userLabel, renderContent }) {
 
   function renderTopbar(s) {
     const activeItem = NAV_ITEMS.find((i) => i.tab === s.tab);
-    const title = activeItem ? activeItem.label : (s.tab === 'mineDetail' ? 'جزئیات رکورد' : '');
+    const title = activeItem ? navLabel(activeItem, s.department) : (s.tab === 'mineDetail' ? 'جزئیات رکورد' : '');
     topbarTitle.innerHTML = '';
     topbarTitle.append(
       el('button', { class: 'menu-toggle-btn', onclick: () => toggleSidebar(), 'aria-label': 'باز کردن منو' }, '☰'),

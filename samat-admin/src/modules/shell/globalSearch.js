@@ -1,22 +1,19 @@
 import { el } from '../../lib/dom.js';
 import { sb } from '../../lib/supabase.js';
 import { fetchDeptRecords } from '../../lib/records.js';
-import { DEPT_NAME_FIELD } from '../../lib/sections.js';
-import { setMineInDept, setTab } from '../../router.js';
+import { DEPT_NAME_FIELD, DEPT_PLURAL_LABEL } from '../../lib/sections.js';
+import { setMineInDept, setTab, getState, onChange } from '../../router.js';
 
-const DEPTS = ['معدن', 'صنعت', 'اکتشاف', 'فرآوری', 'اصناف'];
-
-async function searchMines(query) {
-  const results = [];
-  await Promise.all(DEPTS.map(async (dept) => {
-    const nameField = DEPT_NAME_FIELD[dept] || 'نام_معدن';
-    const list = await fetchDeptRecords(dept).catch(() => []);
-    list.forEach((r) => {
-      const name = r[nameField] || '';
-      if (name.includes(query)) results.push({ type: 'mine', dept, id: r._rowId, name, nameField });
-    });
-  }));
-  return results.slice(0, 8);
+// قبلاً این جست‌وجو همیشه هم‌زمان در همه‌ی بخش‌ها (معدن/صنعت/اکتشاف/فرآوری/اصناف) می‌گشت —
+// یعنی وقتی کاربر داخل بخش صنعت بود، نتایج معدن هم می‌آمدند و کل تجربه به‌جای مختص‌بودن به
+// بخش فعال، سراسری به نظر می‌رسید. حالا فقط همان بخشی که کاربر الان در آن است جست‌وجو می‌شود.
+async function searchMines(query, department) {
+  const nameField = DEPT_NAME_FIELD[department] || 'نام_معدن';
+  const list = await fetchDeptRecords(department).catch(() => []);
+  return list
+    .filter((r) => (r[nameField] || '').includes(query))
+    .slice(0, 8)
+    .map((r) => ({ type: 'mine', dept: department, id: r._rowId, name: r[nameField] || '', nameField }));
 }
 
 async function searchUsers(query) {
@@ -36,10 +33,10 @@ async function searchReports(query) {
   }));
 }
 
-/** نوار جست‌وجوی سراسری در بالای صفحه — بین معادن (همه‌ی بخش‌ها)، کاربران، و گزارش‌های دوره‌ای می‌گردد */
+/** نوار جست‌وجوی بالای صفحه — در بخش‌ها (معادن/صنایع/...) محدود به بخش فعال، به‌علاوه‌ی کاربران و گزارش‌های دوره‌ای که سراسری‌اند */
 export function mountGlobalSearch(hostEl) {
   const input = el('input', {
-    type: 'text', placeholder: '🔍 جست‌وجو در معادن، کاربران، گزارش‌ها...',
+    type: 'text', placeholder: '🔍 جست‌وجو...',
     style: 'width:100%;max-width:360px',
   });
   const results = el('div', {
@@ -48,6 +45,13 @@ export function mountGlobalSearch(hostEl) {
   });
   const wrap = el('div', { style: 'position:relative;flex:1;max-width:360px' }, [input, results]);
   hostEl.append(wrap);
+
+  function updatePlaceholder() {
+    const plural = DEPT_PLURAL_LABEL[getState().department] || 'معادن';
+    input.placeholder = `🔍 جست‌وجو در ${plural}، کاربران، گزارش‌ها...`;
+  }
+  updatePlaceholder();
+  onChange(updatePlaceholder);
 
   let debounceTimer = null;
   let requestId = 0;
@@ -68,8 +72,9 @@ export function mountGlobalSearch(hostEl) {
 
   async function runSearch(query) {
     const myRequestId = ++requestId;
+    const department = getState().department;
     const [mines, users, reports] = await Promise.all([
-      searchMines(query), searchUsers(query), searchReports(query),
+      searchMines(query, department), searchUsers(query), searchReports(query),
     ]);
     if (myRequestId !== requestId) return; // یک جست‌وجوی جدیدتر شروع شده، این نتیجه دیرهنگام است
 
@@ -80,7 +85,7 @@ export function mountGlobalSearch(hostEl) {
       return;
     }
     if (mines.length) {
-      results.append(el('div', { style: 'padding:8px 12px;font-size:11px;color:var(--stone-500);background:var(--stone-50)' }, '⛏ معادن/محدوده‌ها'));
+      results.append(el('div', { style: 'padding:8px 12px;font-size:11px;color:var(--stone-500);background:var(--stone-50)' }, `⛏ ${DEPT_PLURAL_LABEL[department] || 'معادن'}`));
       mines.forEach((m) => results.append(row('⛏', m.name, m.dept, () => setMineInDept(m.id, m.dept))));
     }
     if (users.length) {
