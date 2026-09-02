@@ -1,0 +1,2 @@
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/web-DNbt5XvT.js","assets/dist-D4J1IfIO.js"])))=>i.map(i=>d[i]);
+import{o as e}from"./dist-D4J1IfIO.js";import{t}from"./preload-helper-Ct9-S8fq.js";var n=e(`App`,{web:()=>t(()=>import(`./web-DNbt5XvT.js`).then(e=>new e.AppWeb),__vite__mapDeps([0,1]))});export{n as App};
