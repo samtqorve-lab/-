@@ -2,6 +2,14 @@ import { el, showToast, fmtDateTime } from '../../lib/dom.js';
 import { sb } from '../../lib/supabase.js';
 import { fetchDeptRecords } from '../../lib/records.js';
 import { getMineCorners } from '../../lib/geo.js';
+import { onChange } from '../../router.js';
+
+// این نقشه‌ی زنده به‌محض باز شدن تب (نه با کلیک کاربر) ساخته می‌شود، پس بدون این پاک‌سازی با هر
+// بار سر زدن به این تب یک نمونه‌ی Leaflet جدید در حافظه می‌ماند و آزاد نمی‌شود (نشتی تجمعی).
+let activeLiveCleanup = null;
+onChange(() => {
+  if (activeLiveCleanup) { activeLiveCleanup(); activeLiveCleanup = null; }
+});
 
 /**
  * پایش خودکار ماهانه‌ی تجاوز به حریم قانونی معدن (با تصاویر ماهواره‌ای Sentinel-2 و شاخص خاک
@@ -32,7 +40,8 @@ export async function renderBoundaryMonitor(container, state, appCtx) {
       return;
     }
     import('./satellitePanel.js').then(({ mountSatellitePanel }) => {
-      mountSatellitePanel(liveSection, { records: withCorners, nameField: 'نام_معدن' });
+      const panel = mountSatellitePanel(liveSection, { records: withCorners, nameField: 'نام_معدن' });
+      activeLiveCleanup = () => panel.destroy();
     });
   }).catch((err) => {
     liveSection.innerHTML = '';

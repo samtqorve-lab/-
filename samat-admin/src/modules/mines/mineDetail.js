@@ -7,8 +7,16 @@ import { getMineCorners } from '../../lib/geo.js';
 import { openCornersEditModal } from './cornersEditModal.js';
 import { openVolumeModal, openVolumeHistoryModal } from './volumeModal.js';
 import { openEquipmentDefaultsModal } from './equipmentDefaultsModal.js';
-import { setTab } from '../../router.js';
+import { setTab, onChange } from '../../router.js';
 import { sb } from '../../lib/supabase.js';
+
+// نگه‌داری نمونه‌ی نقشه‌های Leaflet این صفحه (اگر کاربر پنل «نقشه و پایش ماهواره‌ای» را باز کرده
+// باشد) تا وقتی از این صفحه خارج شدیم (چه به تب دیگر، چه به معدن دیگر) هر دو آزاد شوند —
+// shell.js موقع تعویض تب فقط innerHTML را پاک می‌کند، unmount واقعی صدا نمی‌زند.
+let activeGeoCleanup = null;
+onChange(() => {
+  if (activeGeoCleanup) { activeGeoCleanup(); activeGeoCleanup = null; }
+});
 
 const PHONE_KEY_RE = /تلفن|موبایل|شماره_تماس/;
 const DATE_KEY_RE = /تاریخ/;
@@ -297,7 +305,11 @@ export async function renderMineDetail(container, state, ctx) {
     const panelHost = el('div', {});
     cardEl.append(panelHost);
     const { mountSatellitePanel } = await import('../map/satellitePanel.js');
-    mountSatellitePanel(panelHost, { map, records: [record], nameField });
+    const satellitePanel = mountSatellitePanel(panelHost, { records: [record], nameField });
+
+    // قبلاً اینجا هیچ‌کدام از این دو نقشه هرگز destroy نمی‌شدند — با هر بار مشاهده‌ی این پنل و
+    // رفتن به رکورد/تب بعدی، یک نمونه‌ی Leaflet در حافظه باقی می‌ماند (نشتی حافظه‌ی تجمعی).
+    activeGeoCleanup = () => { map.remove(); satellitePanel.destroy(); };
   }
 
   async function promptAddCustomField() {
