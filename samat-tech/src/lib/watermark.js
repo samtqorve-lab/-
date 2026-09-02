@@ -24,13 +24,21 @@ export function paintWatermark(canvas, lines) {
   const fontSize = Math.max(16, Math.round(canvas.width / 42));
   const lineH = Math.round(fontSize * 1.5);
   const boxH = lineH * lines.length + 16;
-  ctx.fillStyle = 'rgba(0,0,0,0.62)';
-  ctx.fillRect(0, canvas.height - boxH, canvas.width, boxH);
-  ctx.fillStyle = '#fff';
+  // به‌جای نوار مستطیلی سیاه پشت متن، فقط از سایه/دور خط سیاه دور خود حروف استفاده می‌کنیم —
+  // متن روی خودِ عکس خوانا می‌ماند بدون این‌که پس‌زمینه‌ی صفحه‌ی عکس را بپوشاند.
   ctx.font = `${fontSize}px Tahoma, sans-serif`;
   ctx.textBaseline = 'top';
   ctx.direction = 'rtl';
-  lines.forEach((line, i) => ctx.fillText(line, canvas.width - 12, canvas.height - boxH + 8 + i * lineH, canvas.width - 24));
+  ctx.lineJoin = 'round';
+  ctx.miterLimit = 2;
+  lines.forEach((line, i) => {
+    const y = canvas.height - boxH + 8 + i * lineH;
+    ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+    ctx.lineWidth = Math.max(2, Math.round(fontSize / 7));
+    ctx.strokeText(line, canvas.width - 12, y, canvas.width - 24);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(line, canvas.width - 12, y, canvas.width - 24);
+  });
 }
 
 function canvasToJpegBlob(canvas) {

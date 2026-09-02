@@ -39,11 +39,20 @@ let permissionDenialCount = 0; // بار اول: شاید فقط دیالوگ ب
 async function ensureNativeLocationPermission() {
   if (nativePermissionRequested) return;
   nativePermissionRequested = true;
+  let Capacitor;
+  let Geolocation;
   try {
-    const { Capacitor } = await import('@capacitor/core');
+    ({ Capacitor } = await import('@capacitor/core'));
     if (!Capacitor.isNativePlatform()) return; // در وب معمولی لازم نیست، خود مرورگر مدیریت می‌کند
     await waitForAppReady();
-    const { Geolocation } = await import('@capacitor/geolocation');
+    ({ Geolocation } = await import('@capacitor/geolocation'));
+  } catch {
+    // اگر خودِ پلاگین نصب/سینک نشده باشد (نه مربوط به وضعیت GPS)، بی‌صدا رد می‌شویم — همان رفتار
+    // قبلی (بدون پرامپت) باقی می‌ماند
+    nativePermissionRequested = false;
+    return;
+  }
+  try {
     const status = await Geolocation.checkPermissions();
     if (status.location !== 'granted' && status.coarseLocation !== 'granted') {
       const result = await Geolocation.requestPermissions();
@@ -59,9 +68,19 @@ async function ensureNativeLocationPermission() {
         gpsErrorListeners.forEach((fn) => fn(err));
       }
     }
-  } catch {
-    // اگر پلاگین نصب/سینک نشده باشد، بی‌صدا رد می‌شویم — همان رفتار قبلی (بدون پرامپت) باقی می‌ماند
+  } catch (err) {
+    // نکته‌ی مستندشده‌ی خودِ پلاگین @capacitor/geolocation: «requestPermissions will throw if
+    // system location services are disabled» — یعنی وقتی GPS خودِ گوشی (نه مجوز اپ) خاموش است،
+    // این تابع به‌جای برگرداندن یک وضعیت «رد شده»، مستقیم throw می‌کند. قبلاً این throw این‌جا
+    // بی‌صدا بلعیده می‌شد و چیپ برای همیشه روی «در حال آماده‌سازی» می‌ماند، چون هیچ‌وقت به مرحله‌ی
+    // watchPosition (و خطای آن) هم نمی‌رسیدیم. حالا آن را دقیقاً مثل خطای «GPS گوشی خاموش است»
+    // (کد ۲) به شنونده‌ها اطلاع می‌دهیم تا رابط‌کاربری مستقیم دکمه‌ی باز کردن تنظیمات موقعیت
+    // مکانی گوشی را نشان دهد.
     nativePermissionRequested = false;
+    const gpsOffErr = new Error('device-location-off');
+    gpsOffErr.code = 2;
+    lastGpsError = gpsOffErr;
+    gpsErrorListeners.forEach((fn) => fn(gpsOffErr));
   }
 }
 

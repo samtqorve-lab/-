@@ -32,8 +32,10 @@ export function captureLivePhoto({ buildLines, checkInside }) {
     video.muted = true;
     video.playsInline = true;
     const overlayTextBox = el('div', {
-      style: 'position:absolute;bottom:96px;left:0;right:0;background:rgba(0,0,0,.62);color:#fff;padding:10px 12px;'
-        + 'font-size:12.5px;line-height:1.9;text-align:right;direction:rtl;pointer-events:none',
+      // به‌جای نوار سیاه پشت متن، فقط سایه‌ی متن برای خوانایی — همان ظاهر عکس نهایی (paintWatermark)
+      style: 'position:absolute;bottom:96px;left:0;right:0;color:#fff;padding:10px 12px;'
+        + 'font-size:12.5px;line-height:1.9;text-align:right;direction:rtl;pointer-events:none;'
+        + 'text-shadow:0 0 3px rgba(0,0,0,.95),0 0 6px rgba(0,0,0,.85),0 1px 2px rgba(0,0,0,.95)',
     });
     const statusLine = el('div', {
       style: 'position:absolute;top:calc(10px + env(safe-area-inset-top));right:12px;left:12px;display:flex;justify-content:space-between;'
