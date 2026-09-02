@@ -15,6 +15,13 @@ on:
 permissions:
   contents: write
 
+# با build-android.yml (همان مسیر samat-tech/**) هم‌زمان اجرا می‌شود و هر دو در انتها به main
+# پوش می‌کنند؛ این گروه مشترک باعث می‌شود اگر هم‌زمان اجرا شدند، یکی صبر کند تا دیگری کامل تمام
+# شود (بدون لغو‌شدن)، نه این‌که هر دو هم‌زمان push کنند و یکی (بعد از چند تلاش rebase) شکست بخورد.
+concurrency:
+  group: samat-main-push-lock
+  cancel-in-progress: false
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
