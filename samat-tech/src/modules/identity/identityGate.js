@@ -70,6 +70,7 @@ export function mountIdentityCapture(root, { email, mines, captureKind, reason, 
         const { blob, coords, inside } = await captureLivePhoto({
           buildLines: (c) => watermarkLinesForIdentity(c, mine, nameField),
           checkInside: (c) => isInsideMineBoundary(c, mine),
+          defaultFacingMode: 'user', // عکس احراز هویت یک سلفی از خودِ کاربر است — دوربین جلو پیش‌فرض باشد
         });
         acceptCapture(blob, coords, inside, mineName);
         return;

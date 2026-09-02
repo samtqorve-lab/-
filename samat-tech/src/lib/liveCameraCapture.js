@@ -1,4 +1,4 @@
-import { el } from './dom.js';
+import { el, showToast } from './dom.js';
 import { paintWatermark } from './watermark.js';
 import { getWarmCoords, onGpsUpdate, startGpsPrewarm } from './geo.js';
 
@@ -14,16 +14,22 @@ export function liveCameraSupported() {
 }
 
 /**
- * @param {{ buildLines: (coords: GeolocationCoordinates|null) => string[], checkInside?: (coords: GeolocationCoordinates) => boolean }} opts
+ * @param {{ buildLines: (coords: GeolocationCoordinates|null) => string[], checkInside?: (coords: GeolocationCoordinates) => boolean, defaultFacingMode?: 'environment'|'user' }} opts
  * @returns {Promise<{ blob: Blob, coords: GeolocationCoordinates|null, inside: boolean|null }>}
  * در صورت انصراف کاربر، Promise با پیام 'CANCELLED' reject می‌شود (نه یک خطای واقعی).
+ * قبلاً دوربین همیشه روی «پشت» (environment) قفل بود — مثلاً برای عکس احراز هویت که خودِ کاربر
+ * باید سلفی بگیرد، امکان انتخاب دوربین جلو نبود. حالا defaultFacingMode دوربین اولیه را تعیین
+ * می‌کند (احراز هویت 'user' صدا می‌زند، بقیه پیش‌فرض 'environment') و یک دکمه‌ی 🔄 هم برای
+ * جابه‌جایی دستی بین جلو/پشت در هر لحظه اضافه شده.
  */
-export function captureLivePhoto({ buildLines, checkInside }) {
+export function captureLivePhoto({ buildLines, checkInside, defaultFacingMode = 'environment' }) {
   return new Promise((resolve, reject) => {
     let stream = null;
     let unsubscribeGps = null;
     let latestCoords = getWarmCoords(); // اگر پیش‌گرم‌سازی از قبل روشن بوده، شاید همین اول یک خوانش خوب آماده باشد
     let cleaned = false;
+    let facingMode = defaultFacingMode;
+    let switching = false;
 
     const video = el('video', { autoplay: true, playsinline: true, muted: true, style: 'flex:1;width:100%;object-fit:cover;background:#000;min-height:0' });
     // ست‌کردن attribute برای muted/playsinline کافی نیست (بعضی مرورگرها، مخصوصاً سافاری، فقط به
@@ -64,9 +70,14 @@ export function captureLivePhoto({ buildLines, checkInside }) {
     const cancelBtn = el('button', {
       style: 'background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:8px 16px;font-size:12px;cursor:pointer',
     }, '✕ انصراف');
+    const flipBtn = el('button', {
+      style: 'width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.4);'
+        + 'font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center',
+      title: 'جابه‌جایی دوربین جلو/پشت',
+    }, '🔄');
     const controlsRow = el('div', {
       style: 'display:flex;align-items:center;justify-content:space-between;padding:16px 20px calc(16px + env(safe-area-inset-bottom));background:#000',
-    }, [el('div', { style: 'width:70px' }), captureBtn, cancelBtn]);
+    }, [flipBtn, captureBtn, cancelBtn]);
 
     const overlay = el('div', { style: 'position:fixed;inset:0;background:#000;z-index:500;display:flex;flex-direction:column' }, [
       el('div', { style: 'position:relative;flex:1;min-height:0;overflow:hidden' }, [video, overlayTextBox, statusLine]),
@@ -81,6 +92,40 @@ export function captureLivePhoto({ buildLines, checkInside }) {
       if (unsubscribeGps) unsubscribeGps();
       overlay.remove();
     }
+
+    function openStream(mode) {
+      statusLine.children[0].textContent = '📷 در حال باز کردن دوربین...';
+      return navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: mode }, width: { ideal: 1600 } }, audio: false })
+        .then((s) => {
+          if (cleaned) { s.getTracks().forEach((t) => t.stop()); return; }
+          if (stream) stream.getTracks().forEach((t) => t.stop());
+          stream = s;
+          video.srcObject = s;
+          // دوربین جلو مثل آینه (mirror) نمایش داده می‌شود — همان چیزی که کاربر عادت دارد وقتی
+          // خودش را می‌بیند؛ این فقط روی پیش‌نمایش تاثیر دارد، عکس نهایی (canvas.drawImage از
+          // خودِ فریم ویدیو) هیچ‌وقت آینه‌ای/برعکس ثبت نمی‌شود.
+          video.style.transform = mode === 'user' ? 'scaleX(-1)' : 'none';
+          video.play().catch(() => {}); // بعضی مرورگرها فقط با فراخوانی صریح play() واقعاً پخش را شروع می‌کنند
+          gpsStatusSpan.textContent = latestCoords ? `📡 دقت GPS: ~${Math.round(latestCoords.accuracy)} متر` : '📡 در حال دریافت GPS...';
+        });
+    }
+
+    flipBtn.addEventListener('click', async () => {
+      if (switching) return;
+      switching = true;
+      flipBtn.disabled = true;
+      const nextMode = facingMode === 'user' ? 'environment' : 'user';
+      try {
+        await openStream(nextMode);
+        facingMode = nextMode;
+      } catch (err) {
+        // اگر گوشی دوربین دوم را نداشته باشد یا رد شود، همان دوربین قبلی (که هنوز باز است) را نگه می‌داریم
+        showToast(`⚠️ جابه‌جایی دوربین ممکن نشد: ${err.message}`);
+      } finally {
+        switching = false;
+        flipBtn.disabled = false;
+      }
+    });
 
     cancelBtn.addEventListener('click', () => { cleanup(); reject(new Error('CANCELLED')); });
 
@@ -100,18 +145,10 @@ export function captureLivePhoto({ buildLines, checkInside }) {
       resolve({ blob, coords: latestCoords, inside });
     });
 
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1600 } }, audio: false })
-      .then((s) => {
-        if (cleaned) { s.getTracks().forEach((t) => t.stop()); return; }
-        stream = s;
-        video.srcObject = s;
-        video.play().catch(() => {}); // بعضی مرورگرها فقط با فراخوانی صریح play() واقعاً پخش را شروع می‌کنند
-        gpsStatusSpan.textContent = '📡 در حال دریافت GPS...';
-      })
-      .catch((err) => {
-        cleanup();
-        reject(new Error(`دسترسی به دوربین ممکن نشد: ${err.message}`));
-      });
+    openStream(facingMode).catch((err) => {
+      cleanup();
+      reject(new Error(`دسترسی به دوربین ممکن نشد: ${err.message}`));
+    });
 
     startGpsPrewarm(); // اگر به هر دلیل هنوز روشن نشده
     unsubscribeGps = onGpsUpdate((coords) => { latestCoords = coords; updateOverlay(); });
