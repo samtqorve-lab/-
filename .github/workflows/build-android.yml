@@ -99,10 +99,22 @@ jobs:
 
       # این manifest داخل سایت samat-admin میزبانی می‌شود (novinproduct.ir/updates/tech.json)
       # چون همان دامنه‌ای است که اپ مسئول فنی هم به آن دسترسی دارد.
-      - name: Update Android update-manifest
-        working-directory: samat-admin/public/updates
+      #
+      # قبلاً این‌جا local git add/commit/push با retry+rebase انجام می‌شد — چون checkout این
+      # jobا همزمان با jobهای دیگر (build-tech-web.yml) که هم به main پوش می‌کنند شروع می‌شود،
+      # حالت local ممکن است چند ثانیه از HEAD واقعی عقب بماند و push حتی بعد از چند تلاش rebase
+      # هم شکست بخورد (دقیقاً همان چیزی که چندبار باعث توقف این مرحله شد). حالا به‌جایش مستقیم از
+      # GitHub Contents API استفاده می‌کنیم: هر تلاش، sha فعلی فایل را مستقیم از سرور (نه از
+      # checkout محلی) می‌گیرد و فقط همان یک فایل را آپدیت می‌کند — کاملاً atomic و بدون وابستگی
+      # به این‌که local checkout چقدر تازه است.
+      - name: Update Android update-manifest (Contents API — بدون وابستگی به checkout محلی)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cat > tech.json <<EOF
+          set -e
+          REPO="samtqorve-lab/-"
+          FILE_PATH="samat-admin/public/updates/tech.json"
+          CONTENT=$(cat <<EOF
           {
             "versionCode": ${{ github.run_number }},
             "versionName": "build ${{ github.run_number }}",
@@ -110,21 +122,18 @@ jobs:
             "notes": "به‌روزرسانی خودکار — commit ${{ github.sha }}"
           }
           EOF
-
-      - name: Commit manifest update
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add samat-admin/public/updates/tech.json
-          if git diff --cached --quiet; then
-            echo "no manifest changes"
-            exit 0
-          fi
-          git commit -m "chore: به‌روزرسانی خودکار manifest آپدیت اندروید مسئول فنی [skip ci]"
+          )
+          B64=$(printf '%s' "$CONTENT" | base64 -w0)
           for i in 1 2 3 4 5; do
-            if git push; then exit 0; fi
-            echo "push rejected (احتمالاً به‌خاطر workflow اندروید دیگری که هم‌زمان push کرد) — تلاش دوباره..."
-            git pull --rebase origin main
+            SHA=$(gh api "repos/$REPO/contents/$FILE_PATH?ref=main" --jq .sha 2>/dev/null || true)
+            ARGS=(-f message="chore: به‌روزرسانی خودکار manifest آپدیت اندروید مسئول فنی [skip ci]" -f content="$B64" -f branch=main)
+            if [ -n "$SHA" ]; then ARGS+=(-f sha="$SHA"); fi
+            if gh api --method PUT "repos/$REPO/contents/$FILE_PATH" "${ARGS[@]}" > /dev/null; then
+              echo "manifest به‌روزرسانی شد"
+              exit 0
+            fi
+            echo "به‌روزرسانی رد شد (احتمالاً sha هم‌زمان تغییر کرده) — تلاش دوباره..."
+            sleep 3
           done
-          echo "push نهایی هم شکست خورد" >&2
+          echo "به‌روزرسانی manifest نهایتاً شکست خورد" >&2
           exit 1

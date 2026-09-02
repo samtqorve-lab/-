@@ -92,10 +92,14 @@ jobs:
             --notes "Build خودکار از commit ${{ github.sha }}"
           echo "url=https://github.com/samtqorve-lab/-/releases/download/$TAG/$APK_NAME" >> "$GITHUB_OUTPUT"
 
-      - name: Update Android update-manifest
-        working-directory: samat-admin/public/updates
+      - name: Update Android update-manifest (Contents API — بدون وابستگی به checkout محلی)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cat > admin.json <<EOF
+          set -e
+          REPO="samtqorve-lab/-"
+          FILE_PATH="samat-admin/public/updates/admin.json"
+          CONTENT=$(cat <<EOF
           {
             "versionCode": ${{ github.run_number }},
             "versionName": "build ${{ github.run_number }}",
@@ -103,21 +107,18 @@ jobs:
             "notes": "به‌روزرسانی خودکار — commit ${{ github.sha }}"
           }
           EOF
-
-      - name: Commit manifest update
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add samat-admin/public/updates/admin.json
-          if git diff --cached --quiet; then
-            echo "no manifest changes"
-            exit 0
-          fi
-          git commit -m "chore: به‌روزرسانی خودکار manifest آپدیت اندروید پنل ادمین [skip ci]"
+          )
+          B64=$(printf '%s' "$CONTENT" | base64 -w0)
           for i in 1 2 3 4 5; do
-            if git push; then exit 0; fi
-            echo "push rejected (احتمالاً به‌خاطر workflow اندروید دیگری که هم‌زمان push کرد) — تلاش دوباره..."
-            git pull --rebase origin main
+            SHA=$(gh api "repos/$REPO/contents/$FILE_PATH?ref=main" --jq .sha 2>/dev/null || true)
+            ARGS=(-f message="chore: به‌روزرسانی خودکار manifest آپدیت اندروید پنل ادمین [skip ci]" -f content="$B64" -f branch=main)
+            if [ -n "$SHA" ]; then ARGS+=(-f sha="$SHA"); fi
+            if gh api --method PUT "repos/$REPO/contents/$FILE_PATH" "${ARGS[@]}" > /dev/null; then
+              echo "manifest به‌روزرسانی شد"
+              exit 0
+            fi
+            echo "به‌روزرسانی رد شد (احتمالاً sha هم‌زمان تغییر کرده) — تلاش دوباره..."
+            sleep 3
           done
-          echo "push نهایی هم شکست خورد" >&2
+          echo "به‌روزرسانی manifest نهایتاً شکست خورد" >&2
           exit 1
