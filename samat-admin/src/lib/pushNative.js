@@ -67,7 +67,7 @@ export async function attachLoginApprovalHandler() {
       await LocalNotifications.schedule({
         notifications: [{
           id: Date.now() % 2147483647,
-          title: '🔐 درخواست ورود به پنل ادمین صمت',
+          title: '🔐 درخواست ورود به پنل ادمین سامات',
           body: `آیا شما (${data.email || ''}) در حال ورود هستید؟`,
           actionTypeId: 'LOGIN_APPROVAL',
           extra: { approvalId: data.approvalId },

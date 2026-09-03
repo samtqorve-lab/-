@@ -25,7 +25,7 @@ function setupAutoUpdate(win) {
     const { response } = await dialog.showMessageBox(win, {
       type: 'info',
       title: 'نسخه‌ی جدید آماده است',
-      message: 'یک نسخه‌ی جدید از پنل ادمین صمت دانلود شد. برای نصب، برنامه باید بسته و دوباره باز شود.',
+      message: 'یک نسخه‌ی جدید از پنل ادمین سامات دانلود شد. برای نصب، برنامه باید بسته و دوباره باز شود.',
       buttons: ['نصب و راه‌اندازی مجدد', 'بعداً (موقع بستن برنامه نصب می‌شود)'],
       defaultId: 0,
       cancelId: 1,
@@ -57,7 +57,7 @@ function createWindow() {
     height: 860,
     minWidth: 900,
     minHeight: 600,
-    title: 'پنل ادمین صمت',
+    title: 'پنل ادمین سامات',
     icon: path.join(__dirname, 'build', 'icon.ico'),
     autoHideMenuBar: true,
     webPreferences: {

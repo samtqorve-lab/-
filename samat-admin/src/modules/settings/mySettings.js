@@ -34,7 +34,7 @@ function renderBiometricCard(email) {
 
 /**
  * تب «تنظیمات من»: شامل سوییچ «ورود با تایید Push» و «ورود سریع با اثر انگشت/Face ID». چون گرفتن
- * توکن FCM فقط داخل اپ اندروید صمت ممکن است (وب معمولی زیرساخت Web Push جدا می‌خواهد که نصب
+ * توکن FCM فقط داخل اپ اندروید سامات ممکن است (وب معمولی زیرساخت Web Push جدا می‌خواهد که نصب
  * نشده)، سوییچ Push فقط داخل همان اپ فعال است — در وب/دسکتاپ یک توضیح غیرفعال نمایش داده می‌شود.
  */
 export async function renderMySettings(container, state, appCtx) {
@@ -57,7 +57,7 @@ export async function renderMySettings(container, state, appCtx) {
   if (!isNativeAndroid) {
     card.append(
       el('p', { style: 'color:var(--stone-600);font-size:var(--text-sm)' },
-        `این قابلیت فقط از داخل اپ اندروید «پنل ادمین صمت» قابل‌فعال‌سازی است — چون برای دریافت اعلان نیاز به ثبت این دستگاه دارد. وضعیت فعلی حساب شما: ${enabled ? '✅ فعال (روی یک دستگاه اندروید دیگر)' : '⭕ غیرفعال'}.`),
+        `این قابلیت فقط از داخل اپ اندروید «پنل ادمین سامات» قابل‌فعال‌سازی است — چون برای دریافت اعلان نیاز به ثبت این دستگاه دارد. وضعیت فعلی حساب شما: ${enabled ? '✅ فعال (روی یک دستگاه اندروید دیگر)' : '⭕ غیرفعال'}.`),
       enabled ? el('button', {
         class: 'btn btn-ghost', style: 'margin-top:8px',
         onclick: async () => {

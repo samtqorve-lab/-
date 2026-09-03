@@ -45,9 +45,9 @@ export function mountShell(root, { userLabel, renderContent }) {
   const sidebar = el('aside', { class: 'sidebar' });
   const backdrop = el('div', { class: 'sidebar-backdrop', onclick: () => closeSidebar() });
   const header = el('div', { class: 'sidebar-header' }, [
-    el('img', { src: '/favicon.svg', class: 'sidebar-logo', alt: 'صمت' }),
+    el('img', { src: '/favicon.svg', class: 'sidebar-logo', alt: 'سامات' }),
     el('div', { class: 'org-name' }, 'اداره صنعت، معدن و تجارت قروه'),
-    el('div', { class: 'app-name' }, 'پنل ادمین صمت'),
+    el('div', { class: 'app-name' }, 'پنل ادمین سامات'),
   ]);
 
   function openSidebar() { sidebar.classList.add('open'); backdrop.classList.add('open'); }

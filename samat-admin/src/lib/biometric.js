@@ -60,7 +60,7 @@ export async function enableBiometric(email) {
   await plugin.verifyIdentity({
     reason: 'برای فعال‌سازی ورود سریع با اثر انگشت/Face ID',
     title: 'تایید هویت',
-    subtitle: 'پنل ادمین صمت',
+    subtitle: 'پنل ادمین سامات',
   });
   localStorage.setItem(storageKey(email), '1');
 }
@@ -72,7 +72,7 @@ export async function verifyBiometricGate(email) {
   if (!plugin) return true; // پلتفرم عوض شده (مثلاً نسخه‌ی وب) — به رمز عادی برنگردیم، فقط رد شویم
   try {
     await plugin.verifyIdentity({
-      reason: 'برای ورود به پنل ادمین صمت',
+      reason: 'برای ورود به پنل ادمین سامات',
       title: 'تایید هویت',
       subtitle: 'اثر انگشت یا Face ID خود را نشان دهید',
     });
