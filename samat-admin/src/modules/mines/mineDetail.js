@@ -116,18 +116,26 @@ export async function renderMineDetail(container, state, ctx) {
       }, '🗑️ حذف رکورد')
       : null;
 
+    // این دکمه‌ها قبلاً با اندازه‌ی عادی (.btn) و بدون flex-wrap بودند — با چند دکمه‌ی پشت‌سرهم
+    // (بازگشت + ۳ دکمه‌ی ادمین + حذف + ویرایش)، به‌خصوص وقتی مرورگر zoom شده یا صفحه باریک‌تر
+    // است، این ردیف از کادر هدر بیرون می‌زد. الان هم خودِ دکمه‌ها کوچک‌تر شده‌اند (اندازه‌ی
+    // .btn-sm به‌جای .btn) و هم ردیف flex-wrap دارد تا در صورت کمبود جا به خط بعد بروند —
+    // در هر سطح zoom مرورگر، چیزی از کادر بیرون نمی‌زند.
+    const compactBtnStyle = 'padding:6px 11px;font-size:var(--text-xs);gap:5px';
+    [backBtn, editBtn, deleteBtn].forEach((b) => { if (b) b.style.cssText = b.style.cssText.replace(/;?\s*$/, ';') + compactBtnStyle; });
+
     const header = el('div', { class: 'card', style: 'margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px' }, [
       el('div', {}, [
         el('div', { style: `display:inline-block;font-size:var(--text-xs);font-weight:700;color:${cat.badge};background:${cat.bg};padding:3px 10px;border-radius:999px;margin-bottom:8px` }, record['دسته'] || 'بدون دسته'),
         el('h2', { style: 'font-size:var(--text-xl)' }, record[nameField] || '—'),
       ]),
-      el('div', { style: 'display:flex;gap:8px' }, [
+      el('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end' }, [
         backBtn,
         ...(isAdminRole && state.department === 'معدن'
           ? [
-            el('button', { class: 'btn btn-ghost', onclick: () => openEquipmentDefaultsModal(record, state.department, state.mineId) }, '🛢️ ماشین‌آلات پیش‌فرض'),
-            el('button', { class: 'btn btn-ghost', onclick: async () => { const { openQrCheckinModal } = await import('./qrCheckinModal.js'); openQrCheckinModal(record, state.department, state.mineId); } }, '🔳 QR ورود'),
-            el('button', { class: 'btn btn-ghost', onclick: async () => { const { openPhotoTimelineModal } = await import('./photoTimeline.js'); openPhotoTimelineModal(record[nameField]); } }, '🖼️ گالری زمانی'),
+            el('button', { class: 'btn btn-ghost', style: compactBtnStyle, onclick: () => openEquipmentDefaultsModal(record, state.department, state.mineId) }, '🛢️ ماشین‌آلات پیش‌فرض'),
+            el('button', { class: 'btn btn-ghost', style: compactBtnStyle, onclick: async () => { const { openQrCheckinModal } = await import('./qrCheckinModal.js'); openQrCheckinModal(record, state.department, state.mineId); } }, '🔳 QR ورود'),
+            el('button', { class: 'btn btn-ghost', style: compactBtnStyle, onclick: async () => { const { openPhotoTimelineModal } = await import('./photoTimeline.js'); openPhotoTimelineModal(record[nameField]); } }, '🖼️ گالری زمانی'),
           ]
           : []),
         ...(deleteBtn ? [deleteBtn] : []),
