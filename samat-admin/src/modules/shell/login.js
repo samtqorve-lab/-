@@ -13,9 +13,9 @@ export function mountLogin(root, onSuccess) {
 
   function brand(subtitle) {
     return el('div', { class: 'brand' }, [
-      el('img', { src: '/favicon.svg', class: 'brand-logo', alt: 'سامات' }),
+      el('img', { src: '/favicon.svg', class: 'brand-logo', alt: 'صمت' }),
       el('div', { class: 'org' }, 'اداره صنعت، معدن و تجارت قروه'),
-      el('div', { class: 'app' }, subtitle || 'ورود به پنل ادمین سامات'),
+      el('div', { class: 'app' }, subtitle || 'ورود به پنل ادمین صمت'),
     ]);
   }
 

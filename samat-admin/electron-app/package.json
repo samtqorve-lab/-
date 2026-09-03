@@ -2,7 +2,7 @@
   "name": "samat-admin-desktop",
   "version": "1.0.0",
   "private": true,
-  "description": "پنل ادمین سامات — نسخه‌ی دسکتاپ ویندوز",
+  "description": "پنل ادمین صمت — نسخه‌ی دسکتاپ ویندوز",
   "main": "main.js",
   "scripts": {
     "prepare:web": "node scripts/copy-web-build.js",
@@ -20,7 +20,7 @@
   },
   "build": {
     "appId": "ir.novinproduct.samat-admin",
-    "productName": "پنل ادمین سامات",
+    "productName": "پنل ادمین صمت",
     "directories": { "output": "release" },
     "files": ["main.js", "preload.js", "app/**/*"],
     "win": {
