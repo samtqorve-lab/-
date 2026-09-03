@@ -10,14 +10,12 @@ on:
 permissions:
   contents: write   # لازم برای ساخت GitHub Release (منبع دانلود APK برای بنر «آپدیت موجود است»)
 
-# این ورک‌فلو با build-tech-web.yml روی همان مسیر (samat-tech/**) هم‌زمان اجرا می‌شود و هر دو در
-# انتها به main پوش می‌کنند — بدون این قفل، هر دو تقریباً هم‌زمان تمام می‌شدند و مرحله‌ی پوش
-# یکی‌شان (بعد از چند تلاش rebase) شکست می‌خورد (دقیقاً همان چیزی که باعث می‌شد manifest آپدیت
-# اندروید commit نشود). با یک گروه concurrency مشترک، اگر همزمان اجرا شوند، دومی صبر می‌کند تا
-# اولی کامل تمام شود (نه این‌که لغو شود) — پس هیچ‌کدام مرحله‌ی پوش را از دست نمی‌دهند.
-concurrency:
-  group: samat-main-push-lock
-  cancel-in-progress: false
+# نکته‌ی تاریخی: قبلاً این‌جا یک concurrency lock مشترک با build-tech-web.yml بود چون هر دو با
+# local git push به main رقابت می‌کردند. از وقتی «Update Android update-manifest» به GitHub
+# Contents API تغییر کرد (دیگر اصلاً local git push انجام نمی‌دهد)، آن رقابت از اساس حذف شده و
+# این قفل دیگر لازم نیست — برداشته شد، چون با ۳ ورک‌فلوی هم‌گروه (وقتی هم samat-tech و هم
+# samat-admin در یک پوش تغییر می‌کردند) صف GitHub Actions فقط ۱ اجرای معلق را نگه می‌دارد و
+# سومی را مستقیم cancel می‌کرد.
 
 jobs:
   build:
