@@ -81,7 +81,48 @@ jobs:
           name: samat-tech-debug-apk
           path: samat-tech/android/app/build/outputs/apk/debug/app-debug.apk
 
-      # --- انتشار عمومی + به‌روزرسانی manifest آپدیت خودکار ---
+      # --- ساخت نسخه‌ی امضاشده‌ی release (برای انتشار در بازار/گوگل‌پلی، جدا از نسخه‌ی دیباگِ
+      # داخلی بالا که فقط برای آپدیت خودکار سایدلود روی گوشی‌های مسئولین فنی استفاده می‌شود) ---
+      - name: Restore release keystore
+        working-directory: samat-tech/android
+        run: |
+          echo "${{ secrets.ANDROID_TECH_RELEASE_KEYSTORE_B64 }}" | base64 -d > samat-tech-release.keystore
+          cat > release-keystore.properties <<EOF
+          storeFile=samat-tech-release.keystore
+          storePassword=${{ secrets.ANDROID_TECH_RELEASE_STORE_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_TECH_RELEASE_KEY_ALIAS }}
+          keyPassword=${{ secrets.ANDROID_TECH_RELEASE_KEY_PASSWORD }}
+          EOF
+
+      - name: Build release APK
+        working-directory: samat-tech/android
+        env:
+          ANDROID_VERSION_CODE: ${{ github.run_number }}
+          ANDROID_VERSION_NAME: "1.0.${{ github.run_number }}"
+        run: ./gradlew assembleRelease
+
+      - name: Upload release APK artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: samat-tech-release-apk
+          path: samat-tech/android/app/build/outputs/apk/release/app-release.apk
+
+      - name: Publish release APK to a GitHub Release (برای آپلود دستی در بازار/گوگل‌پلی)
+        id: release_signed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          TAG="tech-release-${{ github.run_number }}"
+          APK_NAME="samat-tech-release-${{ github.run_number }}.apk"
+          cp samat-tech/android/app/build/outputs/apk/release/app-release.apk "$APK_NAME"
+          gh release create "$TAG" "$APK_NAME" \
+            --repo samtqorve-lab/- \
+            --title "اپ مسئول فنی/ایمنی (اندروید) — نسخه‌ی امضاشده برای بازار/گوگل‌پلی — build ${{ github.run_number }}" \
+            --notes "این نسخه با کلید release واقعی امضا شده (نه کلید دیباگ داخلی) — برای آپلود در کافه‌بازار/گوگل‌پلی. commit ${{ github.sha }}"
+          echo "url=https://github.com/samtqorve-lab/-/releases/download/$TAG/$APK_NAME" >> "$GITHUB_OUTPUT"
+
+      # --- انتشار عمومی (نسخه‌ی دیباگ داخلی) + به‌روزرسانی manifest آپدیت خودکار ---
       - name: Publish APK to a GitHub Release
         id: release
         env:

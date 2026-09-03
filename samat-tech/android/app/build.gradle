@@ -1,5 +1,17 @@
 apply plugin: 'com.android.application'
 
+// امضای release: اطلاعاتش هیچ‌وقت داخل ریپو ذخیره نمی‌شود — فایل release-keystore.properties
+// فقط توسط CI (ورک‌فلوی build-android.yml) از GitHub Secrets ساخته می‌شود و در .gitignore است.
+// اگر این فایل نباشد (مثلاً روی سیستم شخصی بدون این secretها)، بیلد release بدون امضا انجام
+// می‌شود — یعنی برای کار روزمره‌ی توسعه هیچ مشکلی پیش نمی‌آید، فقط برای انتشار در بازار/گوگل‌پلی
+// حتماً باید از CI با این secretها بیاید.
+def releaseKeystorePropsFile = rootProject.file('release-keystore.properties')
+def releaseKeystoreProps = new Properties()
+if (releaseKeystorePropsFile.exists()) {
+    releaseKeystoreProps.load(new FileInputStream(releaseKeystorePropsFile))
+}
+def envVersionCode = System.getenv("ANDROID_VERSION_CODE")
+
 android {
     namespace = "ir.novinproduct.samattech"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,8 +19,11 @@ android {
         applicationId "ir.novinproduct.samattech"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        // قبلاً همیشه ثابت روی 1/"1.0" بود — چون این نسخه (برخلاف نسخه‌ی داخلی خودمان که آپدیتش
+        // را با manifest جدا در novinproduct.ir/updates/ کنترل می‌کنیم) قرار است در بازار/گوگل‌پلی
+        // منتشر شود، و آن‌ها هر آپلود جدید را با یک versionCode بزرگ‌تر از قبلی می‌خواهند.
+        versionCode envVersionCode ? envVersionCode.toInteger() : 1
+        versionName System.getenv("ANDROID_VERSION_NAME") ?: "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,10 +31,23 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (releaseKeystorePropsFile.exists()) {
+                storeFile rootProject.file(releaseKeystoreProps['storeFile'])
+                storePassword releaseKeystoreProps['storePassword']
+                keyAlias releaseKeystoreProps['keyAlias']
+                keyPassword releaseKeystoreProps['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (releaseKeystorePropsFile.exists()) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }
