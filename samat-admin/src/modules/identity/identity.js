@@ -3,7 +3,7 @@ import { fetchDeptRecords } from '../../lib/records.js';
 import { DEPT_NAME_FIELD } from '../../lib/sections.js';
 import {
   fetchIdentityVerifications, fetchSignedPhotoUrls, fetchMinesMissingBoundary,
-  approveIdentity, rejectIdentity, resetTrustedDevice,
+  approveIdentity, rejectIdentity, resetTrustedDevice, fetchIdentitySettings, saveIdentitySettings,
 } from '../../lib/identity.js';
 
 const STATUS_META = {
@@ -13,7 +13,75 @@ const STATUS_META = {
 };
 const KIND_META = { initial: '🪪 احراز هویت اولیه', monthly: '📅 تمدید ماهانه' };
 
-export async function renderIdentity(container, state) {
+// گزینه‌های آماده‌ی دوره‌ی تمدید — «سفارشی» یعنی هر عددی غیر از این‌ها که از قبل ذخیره شده
+const INTERVAL_PRESETS = [
+  { days: 1, label: '📆 روزانه' },
+  { days: 3, label: '📆 هر سه روز' },
+  { days: 7, label: '📆 هفتگی' },
+  { days: 90, label: '📆 فصلی' },
+  { days: 365, label: '📆 سالانه' },
+];
+
+async function renderIdentitySettingsCard(container) {
+  const card = el('div', { class: 'card', style: 'margin-bottom:16px' });
+  card.append(el('div', { class: 'loading-state' }, 'در حال بارگذاری تنظیمات...'));
+  container.append(card);
+
+  let settings;
+  try {
+    settings = await fetchIdentitySettings();
+  } catch {
+    card.innerHTML = '';
+    card.append(el('div', { style: 'font-size:var(--text-xs);color:var(--rust-600)' }, 'خطا در بارگذاری تنظیمات دوره‌ی تمدید.'));
+    return;
+  }
+
+  card.innerHTML = '';
+  card.append(el('div', { style: 'font-weight:700;font-size:var(--text-sm);margin-bottom:8px' }, '⚙️ دوره‌ی تمدید احراز هویت (سراسری)'));
+  card.append(el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:10px' },
+    'مشخص می‌کند هر چند وقت یک‌بار همه‌ی مسئولین فنی/ایمنی/بهداشت باید دوباره عکس احراز هویت بگیرند.'));
+
+  const isPreset = INTERVAL_PRESETS.some((p) => p.days === settings.intervalDays);
+  const intervalSelect = el('select', {}, [
+    ...INTERVAL_PRESETS.map((p) => el('option', { value: String(p.days) }, p.label)),
+    el('option', { value: 'custom' }, '✏️ سفارشی (تعداد روز دلخواه)'),
+  ]);
+  intervalSelect.value = isPreset ? String(settings.intervalDays) : 'custom';
+
+  const customInput = el('input', { type: 'number', min: '1', value: String(settings.intervalDays), style: 'max-width:120px' });
+  customInput.style.display = isPreset ? 'none' : '';
+
+  intervalSelect.addEventListener('change', () => {
+    customInput.style.display = intervalSelect.value === 'custom' ? '' : 'none';
+  });
+
+  const reminderInput = el('input', { type: 'number', min: '1', value: String(settings.reminderDays), style: 'max-width:120px' });
+
+  const saveBtn = el('button', { class: 'btn btn-primary btn-sm', style: 'margin-top:10px' }, '💾 ذخیره تنظیمات');
+  saveBtn.addEventListener('click', async () => {
+    const intervalDays = intervalSelect.value === 'custom' ? parseInt(customInput.value, 10) : parseInt(intervalSelect.value, 10);
+    const reminderDays = parseInt(reminderInput.value, 10);
+    if (!intervalDays || intervalDays < 1) { showToast('⚠️ دوره‌ی تمدید باید عددی بزرگ‌تر از صفر باشد'); return; }
+    if (!reminderDays || reminderDays < 1) { showToast('⚠️ یادآوری باید عددی بزرگ‌تر از صفر باشد'); return; }
+    saveBtn.disabled = true; saveBtn.textContent = 'در حال ذخیره...';
+    try {
+      await saveIdentitySettings({ intervalDays, reminderDays });
+      showToast('✅ تنظیمات دوره‌ی تمدید ذخیره شد');
+    } catch (err) {
+      showToast(`⚠️ خطا در ذخیره: ${err.message}`);
+    } finally {
+      saveBtn.disabled = false; saveBtn.textContent = '💾 ذخیره تنظیمات';
+    }
+  });
+
+  card.append(el('div', { style: 'display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end' }, [
+    el('div', {}, [el('label', {}, 'دوره‌ی تمدید'), el('div', { style: 'display:flex;gap:6px' }, [intervalSelect, customInput])]),
+    el('div', {}, [el('label', {}, 'یادآوری چند روز قبل از سررسید'), reminderInput]),
+  ]));
+  card.append(saveBtn);
+}
+
+export async function renderIdentity(container, state, ctx) {
   container.append(el('div', { class: 'loading-state' }, [
     el('div', { class: 'spinner' }),
     'در حال بارگذاری...',
@@ -35,6 +103,10 @@ export async function renderIdentity(container, state) {
   }
 
   container.innerHTML = '';
+
+  if (ctx?.myRole === 'superadmin') {
+    await renderIdentitySettingsCard(container);
+  }
 
   // هشدار معادن بدون مختصات چهارگوش کامل (بررسی این‌ها فقط با شعاع ۳۰۰ متری انجام می‌شود)
   fetchDeptRecords(state.department).then(async (records) => {

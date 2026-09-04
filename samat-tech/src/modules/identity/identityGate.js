@@ -28,7 +28,7 @@ export function mountIdentityQueuedOffline(root, onRetryOrContinue) {
   ])));
 }
 
-export function mountIdentityCapture(root, { email, mines, captureKind, reason, nameField }, onDone, onQueuedOffline) {
+export function mountIdentityCapture(root, { email, mines, captureKind, reason, nameField, boundaryExempt }, onDone, onQueuedOffline) {
   root.innerHTML = '';
   let capturedBlob = null;
   let capturedCoords = null;
@@ -102,7 +102,10 @@ export function mountIdentityCapture(root, { email, mines, captureKind, reason, 
       });
       accuracyBox.textContent = `📍 دقت نهایی GPS: ~${Math.round(coords.accuracy)} متر`;
       const inside = isInsideMineBoundary(coords, mine);
-      if (!inside) {
+      // مسئول فنی معاف‌شده (فقط با تایید سوپرادمین از پنل ادمین) از این بلوکِ سخت‌گیرانه رد
+      // می‌شود — برخلاف بقیه‌ی محدودیت‌های GPS در اپ (چک‌لیست، QR ورود و غیره) که دست‌نخورده
+      // باقی می‌مانند؛ این معافیت فقط مخصوص خودِ عکس احراز هویت است.
+      if (!inside && !boundaryExempt) {
         errBox.textContent = coords.accuracy > 25
           ? `⚠️ شما داخل محدوده قانونی معدن «${mineName}» نیستید (دقت GPS این خوانش ~${Math.round(coords.accuracy)} متر بود — اگر مطمئنید داخل محدوده‌اید، چند قدم جابه‌جا شوید و در فضای بازتر دوباره امتحان کنید).`
           : `⚠️ شما داخل محدوده قانونی معدن «${mineName}» نیستید. لطفاً داخل محدوده معدن این عکس را بگیرید.`;

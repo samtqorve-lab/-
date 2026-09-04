@@ -68,3 +68,29 @@ export async function fetchPendingIdentityCount(department) {
   const { count } = await sb.from('identity_verifications').select('id', { count: 'exact', head: true }).eq('department', department).eq('status', 'pending');
   return count || 0;
 }
+
+const IDENTITY_INTERVAL_DEFAULT_DAYS = 30;
+const IDENTITY_REMINDER_DEFAULT_DAYS = 5;
+
+/** دوره‌ی تمدید و یادآوری احراز هویت را از public_settings می‌خواند (پیش‌فرض: ماهانه / ۵ روز قبل) */
+export async function fetchIdentitySettings() {
+  let intervalDays = IDENTITY_INTERVAL_DEFAULT_DAYS;
+  let reminderDays = IDENTITY_REMINDER_DEFAULT_DAYS;
+  const { data } = await sb.from('public_settings').select('key,value').in('key', ['identity_reverify_interval_days', 'identity_reverify_reminder_days']);
+  (data || []).forEach((r) => {
+    const n = parseInt(r.value, 10);
+    if (!n || n < 1) return;
+    if (r.key === 'identity_reverify_interval_days') intervalDays = n;
+    if (r.key === 'identity_reverify_reminder_days') reminderDays = n;
+  });
+  return { intervalDays, reminderDays };
+}
+
+/** فقط ادمین/سوپرادمین (طبق RLS جدول public_settings) می‌تواند این را با موفقیت صدا بزند */
+export async function saveIdentitySettings({ intervalDays, reminderDays }) {
+  const { error } = await sb.from('public_settings').upsert([
+    { key: 'identity_reverify_interval_days', value: String(intervalDays) },
+    { key: 'identity_reverify_reminder_days', value: String(reminderDays) },
+  ], { onConflict: 'key' });
+  if (error) throw error;
+}

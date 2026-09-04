@@ -55,7 +55,7 @@ async function boot() {
   }
 
   const { data } = await sb.from('user_roles')
-    .select('role, assigned_mines, tech_officer_specialty, identity_status, identity_verified_at, trusted_device_id, full_name, membership_no, national_code, license_no, license_expiry_date, assigned_province, assigned_county')
+    .select('role, assigned_mines, tech_officer_specialty, identity_status, identity_verified_at, trusted_device_id, full_name, membership_no, national_code, license_no, license_expiry_date, assigned_province, assigned_county, identity_boundary_exempt')
     .eq('email', email).limit(1);
   const row = (data && data[0]) || { role: 'pending', assigned_mines: [] };
 
@@ -134,7 +134,7 @@ async function boot() {
     }
     const meta = specialtyMeta(row.tech_officer_specialty || 'استخراج');
     mountIdentityCapture(root, {
-      email, mines, captureKind: gate.captureKind, reason: gate.reason, nameField: meta.nameField,
+      email, mines, captureKind: gate.captureKind, reason: gate.reason, nameField: meta.nameField, boundaryExempt: !!row.identity_boundary_exempt,
     }, () => window.location.reload(), () => mountIdentityQueuedOffline(root, () => window.location.reload()));
     return;
   }

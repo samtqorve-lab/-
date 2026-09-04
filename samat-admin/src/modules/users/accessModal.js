@@ -141,6 +141,18 @@ export function openAccessModal(userRow, { myEmail, isSuper, onSaved }) {
       'این کاربر پس از تایید، فقط همین مورد(ها) را می‌بیند و می‌تواند برایشان چک‌لیست/گزارش ثبت کند.'));
 
     loadMineList(spec);
+
+    // ── معافیت از محدوده‌ی جغرافیایی برای عکس احراز هویت — فقط سوپرادمین می‌بیند/تنظیم می‌کند ──
+    if (isSuper) {
+      body.append(el('div', { style: 'font-weight:700;font-size:var(--text-sm);margin:14px 0 6px;border-top:1px dashed var(--stone-200);padding-top:10px' }, '🔓 معافیت از محدوده‌ی جغرافیایی'));
+      const exemptCb = el('input', { type: 'checkbox', style: 'width:auto' });
+      exemptCb.checked = !!u.identity_boundary_exempt;
+      fields.identity_boundary_exempt = exemptCb;
+      body.append(el('label', { style: 'display:flex;align-items:center;gap:6px;font-size:var(--text-sm);margin-bottom:4px' },
+        [exemptCb, 'این کاربر بتواند عکس احراز هویت (اولیه/تمدید) را خارج از محدوده‌ی قانونی معدن هم ثبت کند']));
+      body.append(el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600)' },
+        'برای موارد استثنایی (مثلاً دسترسی فیزیکی موقت به سایت وجود ندارد). بقیه‌ی الزامات (چک‌لیست، QR ورود و غیره) هم‌چنان طبق محدوده بررسی می‌شوند — این فقط مخصوص خودِ عکس احراز هویت است.'));
+    }
   }
 
   // ── بهره‌بردار: فقط اختصاص معدن، بدون فیلدهای هویتی مسئول فنی ──
@@ -227,6 +239,7 @@ export function openAccessModal(userRow, { myEmail, isSuper, onSaved }) {
         } else {
           patch.department = 'معدن';
         }
+        if (fields.identity_boundary_exempt) patch.identity_boundary_exempt = fields.identity_boundary_exempt.checked;
       }
       if (u.role === 'owner') {
         const chosen = Array.from(document.querySelectorAll('.ua-mine:checked')).map((cb) => cb.value);
