@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>بروزرسانی نرم‌افزار — سامانه معادن قروه</title>
+<meta name="robots" content="noindex" />
+<style>
+  :root{
+    --bg: #12161B;
+    --panel: #1B2129;
+    --panel-raised: #232A33;
+    --hair: #2E3641;
+    --text: #EDF0F3;
+    --text-muted: #8B95A3;
+    --accent: #E8830A;
+    --accent-ink: #12161B;
+    --accent-dim: #3A2C15;
+    --ok: #4C9A6A;
+    --ok-dim: #1C2B21;
+    --stripe-a: #E8830A;
+    --stripe-b: #1B2129;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Vazirmatn','IRANYekanX', Tahoma, 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding: 28px 16px;
+    line-height: 1.7;
+  }
+  .card{
+    width:100%;
+    max-width: 440px;
+    background: var(--panel);
+    border: 1px solid var(--hair);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .stripe{
+    height: 8px;
+    background: repeating-linear-gradient(
+      -45deg,
+      var(--stripe-a) 0 10px,
+      var(--stripe-b) 10px 20px
+    );
+  }
+  .body{ padding: 26px 22px 22px; }
+
+  .app-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom: 18px;
+  }
+  .app-icon{
+    width:38px; height:38px; border-radius:9px;
+    background: var(--panel-raised);
+    border:1px solid var(--hair);
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+  }
+  .app-icon svg{ width:20px; height:20px; }
+  .app-name{ font-size: 14px; color: var(--text-muted); }
+  .app-name b{ color: var(--text); font-weight:700; }
+
+  h1{
+    font-size: 21px;
+    font-weight: 800;
+    margin: 0 0 14px;
+    letter-spacing: -0.01em;
+  }
+
+  .gauge{
+    display:flex;
+    align-items:center;
+    gap: 10px;
+    background: var(--panel-raised);
+    border: 1px solid var(--hair);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 18px;
+  }
+  .gauge .v{ text-align:center; }
+  .gauge .v .num{ font-size: 20px; font-weight:800; font-variant-numeric: tabular-nums; }
+  .gauge .v .lbl{ font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .gauge .v.new .num{ color: var(--accent); }
+  .gauge .arrow{ color: var(--text-muted); flex:1; text-align:center; font-size:16px; }
+
+  .notes{
+    font-size: 14px;
+    color: var(--text-muted);
+    background: var(--panel-raised);
+    border-right: 3px solid var(--hair);
+    padding: 12px 14px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+  .notes b{ color: var(--text); display:block; font-size:13px; margin-bottom:4px; font-weight:700;}
+
+  .actions{ display:flex; flex-direction:column; gap: 10px; }
+  .btn{
+    display:flex;
+    align-items:center;
+    gap: 10px;
+    width:100%;
+    border: 1px solid var(--hair);
+    background: var(--panel-raised);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 14.5px;
+    font-weight: 700;
+    padding: 13px 16px;
+    border-radius: 10px;
+    cursor: pointer;
+    text-decoration:none;
+    transition: transform .12s ease, border-color .12s ease, background .12s ease;
+  }
+  .btn svg{ width:19px; height:19px; flex-shrink:0; }
+  .btn:active{ transform: scale(0.98); }
+  .btn.primary{
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+  }
+  .btn .sub{ margin-inline-start:auto; font-size:11.5px; color: var(--text-muted); font-weight:500; }
+  .btn.primary .sub{ color: rgba(18,22,27,.65); }
+  .btn.pulse{ animation: pulse 1.1s ease 2; border-color: var(--accent); }
+  @keyframes pulse{
+    0%,100%{ box-shadow: 0 0 0 0 rgba(232,131,10,0); }
+    50%{ box-shadow: 0 0 0 4px rgba(232,131,10,.25); }
+  }
+
+  .notice{
+    display:none;
+    align-items:flex-start;
+    gap:8px;
+    margin-top: 12px;
+    padding: 11px 13px;
+    border-radius: 9px;
+    background: var(--accent-dim);
+    border: 1px solid #4A3A1D;
+    color: #F0D9B2;
+    font-size: 13px;
+  }
+  .notice.show{ display:flex; }
+  .notice svg{ width:16px; height:16px; flex-shrink:0; margin-top:2px; color: var(--accent); }
+
+  .uptodate{ display:none; }
+  .state-uptodate .updating{ display:none; }
+  .state-uptodate .uptodate{ display:block; }
+  .ok-badge{
+    display:flex; align-items:center; gap:10px;
+    background: var(--ok-dim); border:1px solid #2C4536;
+    color: var(--ok); border-radius:10px; padding:14px 16px; font-weight:700; font-size:14.5px;
+    margin-bottom: 4px;
+  }
+  .ok-badge svg{ width:20px; height:20px; flex-shrink:0; }
+
+  .loading, .error{ display:none; text-align:center; padding: 10px 0 4px; color: var(--text-muted); font-size:13.5px; }
+  .loading.show, .error.show{ display:block; }
+  .error.show{ color:#E0A385; }
+
+  .foot{
+    text-align:center;
+    font-size: 11.5px;
+    color: var(--text-muted);
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--hair);
+  }
+</style>
+</head>
+<body>
+  <div class="card" id="card">
+    <div class="stripe"></div>
+    <div class="body">
+
+      <div class="app-row">
+        <div class="app-icon" id="appIcon"></div>
+        <div class="app-name">سامانه معادن قروه — <b id="appLabel">پنل ادمین</b></div>
+      </div>
+
+      <div class="updating">
+        <h1 id="headline">نسخه‌ی جدیدی در دسترس است</h1>
+
+        <div class="gauge">
+          <div class="v cur">
+            <div class="num" id="curVersion">—</div>
+            <div class="lbl">نسخه‌ی نصب‌شده</div>
+          </div>
+          <div class="arrow">←</div>
+          <div class="v new">
+            <div class="num" id="newVersion">—</div>
+            <div class="lbl">نسخه‌ی جدید</div>
+          </div>
+        </div>
+
+        <div class="notes" id="notesBox" style="display:none;">
+          <b>در این نسخه چه چیزی تغییر کرده:</b>
+          <span id="notesText"></span>
+        </div>
+
+        <div class="actions">
+          <a class="btn primary" id="btnDirect" href="#">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13"/><path d="m7 11 5 5 5-5"/><path d="M5 21h14"/></svg>
+            دانلود مستقیم فایل نصب
+            <span class="sub">APK</span>
+          </a>
+          <a class="btn" id="btnMyket" href="#">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"/></svg>
+            دریافت از مایکت
+          </a>
+          <a class="btn" id="btnGoogle" href="#">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 3 14 9-14 9V3Z"/></svg>
+            دریافت از گوگل‌پلی
+          </a>
+        </div>
+
+        <div class="notice" id="notice">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v5"/><path d="M12 16h.01"/></svg>
+          <span id="noticeText">لینک مورد نظر یافت نشد. با استفاده از لینک مستقیم تلاش کنید.</span>
+        </div>
+      </div>
+
+      <div class="uptodate">
+        <div class="ok-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m22 4-10 10-3-3"/></svg>
+          نرم‌افزار شما به‌روز است — نیازی به اقدام نیست
+        </div>
+      </div>
+
+      <div class="loading" id="loading">در حال بررسی آخرین نسخه…</div>
+      <div class="error" id="errorBox">اطلاعات بروزرسانی در دسترس نیست. لطفاً بعداً دوباره تلاش کنید.</div>
+
+      <div class="foot">این صفحه به‌صورت خودکار توسط اپلیکیشن باز شده است</div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  var params = new URLSearchParams(location.search);
+  var appKey = (params.get('app') === 'tech') ? 'tech' : 'admin';
+  var currentVersion = parseInt(params.get('current') || '', 10);
+
+  var ICONS = {
+    admin: '<svg viewBox="0 0 24 24" fill="none" stroke="#E8830A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>',
+    tech:  '<svg viewBox="0 0 24 24" fill="none" stroke="#E8830A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 1.4 0l1.6-1.6a1 1 0 0 0 0-1.4l-1.4-1.4a1 1 0 0 0-1.4 0l-1.6 1.6a1 1 0 0 0 0 1.4Z"/><path d="m2 22 5.5-1.5L21 6a2.12 2.12 0 0 0-3-3L4.5 16.5Z"/></svg>'
+  };
+  var LABELS = { admin: 'پنل ادمین', tech: 'اپلیکیشن مسئول فنی' };
+
+  document.getElementById('appIcon').innerHTML = ICONS[appKey];
+  document.getElementById('appLabel').textContent = LABELS[appKey];
+  document.title = 'بروزرسانی ' + LABELS[appKey] + ' — سامانه معادن قروه';
+
+  var manifestUrl = './updates/' + appKey + '.json';
+  var storeLinksUrl = './updates/store-links.json';
+
+  var loading = document.getElementById('loading');
+  var errorBox = document.getElementById('errorBox');
+  var card = document.getElementById('card');
+
+  loading.classList.add('show');
+
+  Promise.all([
+    fetch(manifestUrl, { cache: 'no-store' }).then(function(r){ if(!r.ok) throw new Error('manifest'); return r.json(); }),
+    fetch(storeLinksUrl, { cache: 'no-store' }).then(function(r){ return r.ok ? r.json() : {}; }).catch(function(){ return {}; })
+  ]).then(function(results){
+    loading.classList.remove('show');
+    var manifest = results[0];
+    var storeLinks = (results[1] && results[1][appKey]) ? results[1][appKey] : {};
+
+    var newVersion = manifest.versionCode;
+    document.getElementById('newVersion').textContent = manifest.versionName || newVersion;
+
+    if (!isNaN(currentVersion)) {
+      document.getElementById('curVersion').textContent = currentVersion;
+    } else {
+      document.getElementById('curVersion').textContent = '؟';
+    }
+
+    if (!isNaN(currentVersion) && currentVersion >= newVersion) {
+      card.className = 'card state-uptodate';
+      return;
+    }
+
+    if (manifest.notes) {
+      document.getElementById('notesText').textContent = manifest.notes;
+      document.getElementById('notesBox').style.display = 'block';
+    }
+
+    setupButton('btnDirect', manifest.url, false);
+    setupButton('btnMyket', storeLinks.myketUrl, true);
+    setupButton('btnGoogle', storeLinks.googlePlayUrl, true);
+
+  }).catch(function(){
+    loading.classList.remove('show');
+    errorBox.classList.add('show');
+  });
+
+  function setupButton(id, url, isStoreLink){
+    var el = document.getElementById(id);
+    if (url) {
+      el.href = url;
+      el.target = '_blank';
+      el.rel = 'noopener';
+    } else {
+      el.href = '#';
+      el.addEventListener('click', function(ev){
+        ev.preventDefault();
+        showNotice(el.textContent.trim());
+      });
+    }
+  }
+
+  function showNotice(missingLabel){
+    var notice = document.getElementById('notice');
+    document.getElementById('noticeText').textContent =
+      'لینک «' + missingLabel + '» یافت نشد. با استفاده از لینک مستقیم تلاش کنید.';
+    notice.classList.add('show');
+    var direct = document.getElementById('btnDirect');
+    direct.classList.remove('pulse');
+    void direct.offsetWidth;
+    direct.classList.add('pulse');
+    direct.scrollIntoView({ behavior:'smooth', block:'center' });
+  }
+})();
+</script>
+</body>
+</html>
