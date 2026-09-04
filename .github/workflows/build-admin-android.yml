@@ -8,12 +8,7 @@ on:
       - 'samat-admin/**'
 
 permissions:
-  contents: write   # لازم برای ساخت GitHub Release (منبع دانلود APK برای بنر «آپدیت موجود است»)
-
-# قفل concurrency مشترک قبلی حذف شد — از وقتی manifest با GitHub Contents API آپدیت می‌شود
-# (بدون local git push)، دیگر رقابتی برای جلوگیری وجود ندارد؛ نگه‌داشتنش فقط باعث می‌شد وقتی
-# ۳ ورک‌فلوی هم‌گروه با هم اجرا می‌شدند (مثلاً یک پوش که هم samat-tech هم samat-admin را عوض
-# می‌کرد)، GitHub Actions سومی را مستقیم cancel کند (صف فقط ۱ اجرای معلق نگه می‌دارد).
+  contents: write   # همچنان لازم است چون نسخه‌ی امضاشده‌ی release (برای بازار/گوگل‌پلی) هنوز روی GitHub Release منتشر می‌شود.
 
 jobs:
   build:
@@ -43,8 +38,6 @@ jobs:
         working-directory: samat-admin
         run: npm install
 
-      # APP_BUILD_NUMBER داخل خودِ جاوااسکریپت اپ (به‌عنوان __APP_BUILD__) جاسازی می‌شود تا
-      # با versionCode داخل manifest.json (پایین همین فایل) مقایسه شود و تشخیص دهد آپدیت جدیدتری هست یا نه.
       - name: Build web assets
         working-directory: samat-admin
         env:
@@ -58,7 +51,6 @@ jobs:
       - name: Grant execute permission to gradlew
         run: chmod +x samat-admin/android/gradlew
 
-      # همان کیستور ثابتِ اپ مسئول فنی — تا آپدیت پنل ادمین هم بدون نیاز به حذف نسخه‌ی قبلی نصب شود.
       - name: Restore persistent debug keystore
         run: |
           mkdir -p ~/.android
@@ -74,7 +66,6 @@ jobs:
           name: samat-admin-debug-apk
           path: samat-admin/android/app/build/outputs/apk/debug/app-debug.apk
 
-      # --- ساخت نسخه‌ی امضاشده‌ی release (برای انتشار در بازار/گوگل‌پلی) ---
       - name: Restore release keystore
         working-directory: samat-admin/android
         run: |
@@ -114,23 +105,23 @@ jobs:
             --notes "این نسخه با کلید release واقعی امضا شده (نه کلید دیباگ داخلی) — برای آپلود در کافه‌بازار/گوگل‌پلی. commit ${{ github.sha }}"
           echo "url=https://github.com/samtqorve-lab/-/releases/download/$TAG/$APK_NAME" >> "$GITHUB_OUTPUT"
 
-      # --- انتشار عمومی + به‌روزرسانی manifest آپدیت خودکار ---
-      - name: Publish APK to a GitHub Release
+      - name: Publish APK to Supabase Storage
         id: release
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           set -e
-          TAG="admin-android-${{ github.run_number }}"
-          APK_NAME="samat-admin-${{ github.run_number }}.apk"
-          cp samat-admin/android/app/build/outputs/apk/debug/app-debug.apk "$APK_NAME"
-          gh release create "$TAG" "$APK_NAME" \
-            --repo samtqorve-lab/- \
-            --title "پنل ادمین (اندروید) — build ${{ github.run_number }}" \
-            --notes "Build خودکار از commit ${{ github.sha }}"
-          echo "url=https://github.com/samtqorve-lab/-/releases/download/$TAG/$APK_NAME" >> "$GITHUB_OUTPUT"
+          APK_PATH="samat-admin/android/app/build/outputs/apk/debug/app-debug.apk"
+          curl -sS --fail -X POST "$SUPABASE_URL/storage/v1/object/app-updates/samat-admin.apk" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "x-upsert: true" \
+            -H "Content-Type: application/vnd.android.package-archive" \
+            --data-binary "@$APK_PATH"
+          echo "url=$SUPABASE_URL/storage/v1/object/public/app-updates/samat-admin.apk?v=${{ github.run_number }}" >> "$GITHUB_OUTPUT"
 
-      - name: Update Android update-manifest (Contents API — بدون وابستگی به checkout محلی)
+      - name: Update Android update-manifest (Contents API)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -155,7 +146,7 @@ jobs:
               echo "manifest به‌روزرسانی شد"
               exit 0
             fi
-            echo "به‌روزرسانی رد شد (احتمالاً sha هم‌زمان تغییر کرده) — تلاش دوباره..."
+            echo "به‌روزرسانی رد شد — تلاش دوباره..."
             sleep 3
           done
           echo "به‌روزرسانی manifest نهایتاً شکست خورد" >&2
