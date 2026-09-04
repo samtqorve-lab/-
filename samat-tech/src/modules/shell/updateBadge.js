@@ -1,4 +1,4 @@
-import { checkForAppUpdate } from '../../lib/appUpdate.js';
+import { checkForAppUpdate, UPDATE_PAGE_URL, CURRENT_BUILD } from '../../lib/appUpdate.js';
 import { el } from '../../lib/dom.js';
 
 /** بنر کوچک شناور بالای صفحه وقتی نسخه‌ی جدیدتری از APK منتشر شده باشد. */
@@ -17,8 +17,10 @@ export async function mountUpdateBadge() {
       el('button', {
         class: 'btn-sm',
         style: 'background:#fff;color:var(--patina-700)',
-        onclick: () => { window.open(manifest.url, '_system'); },
-      }, 'دانلود و نصب'),
+        onclick: () => {
+          window.open(`${UPDATE_PAGE_URL}?app=tech&current=${CURRENT_BUILD}`, '_system');
+        },
+      }, 'مشاهده و دریافت آپدیت'),
       el('button', {
         class: 'btn-sm',
         style: 'background:transparent;color:#fff;border:1px solid rgba(255,255,255,.5)',
