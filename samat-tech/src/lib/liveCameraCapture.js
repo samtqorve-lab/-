@@ -31,7 +31,17 @@ export function captureLivePhoto({ buildLines, checkInside, defaultFacingMode = 
     let facingMode = defaultFacingMode;
     let switching = false;
 
-    const video = el('video', { autoplay: true, playsinline: true, muted: true, style: 'flex:1;width:100%;object-fit:cover;background:#000;min-height:0' });
+    // نکته: قبلاً استایل ویدیو `flex:1` بود، اما والد آن (کانتینر relative زیر) `display:flex`
+    // نیست، پس `flex:1` هیچ اثری نداشت — ویدیو فقط به اندازه‌ی نسبت طبیعی خودش (بر مبنای عرض
+    // ۱۰۰٪) کشیده می‌شد و بقیه‌ی کادر (که واترمارک/دکمه‌ها رویش می‌نشینند) پس‌زمینه‌ی سیاه خام
+    // دیو بیرونی باقی می‌ماند. با `position:absolute;inset:0` ویدیو همیشه دقیقاً هم‌اندازه‌ی
+    // کانتینر relative پر می‌شود، مستقل از این‌که والد flex باشد یا نه.
+    const video = el('video', {
+      autoplay: true,
+      playsinline: true,
+      muted: true,
+      style: 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000',
+    });
     // ست‌کردن attribute برای muted/playsinline کافی نیست (بعضی مرورگرها، مخصوصاً سافاری، فقط به
     // property مستقیم روی خود عنصر ویدیو اعتماد می‌کنند)؛ بدون این، سیاست‌های autoplay ممکن است
     // پخش نمای زنده را کلاً مسدود کنند.
