@@ -140,7 +140,7 @@ jobs:
           B64=$(printf '%s' "$CONTENT" | base64 -w0)
           for i in 1 2 3 4 5; do
             SHA=$(gh api "repos/$REPO/contents/$FILE_PATH?ref=main" --jq .sha 2>/dev/null || true)
-            ARGS=(-f message="chore: به‌روزرسانی خودکار manifest آپدیت اندروید مسئول فنی [skip ci]" -f content="$B64" -f branch=main)
+            ARGS=(-f message="chore: به‌روزرسانی خودکار manifest آپدیت اندروید مسئول فنی" -f content="$B64" -f branch=main)
             if [ -n "$SHA" ]; then ARGS+=(-f sha="$SHA"); fi
             if gh api --method PUT "repos/$REPO/contents/$FILE_PATH" "${ARGS[@]}" > /dev/null; then
               echo "manifest به‌روزرسانی شد"
