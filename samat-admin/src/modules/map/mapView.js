@@ -4,7 +4,9 @@ import 'leaflet/dist/leaflet.css';
 import { el, esc, showToast } from '../../lib/dom.js';
 import { fetchDeptRecords, applyGeoScope } from '../../lib/records.js';
 import { DEPT_NAME_FIELD, DEPT_CAT_COLORS } from '../../lib/sections.js';
-import { getMineCorners, ensureNativeLocationPermission } from '../../lib/geo.js';
+import {
+  getMineCorners, ensureNativeLocationPermission, centroid, openDirectionsTo,
+} from '../../lib/geo.js';
 import { setMine, onChange } from '../../router.js';
 import { mountMapToolbar } from './mapTools.js';
 
@@ -170,16 +172,27 @@ export async function renderMap(container, state) {
     }
   });
 
+  const directionsLink = (lat, lon) => el('a', {
+    href: '#',
+    onclick: (e) => {
+      e.preventDefault();
+      openDirectionsTo(lat, lon).catch((err) => showToast(`⚠️ ${err.message}`));
+    },
+  }, '🧭 مسیریابی از موقعیت من');
+
   const bounds = [];
   withBoundary.forEach(({ r, corners }) => {
     const cat = catColors[r['دسته']] || catColors['غیره'] || { border: '#6B6250' };
     const name = r[nameField] || '—';
+    const mineCenter = centroid(corners);
     const popup = el('div', {}, [
       el('b', {}, esc(name)),
       el('br'),
       esc(r['دسته'] || ''),
       el('br'),
       el('a', { href: '#', onclick: (e) => { e.preventDefault(); setMine(r._rowId); } }, 'مشاهده جزئیات'),
+      el('br'),
+      directionsLink(mineCenter[0], mineCenter[1]),
     ]);
     const poly = L.polygon(corners, { color: '#fff', weight: 2, fillColor: cat.border, fillOpacity: 0.35 }).addTo(map);
     poly.bindPopup(popup);
@@ -194,6 +207,8 @@ export async function renderMap(container, state) {
       esc(r['دسته'] || ''),
       el('br'),
       el('a', { href: '#', onclick: (e) => { e.preventDefault(); setMine(r._rowId); } }, 'مشاهده جزئیات'),
+      el('br'),
+      directionsLink(r._lat, r._lon),
     ]);
     const marker = L.circleMarker([r._lat, r._lon], {
       radius: 8, color: '#fff', weight: 2, fillColor: cat.badge, fillOpacity: 1,
