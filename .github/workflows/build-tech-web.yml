@@ -71,7 +71,7 @@ jobs:
             echo "no changes in tech-officer web build"
             exit 0
           fi
-          git commit -m "chore: به‌روزرسانی خودکار build وب مسئول فنی (tech-officer) از commit ${{ github.sha }} [skip ci]"
+          git commit -m "chore: به‌روزرسانی خودکار build وب مسئول فنی (tech-officer) از commit ${{ github.sha }}"
           for i in 1 2 3 4 5; do
             if git push; then exit 0; fi
             echo "push rejected (احتمالاً به‌خاطر workflow دیگری که هم‌زمان push کرد) — تلاش دوباره..."
