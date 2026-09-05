@@ -5,6 +5,7 @@ import {
 } from '../../lib/auth.js';
 import { isPushLoginEnabled, requestPushApproval, verifyFallbackCode } from '../../lib/pushLogin.js';
 import { friendlyError } from '../../lib/utils.js';
+import { autoEnableBiometricAfterLogin } from '../../lib/biometric.js';
 
 const MESSENGER_HINTS = {
   telegram: 'آیدی چت تلگرام', bale: 'شماره موبایل یا آیدی چت بله', eitaa: 'آیدی چت/کانال ایتا',
@@ -89,6 +90,9 @@ export function mountLogin(root, onSuccess) {
           });
         }
         onSuccess();
+        autoEnableBiometricAfterLogin(email).then((didEnable) => {
+          if (didEnable) showToast('👆 ورود سریع با اثر انگشت/Face ID روی این دستگاه فعال شد');
+        });
       } catch (err) {
         errBox.textContent = err.pushDenied
           ? 'ورود از طریق اعلان رد شد.'
