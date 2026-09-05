@@ -4,6 +4,7 @@ import {
   isPersonnelCodeTaken, emailForPersonnelCode, signInWithGoogle,
 } from '../../lib/auth.js';
 import { isPushLoginEnabled, requestPushApproval, verifyFallbackCode } from '../../lib/pushLogin.js';
+import { autoEnableBiometricAfterLogin } from '../../lib/biometric.js';
 
 export function mountLogin(root, onSuccess) {
   root.innerHTML = '';
@@ -88,6 +89,9 @@ export function mountLogin(root, onSuccess) {
             });
           }
           onSuccess();
+          autoEnableBiometricAfterLogin(email).then((didEnable) => {
+            if (didEnable) showToast('👆 ورود سریع با اثر انگشت/Face ID روی این دستگاه فعال شد');
+          });
         } catch (err) {
           errBox.textContent = err.pushDenied
             ? 'ورود از طریق اعلان روی گوشی رد شد.'
