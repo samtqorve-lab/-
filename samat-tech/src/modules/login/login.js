@@ -1,6 +1,7 @@
 import { el, showToast, passwordFieldWithToggle } from '../../lib/dom.js';
 import {
   signIn, signUp, confirmSignupCode, resendSignupCode, sendPasswordResetCode, resetPasswordWithCode, signOut,
+  signInWithGoogle,
 } from '../../lib/auth.js';
 import { isPushLoginEnabled, requestPushApproval, verifyFallbackCode } from '../../lib/pushLogin.js';
 import { friendlyError } from '../../lib/utils.js';
@@ -112,11 +113,34 @@ export function mountLogin(root, onSuccess) {
       });
     }
 
+    const googleBtn = el('button', {
+      type: 'button',
+      class: 'btn btn-ghost',
+      style: 'width:100%;justify-content:center',
+    }, 'ورود سریع با گوگل');
+    googleBtn.addEventListener('click', async () => {
+      errBox.textContent = '';
+      googleBtn.disabled = true;
+      const originalLabel = googleBtn.textContent;
+      googleBtn.textContent = 'در حال اتصال به گوگل...';
+      try {
+        await signInWithGoogle();
+        onSuccess(); // فقط در حالت اندروید به اینجا می‌رسد؛ در وب صفحه ریدایرکت می‌شود
+      } catch (err) {
+        if (!err.userCancelled) errBox.textContent = err.message || 'خطا در ورود با گوگل';
+      } finally {
+        googleBtn.disabled = false;
+        googleBtn.textContent = originalLabel;
+      }
+    });
+
     card.append(
       brand(),
       el('label', {}, 'ایمیل یا شماره عضویت'), idInput,
       el('label', {}, 'رمز عبور'), passWrap,
       errBox, submitBtn, codeBox,
+      el('div', { style: 'text-align:center;color:var(--stone-400,#999);font-size:12px;margin:14px 0 6px' }, 'یا'),
+      googleBtn,
       el('div', { class: 'gate-links' }, [
         el('a', { onclick: () => { screen = 'forgot1'; draw(); } }, 'فراموشی رمز عبور'),
         el('a', { onclick: () => { screen = 'register'; draw(); } }, 'ثبت‌نام مسئول فنی/ایمنی/بهداشت'),

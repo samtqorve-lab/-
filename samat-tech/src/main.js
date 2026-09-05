@@ -3,6 +3,7 @@ import './styles/base.css';
 import './styles/components.css';
 
 import { sb } from './lib/supabase.js';
+import { ensureMyRoleRow } from './lib/auth.js';
 import { mountLogin } from './modules/login/login.js';
 import { mountIdentityPending, mountIdentityCapture, mountIdentityQueuedOffline } from './modules/identity/identityGate.js';
 import { mountBiometricGate } from './modules/identity/biometricGate.js';
@@ -57,7 +58,13 @@ async function boot() {
   const { data } = await sb.from('user_roles')
     .select('role, assigned_mines, tech_officer_specialty, identity_status, identity_verified_at, trusted_device_id, full_name, membership_no, national_code, license_no, license_expiry_date, assigned_province, assigned_county, identity_boundary_exempt')
     .eq('email', email).limit(1);
-  const row = (data && data[0]) || { role: 'pending', assigned_mines: [] };
+  const row = (data && data[0]) || await (async () => {
+    // اولین ورود با گوگل: هنوز ردیفی در user_roles نیست (بر خلاف ثبت‌نام با رمز که موقع signUp
+    // ساخته می‌شود) — همین‌جا ساخته می‌شود تا در تب «کاربران» پنل ادمین دیده شود و سوپرادمین
+    // بتواند تاییدش کند.
+    await ensureMyRoleRow(session.user);
+    return { role: 'pending', assigned_mines: [] };
+  })();
 
   root.innerHTML = '';
 

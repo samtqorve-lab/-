@@ -24,6 +24,15 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- بازگشت از ورود گوگل (مرورگر سیستم → اپ): بعد از تایید در گوگل، Supabase به همین
+                 اسکیم ریدایرکت می‌کند تا کد ورود به‌جای ماندن در مرورگر، به اپ برسد. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="ir.novinproduct.samattech" />
+            </intent-filter>
+
         </activity>
 
         <provider
@@ -38,7 +47,7 @@
     </application>
 
     <!-- Permissions -->
-    <!-- این اپ به‌شدت به دوربین زنده (لایو‌کمرا با واترمارک)، GPS (پیش‌گرم‌سازی مشترک)، میکروفون
+    <!-- این اپ به دوربین زنده (لایو‌کمرا با واترمارک)، GPS (پیش‌گرم‌سازی مستقیم)، میکروفون
          (یادداشت صوتی حادثه)، و اعلان محلی وابسته است — بدون این مجوزها، همان API‌های وب که در
          مرورگر کار می‌کردند، داخل WebView این اپ کار نخواهند کرد. -->
 

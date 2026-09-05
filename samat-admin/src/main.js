@@ -2,7 +2,7 @@ import './styles/tokens.css';
 import './styles/base.css';
 import './styles/components.css';
 
-import { getSession, fetchMyRole, isStaffRole, signOut } from './lib/auth.js';
+import { getSession, fetchMyRole, isStaffRole, signOut, ensureMyRoleRow } from './lib/auth.js';
 import { sb } from './lib/supabase.js';
 import { el } from './lib/dom.js';
 import { setGeoScope } from './router.js';
@@ -58,21 +58,28 @@ async function boot() {
   try {
     roleRow = await fetchMyRole(session.user.email);
   } catch {
-    root.innerHTML = '';
-    root.append(
-      el('div', { class: 'empty-state' }, [
-        el('div', {}, 'حساب شما هنوز در سامانه تعریف نشده — با مدیر سیستم تماس بگیرید.'),
-        el('button', {
-          class: 'btn btn-primary',
-          style: 'margin-top:14px',
-          onclick: async () => {
-            await signOut();
-            window.location.reload();
-          },
-        }, 'بازگشت به صفحه ورود'),
-      ])
-    );
-    return;
+    // اولین ورود با گوگل: هنوز ردیفی در user_roles نیست (بر خلاف ثبت‌نام با رمز که موقع signUp
+    // ساخته می‌شود) — همین‌جا با نقش pending ساخته می‌شود تا سوپرادمین در تب «کاربران» ببیندش.
+    try {
+      await ensureMyRoleRow(session.user);
+      roleRow = await fetchMyRole(session.user.email);
+    } catch {
+      root.innerHTML = '';
+      root.append(
+        el('div', { class: 'empty-state' }, [
+          el('div', {}, 'حساب شما هنوز در سامانه تعریف نشده — با مدیر سیستم تماس بگیرید.'),
+          el('button', {
+            class: 'btn btn-primary',
+            style: 'margin-top:14px',
+            onclick: async () => {
+              await signOut();
+              window.location.reload();
+            },
+          }, 'بازگشت به صفحه ورود'),
+        ])
+      );
+      return;
+    }
   }
 
   if (!isStaffRole(roleRow.role)) {

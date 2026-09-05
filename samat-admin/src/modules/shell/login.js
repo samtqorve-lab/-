@@ -1,7 +1,7 @@
 import { el, passwordFieldWithToggle, showToast } from '../../lib/dom.js';
 import {
   signIn, signOut, signUp, confirmSignupCode, resendSignupCode,
-  isPersonnelCodeTaken, emailForPersonnelCode,
+  isPersonnelCodeTaken, emailForPersonnelCode, signInWithGoogle,
 } from '../../lib/auth.js';
 import { isPushLoginEnabled, requestPushApproval, verifyFallbackCode } from '../../lib/pushLogin.js';
 
@@ -108,7 +108,32 @@ export function mountLogin(root, onSuccess) {
       submitBtn,
     ]);
 
-    card.append(brand(), form, codeBox, el('div', { class: 'login-links', style: 'text-align:center;margin-top:14px' }, [
+    card.append(brand(), form, codeBox);
+
+    card.append(el('div', { style: 'text-align:center;color:var(--stone-400,#999);font-size:12px;margin:14px 0 6px' }, 'یا'));
+    const googleBtn = el('button', {
+      type: 'button',
+      class: 'btn btn-ghost',
+      style: 'width:100%;justify-content:center',
+    }, 'ورود سریع با گوگل');
+    googleBtn.addEventListener('click', async () => {
+      errBox.textContent = '';
+      googleBtn.disabled = true;
+      const originalLabel = googleBtn.textContent;
+      googleBtn.textContent = 'در حال اتصال به گوگل...';
+      try {
+        await signInWithGoogle();
+        onSuccess(); // فقط در حالت اندروید به اینجا می‌رسد؛ در وب/دسکتاپ صفحه ریدایرکت می‌شود
+      } catch (err) {
+        if (!err.userCancelled) errBox.textContent = err.message || 'خطا در ورود با گوگل';
+      } finally {
+        googleBtn.disabled = false;
+        googleBtn.textContent = originalLabel;
+      }
+    });
+    card.append(googleBtn);
+
+    card.append(el('div', { class: 'login-links', style: 'text-align:center;margin-top:14px' }, [
       el('a', { href: '#', onclick: (e) => { e.preventDefault(); screen = 'register'; draw(); } }, 'درخواست دسترسی ادمین (ثبت‌نام)'),
     ]));
   }
