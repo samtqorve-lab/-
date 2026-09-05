@@ -32,6 +32,25 @@ export async function biometricHardwareAvailable() {
   }
 }
 
+/**
+ * بعد از یک ورود موفق با رمز عبور صدا زده می‌شود — اگر گوشی سنسور اثر انگشت/Face ID فعال داشته
+ * باشد و قبلاً برای این ایمیل فعال نشده باشد، خودش یک‌بار پرامپت تایید هویت را نشان می‌دهد و در
+ * صورت تایید، آن را فعال می‌کند؛ دیگر نیازی نیست کاربر برای فعال‌سازی به «تنظیمات من» برود.
+ * چون این یک تلاش پس‌زمینه‌ای/راحتی است، هر خطا یا لغو کاربر بی‌صدا نادیده گرفته می‌شود — نباید
+ * روند ورود را متوقف کند یا خطا نشان دهد.
+ * @returns {Promise<boolean>} true فقط اگر همین‌جا با موفقیت فعال شد
+ */
+export async function autoEnableBiometricAfterLogin(email) {
+  if (hasBiometricCred(email)) return false;
+  try {
+    if (!(await biometricHardwareAvailable())) return false;
+    await enableBiometric(email);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function storageKey(email) {
   return `bio_enabled_${btoa(unescape(encodeURIComponent(email.toLowerCase())))}`;
 }
