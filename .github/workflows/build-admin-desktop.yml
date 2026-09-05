@@ -6,6 +6,8 @@ on:
     branches: [main, master]
     paths:
       - 'samat-admin/**'
+      - '!samat-admin/public/updates/**'
+      - '!samat-admin/public/tech-officer/**'
 
 permissions:
   contents: write   # لازم برای ساخت GitHub Release (که آپدیت خودکار اپ از آن استفاده می‌کند)
