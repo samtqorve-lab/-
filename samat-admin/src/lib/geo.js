@@ -93,6 +93,34 @@ export function getMineCorners(record) {
   return points;
 }
 
+/**
+ * موقعیت فعلی کاربر را می‌گیرد و مسیریابی تا مختصات مقصد (مثلاً یک معدن) را در اپلیکیشن نقشه‌ی
+ * سیستم (گوگل‌مپ) باز می‌کند — داخل اپ اندروید با پلاگین Browser (که برای ورود گوگل هم استفاده
+ * می‌شود)، در وب با یک تب جدید. عمداً موتور مسیریابی داخل خودِ لیفلت پیاده‌سازی نشده تا وابستگی و
+ * نگه‌داری اضافه (سرویس مسیریابی/کلید API) به پروژه اضافه نشود؛ گوگل‌مپ خودش این کار را بهتر انجام می‌دهد.
+ * @throws در صورت رد شدن/ناموفق بودن دریافت موقعیت مکانی (تا فراخوان‌کننده toast مناسب نشان دهد)
+ */
+export async function openDirectionsTo(destLat, destLon) {
+  await ensureNativeLocationPermission();
+  if (!navigator.geolocation) throw new Error('مرورگر از موقعیت‌مکانی پشتیبانی نمی‌کند');
+  const pos = await new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(
+      resolve,
+      (err) => reject(new Error(err.message || 'دریافت موقعیت مکانی ممکن نشد')),
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 },
+    );
+  });
+  const { latitude, longitude } = pos.coords;
+  const url = `https://www.google.com/maps/dir/?api=1&origin=${latitude},${longitude}&destination=${destLat},${destLon}&travelmode=driving`;
+  const { Capacitor } = await import('@capacitor/core');
+  if (Capacitor.isNativePlatform()) {
+    const { Browser } = await import('@capacitor/browser');
+    await Browser.open({ url });
+  } else {
+    window.open(url, '_blank', 'noopener');
+  }
+}
+
 export function centroid(points) {
   if (!points.length) return null;
   const lat = points.reduce((s, p) => s + p[0], 0) / points.length;
