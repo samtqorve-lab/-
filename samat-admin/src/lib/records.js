@@ -47,11 +47,44 @@ export async function fetchDeptRecords(department, opts = {}) {
   return [...rows];
 }
 
+// این فیلدها قبلاً هیچ‌جا در audit_log ثبت نمی‌شدند — همین باعث شد ردیابی یک تغییر داده‌ای
+// (خالی‌شدن لیست ماشین‌آلات معدن‌ها) وقت زیادی ببرد چون هیچ شاهدی برایش نبود. از این پس هر
+// تغییر واقعی در این فیلدها (نه هر ذخیره‌ای، فقط وقتی مقدار واقعاً عوض شده) ثبت می‌شود.
+const AUDITED_FIELDS = [
+  'تجهیزات_نفت_گاز', 'تجهیزات_گاز_مایع', 'تجهیزات_نفت_سفید',
+  'شماره_پروانه', 'تاریخ_پروانه', 'مدت_بهره_برداری',
+  'تاریخ_صدور', 'مدت_اعتبار_ماه', 'مدت_اعتبار_سال',
+  'کد_کاداستر', 'نام_مسئول_فنی',
+];
+
 export async function updateDeptRecord(department, rowId, record) {
   const table = DEPT_TABLES[department];
+  let before = null;
+  try {
+    const { data } = await sb.from(table).select('record').eq('id', rowId).single();
+    before = data ? data.record : null;
+  } catch { /* اگر خواندن نسخه‌ی قبلی ناموفق بود، فقط از ثبت audit صرف‌نظر می‌کنیم، نه از خودِ ذخیره */ }
+
   const { error } = await sb.from(table).update({ record }).eq('id', rowId);
   if (error) throw error;
   invalidateDeptCache(department);
+
+  if (before) {
+    try {
+      const { data: userData } = await sb.auth.getUser();
+      const changedBy = (userData && userData.user && userData.user.email) || 'unknown';
+      const recordName = record['نام_معدن'] || record['نام_واحد'] || record['نام_متقاضی'] || record['نام_واحد_صنفی'] || `#${rowId}`;
+      const changedFields = AUDITED_FIELDS.filter((f) => JSON.stringify(before[f] ?? null) !== JSON.stringify(record[f] ?? null));
+      await Promise.all(changedFields.map((field) => sb.from('audit_log').insert({
+        department,
+        record_name: recordName,
+        field_key: field,
+        old_value: JSON.stringify(before[field] ?? null),
+        new_value: JSON.stringify(record[field] ?? null),
+        changed_by: changedBy,
+      })));
+    } catch { /* ثبت audit تلاش best-effort است — نباید خودِ ذخیره را که قبلاً موفق شده مختل کند */ }
+  }
 }
 
 /** حذف کامل یک رکورد (نه فقط تغییر وضعیت/دسته) — قابل بازگشت نیست، هشدار تاییدیه در UI است. */
