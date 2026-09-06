@@ -50,7 +50,7 @@ async function boot() {
   const session = await getSession();
 
   if (!session) {
-    mountLogin(root, () => window.location.reload());
+    mountLogin(root, boot);
     return;
   }
 
