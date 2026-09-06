@@ -144,7 +144,20 @@
   body:has(.qr-print-area) * { visibility: hidden; }
   body:has(.qr-print-area) .qr-print-area, body:has(.qr-print-area) .qr-print-area * { visibility: visible; }
   body:has(.qr-print-area) .qr-print-area { position: absolute; top: 40px; right: 0; left: 0; }
+
+  /* فرم چاپ درخواست سوخت: فقط خود برگه چاپ شود */
+  body:has(.fuel-print-area) * { visibility: hidden; }
+  body:has(.fuel-print-area) .fuel-print-area, body:has(.fuel-print-area) .fuel-print-area * { visibility: visible; }
+  body:has(.fuel-print-area) .fuel-print-area { position: absolute; top: 40px; right: 0; left: 0; border: none !important; padding: 0 !important; }
 }
+
+.pf-title { text-align: center; font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+.pf-underline { text-decoration: underline; }
+.pf-body { font-size: 13px; line-height: 2.1; }
+.pf-sign-row { display: flex; justify-content: space-between; margin-top: 26px; font-size: 12.5px; }
+.pf-divider { border-top: 1px dashed var(--stone-300); margin: 16px 0; }
+.pf-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+.pf-table th, .pf-table td { border: 1px solid var(--stone-300); padding: 5px 8px; text-align: center; }
 
 /* =============================================================
    کارت‌ها
