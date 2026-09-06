@@ -25,6 +25,14 @@ function equipKeyForType(type) {
   return `تجهیزات_${type === 'نفت‌گاز' ? 'نفت_گاز' : (type === 'گاز مایع' ? 'گاز_مایع' : 'نفت_سفید')}`;
 }
 
+/** دقیقاً همان گروه‌بندی‌ای که صف تایید ادمین (renderers.js) روی mine_equipment انجام می‌دهد —
+ * تا عکس نمای‌دور و سریال یک دستگاه کنار هم دیده شوند، نه به‌عنوان دو ردیف جدا. */
+function groupApprovedByDevice(rows) {
+  const g = {};
+  rows.forEach((r) => { const k = r.device_key || `row_${r.id}`; (g[k] = g[k] || []).push(r); });
+  return g;
+}
+
 function monthYearRow(defaultOffset = 0) {
   const { jy, jm } = todayJalali();
   const monthSel = el('select', { style: 'flex:2' }, JALALI_MONTHS.map((m, i) => el('option', { value: String(i + 1) }, m)));
@@ -57,18 +65,27 @@ export function openFuelPrintModal(record, department, rowId, ctx) {
   }
 
   function importApprovedEquipment(silent) {
-    if (!approvedEquip.length) { if (!silent) showToast('ماشین‌آلات تایید‌شده‌ای برای این معدن ثبت نشده'); return; }
-    const existingIds = new Set(equipRows.map((r) => r._srcId).filter(Boolean));
+    const groups = groupApprovedByDevice(approvedEquip);
+    const keys = Object.keys(groups);
+    if (!keys.length) { if (!silent) showToast('ماشین‌آلات تایید‌شده‌ای برای این معدن ثبت نشده'); return; }
+    const existingKeys = new Set(equipRows.map((r) => r._deviceKey).filter(Boolean));
     let added = 0;
-    approvedEquip.forEach((eq) => {
-      if (existingIds.has(eq.id)) return;
-      const extra = eq.plate_no ? `پلاک: ${eq.plate_no}` : '';
+    keys.forEach((key) => {
+      if (existingKeys.has(key)) return;
+      const deviceRows = groups[key];
+      const first = deviceRows[0];
+      const plateNo = deviceRows.find((r) => r.plate_no)?.plate_no;
+      const serialNo = deviceRows.find((r) => r.serial_no)?.serial_no;
+      const extraParts = [];
+      if (plateNo) extraParts.push(`پلاک: ${plateNo}`);
+      if (serialNo) extraParts.push(`سریال: ${serialNo}`);
+      const extra = extraParts.join(' — ');
       const row = fuelType === 'نفت‌گاز'
         ? {
-          نام: eq.machine_type || '', نوع: extra, تعداد: '1', _srcId: eq.id, _photoUrl: eq.photo_url || '',
+          نام: first.machine_type || '', نوع: extra, تعداد: '1', _deviceKey: key,
         }
         : {
-          نام: eq.machine_type || '', توضیحات: extra, تعداد: '1', _srcId: eq.id, _photoUrl: eq.photo_url || '',
+          نام: first.machine_type || '', توضیحات: extra, تعداد: '1', _deviceKey: key,
         };
       if (equipRows.length === 1 && Object.values(equipRows[0]).every((v) => !v)) equipRows[0] = row;
       else equipRows.push(row);
@@ -79,6 +96,30 @@ export function openFuelPrintModal(record, department, rowId, ctx) {
       if (!silent) showToast(`✅ ${added} ماشین‌آلات تایید‌شده اضافه شد`);
     } else if (!silent) showToast('همه‌ی ماشین‌آلات تایید‌شده از قبل در لیست بودند');
   }
+
+  /** برای دکمه‌ی 📷 هر ردیف — عکس‌های نمای‌دور و سریالِ همان دستگاه را جدا برمی‌گرداند */
+  function photosForRow(row) {
+    if (!row._deviceKey) return { overview: [], serial: [] };
+    const rows = groupApprovedByDevice(approvedEquip)[row._deviceKey] || [];
+    return {
+      overview: rows.filter((r) => r.photo_type === 'overview' && r.photo_url).map((r) => r.photo_url),
+      serial: rows.filter((r) => r.photo_type === 'serial' && r.photo_url).map((r) => r.photo_url),
+    };
+  }
+
+function openPhotoViewer(name, overview, serial) {
+  if (!overview.length && !serial.length) { showToast('⚠️ عکسی برای این دستگاه یافت نشد'); return; }
+  const { body: pv } = openModal({ title: `📷 عکس‌های دستگاه — ${name || ''}`, width: '440px' });
+  const section = (label, urls) => el('div', { style: 'margin-bottom:10px' }, [
+    el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:6px' }, label),
+    urls.length
+      ? el('div', { style: 'display:flex;gap:6px;flex-wrap:wrap' }, urls.map((u) => el('img', {
+        src: u, style: 'width:120px;height:120px;object-fit:cover;border-radius:6px;cursor:pointer', onclick: () => window.open(u, '_blank'),
+      })))
+      : el('div', { style: 'font-size:var(--text-xs);color:var(--stone-500)' }, 'عکسی ثبت نشده'),
+  ]);
+  pv.append(section('📷 نمای کامل / دور دستگاه', overview), section('🔢 عکس شماره سریال', serial));
+}
 
   const readonlyBox = el('div', { style: 'background:var(--stone-50);border-radius:8px;padding:10px;font-size:var(--text-xs);line-height:2;margin-bottom:10px' });
   const typeSelect = el('select', {}, Object.keys(FUEL_UNITS).map((t) => el('option', { value: t }, t)));
@@ -105,8 +146,12 @@ export function openFuelPrintModal(record, department, rowId, ctx) {
         input.addEventListener('input', () => { row[k] = input.value; });
         return input;
       });
+      const { overview, serial } = photosForRow(row);
+      const photoBtn = (overview.length || serial.length)
+        ? el('button', { class: 'btn-sm', style: 'background:var(--patina-50);color:var(--patina-700)', title: 'مشاهده عکس نمای دور و شماره سریال', onclick: () => openPhotoViewer(row['نام'], overview, serial) }, '📷')
+        : null;
       const delBtn = el('button', { class: 'btn-sm', style: 'background:var(--rust-100);color:var(--rust-700)', onclick: () => { equipRows.splice(i, 1); if (!equipRows.length) equipRows.push({}); renderEquipRows(); } }, '🗑');
-      equipRowsBox.append(el('div', { style: 'display:flex;gap:4px;margin-bottom:6px' }, [...inputs, delBtn]));
+      equipRowsBox.append(el('div', { style: 'display:flex;gap:4px;margin-bottom:6px' }, [...inputs, ...(photoBtn ? [photoBtn] : []), delBtn]));
     });
   }
 
@@ -189,7 +234,7 @@ export function openFuelPrintModal(record, department, rowId, ctx) {
       } catch (err) { showToast(`❌ خطا: ${err.message}`); }
     } }, '💾 ذخیره به‌عنوان پیش‌فرض معدن');
     const previewBtn = el('button', { class: 'btn btn-primary', style: 'flex:1', onclick: () => openFuelPrintPreview({
-      html: buildPrintHTML(), equipRows, department, close,
+      html: buildPrintHTML(), equipRows, photosForRow, close,
     }) }, '👁️ پیش‌نمایش و چاپ');
 
     body.append(
@@ -219,21 +264,28 @@ export function openFuelPrintModal(record, department, rowId, ctx) {
 }
 
 function openFuelPrintPreview({
-  html, equipRows, close: closeParent,
+  html, equipRows, photosForRow, close: closeParent,
 }) {
   const { body, close } = openModal({ title: '👁️ پیش‌نمایش قبل از چاپ', width: '700px' });
   const printArea = el('div', { class: 'fuel-print-area', style: 'border:1px solid var(--stone-200);border-radius:8px;padding:14px;background:#fff' });
   printArea.innerHTML = html;
-  const photoUrls = equipRows.filter((r) => r._photoUrl).map((r) => r._photoUrl);
-  const photoBox = photoUrls.length
-    ? el('div', { style: 'margin-top:10px;display:flex;flex-wrap:wrap;gap:6px' }, photoUrls.map((u) => el('img', {
-      src: u, style: 'width:120px;height:120px;object-fit:cover;border-radius:6px;border:1px solid var(--stone-200)',
-    })))
+  const rowsWithPhotos = equipRows.filter((r) => r._deviceKey);
+  const photoList = rowsWithPhotos.length
+    ? el('div', { style: 'margin-top:10px' }, [
+      el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:6px' }, 'عکس‌های تایید‌شده‌ی هر دستگاه — فقط برای کنترل شما، در برگه‌ی چاپی نمی‌آید:'),
+      ...rowsWithPhotos.map((r) => {
+        const { overview, serial } = photosForRow(r);
+        return el('div', { style: 'display:flex;justify-content:space-between;align-items:center;background:var(--stone-50);border-radius:6px;padding:6px 10px;margin-bottom:6px' }, [
+          el('span', { style: 'font-size:var(--text-xs)' }, r['نام'] || 'دستگاه بدون نام'),
+          el('button', { class: 'btn-sm', style: 'background:var(--patina-50);color:var(--patina-700)', onclick: () => openPhotoViewer(r['نام'], overview, serial) }, '📷 نمای دور / سریال'),
+        ]);
+      }),
+    ])
     : null;
   body.append(
     el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:10px' }, 'عکس ماشین‌آلات فقط برای کنترل شما اینجا نمایش داده می‌شود و در برگه‌ی چاپی نمی‌آید.'),
     printArea,
-    ...(photoBox ? [photoBox] : []),
+    ...(photoList ? [photoList] : []),
     el('div', { style: 'display:flex;gap:6px;margin-top:14px' }, [
       el('button', { class: 'btn btn-primary', style: 'flex:1', onclick: () => window.print() }, '🖨️ چاپ نهایی'),
       el('button', { class: 'btn btn-ghost', onclick: () => close() }, '✏️ بازگشت و ویرایش'),
