@@ -114,7 +114,10 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           set -e
-          APK_PATH="samat-admin/android/app/build/outputs/apk/debug/app-debug.apk"
+          # قبلاً app-debug.apk بود — برای هماهنگی امضا با هر نسخه‌ای که ممکن است به‌صورت دستی
+          # (release-signed) نصب شده باشد، و برای جلوگیری از توزیع نسخه‌ی دیباگ به کاربر نهایی،
+          # از این پس آپدیت خودکار هم از همان APK امضاشده‌ی release استفاده می‌کند.
+          APK_PATH="samat-admin/android/app/build/outputs/apk/release/app-release.apk"
           curl -sS --fail -X POST "$SUPABASE_URL/storage/v1/object/app-updates/samat-admin.apk" \
             -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
             -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \

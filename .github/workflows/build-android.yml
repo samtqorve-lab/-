@@ -112,7 +112,14 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           set -e
-          APK_PATH="samat-tech/android/app/build/outputs/apk/debug/app-debug.apk"
+          # قبلاً اینجا از app-debug.apk استفاده می‌شد. چون یک‌بار به‌خاطر خرابی موقت همین مرحله
+          # (نبود secret های SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY)، نسخه‌ی امضاشده‌ی release
+          # به‌صورت دستی روی گوشی نصب شده بود، هر آپدیت خودکار بعدی (که دیباگ می‌فرستاد) با پیام
+          # «تعارض بسته‌ها» رد می‌شد چون امضای دیباگ و release یکی نیست و اندروید اجازه‌ی
+          # جایگزینی درجا را بین دو امضای متفاوت نمی‌دهد. از این پس همیشه از همان APK امضاشده‌ی
+          # release برای آپدیت خودکار هم استفاده می‌شود — هم این مشکل برای همیشه حل می‌شود، هم
+          # توزیع نسخه‌ی دیباگ (که debuggable=true دارد) به کاربر نهایی متوقف می‌شود.
+          APK_PATH="samat-tech/android/app/build/outputs/apk/release/app-release.apk"
           curl -sS --fail -X POST "$SUPABASE_URL/storage/v1/object/app-updates/samat-tech.apk" \
             -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
             -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
