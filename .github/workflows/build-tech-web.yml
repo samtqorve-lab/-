@@ -56,20 +56,32 @@ jobs:
 
       # --delete تا فایل‌های hashed قدیمی (که دیگر در build جدید نیستند) باقی نمانند و تکه‌های
       # ناسازگار بین نسخه‌ی قدیم و جدید سرو نشوند.
-      - name: Replace old tech-officer build with fresh one
-        run: |
-          rm -rf samat-admin/public/tech-officer
-          mkdir -p samat-admin/public/tech-officer
-          cp -r samat-tech/dist-web-sub/. samat-admin/public/tech-officer/
-
-      - name: Commit and push updated web build
+     - name: Commit and push updated web build (retry-safe on push races)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add samat-admin/public/tech-officer
-          if git diff --cached --quiet; then
-            echo "no changes in tech-officer web build"
-            exit 0
+
+          for i in 1 2 3 4 5; do
+            rm -rf samat-admin/public/tech-officer
+            mkdir -p samat-admin/public/tech-officer
+            cp -r samat-tech/dist-web-sub/. samat-admin/public/tech-officer/
+
+            git add samat-admin/public/tech-officer
+            if git diff --cached --quiet; then
+              echo "no changes in tech-officer web build"
+              exit 0
+            fi
+
+            git commit -m "chore: به‌روزرسانی خودکار build وب مسئول فنی (tech-officer) از commit ${{ github.sha }}"
+            if git push; then exit 0; fi
+
+            echo "push رد شد (احتمالاً به‌خاطر workflow دیگری که هم‌زمان push کرد) — sync با origin/main و تلاش دوباره..."
+            git fetch origin main
+            git reset --hard origin/main
+          done
+
+          echo "push نهایی هم شکست خورد" >&2
+          exit 1
           fi
           git commit -m "chore: به‌روزرسانی خودکار build وب مسئول فنی (tech-officer) از commit ${{ github.sha }}"
           for i in 1 2 3 4 5; do
