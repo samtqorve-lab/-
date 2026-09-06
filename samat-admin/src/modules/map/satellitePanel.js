@@ -45,6 +45,43 @@ export function mountSatellitePanel(hostContainer, { records, nameField }) {
     if (compareLayers) { map.removeLayer(compareLayers.before); map.removeLayer(compareLayers.after); compareLayers = null; }
   }
 
+  // رنگ‌های این‌جا دقیقاً همان مقادیری‌اند که در اسکریپت‌های ارزیابی sentinelHub.js برای هر شاخص
+  // نوشته شده (SAT_EVALSCRIPT_NDVI/BSI/S1) — اگر آن آستانه‌ها روزی عوض شوند، این‌جا هم باید هماهنگ
+  // شود، چون این‌ها کپی‌دستی رنگ‌ها هستند نه محاسبه‌شده از خود اسکریپت.
+  const LEGENDS = {
+    truecolor: null, // رنگ طبیعی خودِ زمین است، نیازی به توضیح رنگ ندارد
+    ndvi: [
+      ['rgb(173,133,89)', 'خاک برهنه / بدون پوشش (NDVI < ۰.۱)'],
+      ['rgb(217,199,89)', 'پوشش گیاهی کم/تنک (۰.۱ تا ۰.۳)'],
+      ['rgb(140,191,77)', 'پوشش گیاهی متوسط (۰.۳ تا ۰.۵)'],
+      ['rgb(26,128,38)', 'پوشش گیاهی متراکم (بیش از ۰.۵)'],
+      ['rgb(140,140,140)', 'ابر/سایه/برف (حذف‌شده از تحلیل)'],
+    ],
+    bsi: [
+      ['rgb(26,128,51)', 'پوشش گیاهی سالم (BSI < −۰.۱)'],
+      ['rgb(140,184,77)', 'خاک نسبتاً پوشیده (−۰.۱ تا ۰.۰۵)'],
+      ['rgb(224,184,51)', 'خاک نسبتاً برهنه (۰.۰۵ تا ۰.۲)'],
+      ['rgb(209,51,31)', 'خاک شدیداً برهنه / باطله‌ی تازه‌جابه‌جاشده (بیش از ۰.۲)'],
+      ['rgb(140,140,140)', 'ابر/سایه/برف (حذف‌شده از تحلیل)'],
+    ],
+    radar: [
+      ['linear-gradient(90deg,#000,#fff)', 'تیره = بازتاب راداری ضعیف (سطح صاف/آب) ← روشن = بازتاب قوی (سطح سخت/فلزی/ناهموار)'],
+    ],
+  };
+
+  function drawLegend(box, layerKey) {
+    box.innerHTML = '';
+    const items = LEGENDS[layerKey];
+    if (!items) return;
+    box.append(el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:4px' }, '🎨 راهنمای رنگ‌ها:'));
+    items.forEach(([color, label]) => {
+      box.append(el('div', { style: 'display:flex;align-items:center;gap:6px;margin-bottom:3px' }, [
+        el('span', { style: `width:16px;height:16px;border-radius:4px;flex-shrink:0;background:${color};border:1px solid var(--stone-300)` }),
+        el('span', { style: 'font-size:var(--text-xs);color:var(--ink-700)' }, label),
+      ]));
+    });
+  }
+
   function drawPanel(status) {
     wrap.innerHTML = '';
 
@@ -98,6 +135,11 @@ export function mountSatellitePanel(hostContainer, { records, nameField }) {
     const mineSelect = el('select', {}, records.map((r, i) => el('option', { value: i }, r[nameField] || `#${i}`)));
     const layerSelect = el('select', {}, Object.entries(SAT_LAYERS).map(([k, v]) => el('option', { value: k }, v.label)));
     wrap.append(el('label', {}, 'معدن'), mineSelect, el('label', {}, 'لایه'), layerSelect);
+
+    const legendBox = el('div', { style: 'margin:8px 0' });
+    wrap.append(legendBox);
+    drawLegend(legendBox, layerSelect.value);
+    layerSelect.addEventListener('change', () => drawLegend(legendBox, layerSelect.value));
 
     if (mode === 'single') mountSingleMode(wrap, { idInput, secretInput, mineSelect, layerSelect, status });
     else mountCompareMode(wrap, { idInput, secretInput, mineSelect, layerSelect, status });
