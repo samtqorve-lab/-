@@ -63,7 +63,7 @@ export function captureLivePhoto({ buildLines, checkInside, defaultFacingMode = 
       overlayTextBox.innerHTML = '';
       buildLines(latestCoords).forEach((l) => overlayTextBox.append(el('div', {}, l)));
       gpsStatusSpan.textContent = latestCoords ? `📡 دقت GPS: ~${Math.round(latestCoords.accuracy)} متر` : '📡 در حال دریافت GPS...';
-      if (latestCoords && captureBtn.disabled) { captureBtn.disabled = false; captureBtn.style.opacity = '1'; }
+      if (latestCoords && !gpsReady) { gpsReady = true; captureBtn.style.opacity = '1'; }
       if (checkInside && latestCoords) {
         const inside = checkInside(latestCoords);
         boundaryStatusSpan.textContent = inside ? '✅ داخل محدوده' : '⚠️ خارج از محدوده';
@@ -73,10 +73,13 @@ export function captureLivePhoto({ buildLines, checkInside, defaultFacingMode = 
     updateOverlay();
 
     const captureBtn = el('button', {
-      style: 'width:68px;height:68px;border-radius:50%;background:#fff;border:4px solid rgba(255,255,255,.4);cursor:pointer;opacity:.4',
+      style: 'width:68px;height:68px;border-radius:50%;background:#fff;border:4px solid rgba(255,255,255,.4);cursor:pointer',
     });
-    captureBtn.disabled = true; // تا اولین خوانش GPS نرسیده، فعال نمی‌شود — وگرنه ممکن است متن
-    // «در حال دریافت GPS» یا مختصات خالی برای همیشه روی خود عکس نهایی ثبت شود.
+    let gpsReady = !!latestCoords; // تا اولین خوانش GPS نرسیده، ظاهر دکمه کم‌رنگ می‌شود — ولی
+    // برخلاف قبل، خودِ دکمه هیچ‌وقت disabled نمی‌شود، چون دکمه‌ی disabled کلیک را کاملاً بی‌صدا
+    // نادیده می‌گیرد (نه خطا، نه toast) و کاربر فکر می‌کند عکس گرفته شده در حالی که هیچ اتفاقی
+    // نیفتاده — دقیقاً همان چیزی که باعث می‌شد اولین تلاش هر بار بی‌نتیجه بماند.
+    captureBtn.style.opacity = gpsReady ? '1' : '.4';
     const cancelBtn = el('button', {
       style: 'background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:8px 16px;font-size:12px;cursor:pointer',
     }, '✕ انصراف');
@@ -141,6 +144,10 @@ export function captureLivePhoto({ buildLines, checkInside, defaultFacingMode = 
 
     captureBtn.addEventListener('click', async () => {
       if (!video.videoWidth) return;
+      if (!gpsReady) {
+        showToast('⏳ چند لحظه صبر کنید تا موقعیت GPS دقیق دریافت شود');
+        return;
+      }
       captureBtn.disabled = true;
       const maxDim = 1600;
       const scale = Math.min(1, maxDim / Math.max(video.videoWidth, video.videoHeight));

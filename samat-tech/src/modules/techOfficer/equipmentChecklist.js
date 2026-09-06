@@ -1,4 +1,4 @@
-import { el, esc, showToast } from '../../lib/dom.js';
+import { el, esc, showToast, openImageViewer } from '../../lib/dom.js';
 import { sb } from '../../lib/supabase.js';
 import { getGeoLocation, isInsideMineBoundary } from '../../lib/geo.js';
 import { watermarkPhoto, watermarkLinesForPhoto } from '../../lib/watermark.js';
@@ -71,7 +71,7 @@ export function mountEquipmentChecklist(container, mine, nameField, department, 
       if (!captures[eq.key]) captures[eq.key] = { overview: [], serial: [], serialNo: '' };
       const thumbBox = (photoType) => el('div', { style: 'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px' },
         captures[eq.key][photoType].map((c, i) => el('div', { style: 'position:relative;width:60px;height:60px' }, [
-          el('img', { src: c.previewUrl, style: 'width:100%;height:100%;object-fit:cover;border-radius:6px;border:1px solid var(--stone-300)' }),
+          el('img', { src: c.previewUrl, style: 'width:100%;height:100%;object-fit:cover;border-radius:6px;border:1px solid var(--stone-300);cursor:pointer', onclick: () => openImageViewer(c.previewUrl) }),
           el('button', {
             style: 'position:absolute;top:-5px;left:-5px;background:var(--rust-600);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer',
             onclick: () => { if (confirm('این عکس حذف شود؟')) { captures[eq.key][photoType].splice(i, 1); draw(); } },

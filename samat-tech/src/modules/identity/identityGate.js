@@ -1,4 +1,4 @@
-import { el, showToast } from '../../lib/dom.js';
+import { el, showToast, openImageViewer } from '../../lib/dom.js';
 import { getAccurateGeoLocation, isInsideMineBoundary, getOrCreateDeviceId } from '../../lib/geo.js';
 import { watermarkIdentityPhoto, watermarkLinesForIdentity } from '../../lib/watermark.js';
 import { captureLivePhoto, liveCameraSupported } from '../../lib/liveCameraCapture.js';
@@ -55,7 +55,8 @@ export function mountIdentityCapture(root, { email, mines, captureKind, reason, 
     capturedCoords = coords;
     capturedInsideBoundary = inside;
     preview.innerHTML = '';
-    preview.append(el('img', { src: URL.createObjectURL(capturedBlob), style: 'width:130px;height:130px;object-fit:cover;border-radius:12px;border:1px solid var(--stone-300)' }));
+    const previewUrl = URL.createObjectURL(capturedBlob);
+    preview.append(el('img', { src: previewUrl, style: 'width:130px;height:130px;object-fit:cover;border-radius:12px;border:1px solid var(--stone-300);cursor:pointer', onclick: () => openImageViewer(previewUrl) }));
     showToast('✅ عکس داخل محدوده معدن ثبت شد');
   }
 

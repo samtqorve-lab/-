@@ -1,4 +1,4 @@
-import { el, showToast, openModal } from '../../lib/dom.js';
+import { el, showToast, openModal, openImageViewer } from '../../lib/dom.js';
 import { sb } from '../../lib/supabase.js';
 import { getAccurateGeoLocation, isInsideMineBoundary } from '../../lib/geo.js';
 import { watermarkPhoto } from '../../lib/watermark.js';
@@ -89,7 +89,7 @@ export function openRoleChecklistModal(mine, department, role, submittedBy, onDo
           const retakeBtn = el('button', { class: 'btn-sm', style: 'font-size:11px' }, '🔄 عکس جدید');
           retakeBtn.addEventListener('click', () => capturePhoto(it.item_text));
           row.append(el('div', { style: 'margin-top:6px;display:flex;align-items:center;gap:6px' }, [
-            el('img', { src: st.photoPreviewUrl, style: 'width:56px;height:56px;object-fit:cover;border-radius:6px' }), retakeBtn,
+            el('img', { src: st.photoPreviewUrl, style: 'width:56px;height:56px;object-fit:cover;border-radius:6px;cursor:pointer', onclick: () => openImageViewer(st.photoPreviewUrl) }), retakeBtn,
           ]));
         } else {
           const capBtn = el('button', { class: 'btn-sm', style: 'margin-top:6px;background:var(--fluorite-100);color:var(--fluorite-700);font-size:11px' }, '📷 گرفتن عکس (الزامی)');

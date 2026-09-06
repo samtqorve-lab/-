@@ -1,4 +1,4 @@
-import { el, showToast } from '../../lib/dom.js';
+import { el, showToast, openImageViewer } from '../../lib/dom.js';
 import { sb } from '../../lib/supabase.js';
 import { getGeoLocation, isInsideMineBoundary } from '../../lib/geo.js';
 import { watermarkPhoto, watermarkLinesForPhoto } from '../../lib/watermark.js';
@@ -30,7 +30,7 @@ export function createFaceEquipCapture({
     faceCaptures.forEach((c, i) => {
       faceThumbs.append(el('div', { style: 'position:relative;width:84px' }, [
         el('div', { style: 'position:relative;width:84px;height:84px' }, [
-          el('img', { src: c.previewUrl, style: 'width:100%;height:100%;object-fit:cover;border-radius:8px;border:1px solid var(--stone-300)' }),
+          el('img', { src: c.previewUrl, style: 'width:100%;height:100%;object-fit:cover;border-radius:8px;border:1px solid var(--stone-300);cursor:pointer', onclick: () => openImageViewer(c.previewUrl) }),
           el('button', {
             style: 'position:absolute;top:-6px;left:-6px;background:var(--rust-600);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;cursor:pointer',
             onclick: () => {
@@ -49,7 +49,7 @@ export function createFaceEquipCapture({
     equipThumbs.innerHTML = '';
     equipCaptures.forEach((c, i) => {
       equipThumbs.append(el('div', { style: 'position:relative;width:76px;height:76px' }, [
-        el('img', { src: c.previewUrl, style: 'width:100%;height:100%;object-fit:cover;border-radius:8px;border:1px solid var(--stone-300)' }),
+        el('img', { src: c.previewUrl, style: 'width:100%;height:100%;object-fit:cover;border-radius:8px;border:1px solid var(--stone-300);cursor:pointer', onclick: () => openImageViewer(c.previewUrl) }),
         el('button', {
           style: 'position:absolute;top:-6px;left:-6px;background:var(--rust-600);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;cursor:pointer',
           onclick: () => {

@@ -101,3 +101,23 @@ export function openModal({ title, width = '480px' }) {
   }
   return { overlay, body, close };
 }
+
+/**
+ * نمایش تمام‌صفحه‌ی یک عکس در اندازه‌ی واقعی خودش (object-fit:contain، نه cover) — قبلاً کلیک
+ * روی هیچ‌کدام از thumbnailهای ۵۶ تا ۱۳۰ پیکسلی عکس‌های ثبت‌شده (تجهیزات، چک‌لیست ایمنی، حوادث،
+ * احراز هویت) هیچ واکنشی نداشت. برای استفاده: روی هر <img> کوچک، onclick: () => openImageViewer(src) بگذارید.
+ */
+export function openImageViewer(src) {
+  const overlay = el('div', {
+    style: 'position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:600;display:flex;align-items:center;justify-content:center;padding:16px',
+    onclick: () => overlay.remove(),
+  }, [
+    el('img', { src, style: 'max-width:100%;max-height:100%;object-fit:contain;border-radius:4px' }),
+    el('button', {
+      style: 'position:absolute;top:calc(12px + env(safe-area-inset-top));left:16px;background:rgba(255,255,255,.15);color:#fff;'
+        + 'border:1px solid rgba(255,255,255,.4);border-radius:50%;width:38px;height:38px;font-size:16px;cursor:pointer',
+      onclick: () => overlay.remove(),
+    }, '✕'),
+  ]);
+  document.body.append(overlay);
+}

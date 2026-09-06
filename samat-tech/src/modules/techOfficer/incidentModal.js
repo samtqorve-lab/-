@@ -1,4 +1,4 @@
-import { el, showToast, openModal } from '../../lib/dom.js';
+import { el, showToast, openModal, openImageViewer } from '../../lib/dom.js';
 import { sb } from '../../lib/supabase.js';
 import { loadScaledImage } from '../../lib/watermark.js';
 import { uploadIncidentFile, uploadVoiceNote } from '../../lib/storage.js';
@@ -76,8 +76,9 @@ export function openIncidentModal(mine, nameField, department, profileCtx) {
   function drawThumbs() {
     thumbBox.innerHTML = '';
     photos.forEach((p, i) => {
+      const url = URL.createObjectURL(p.file);
       thumbBox.append(el('div', { style: 'position:relative;width:64px;height:64px' }, [
-        el('img', { src: URL.createObjectURL(p.file), style: 'width:100%;height:100%;object-fit:cover;border-radius:8px' }),
+        el('img', { src: url, style: 'width:100%;height:100%;object-fit:cover;border-radius:8px;cursor:pointer', onclick: () => openImageViewer(url) }),
         el('button', {
           style: 'position:absolute;top:-6px;left:-6px;background:var(--rust-600);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer',
           onclick: () => { photos.splice(i, 1); drawThumbs(); },
