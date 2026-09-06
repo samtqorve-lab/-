@@ -1,9 +1,16 @@
 import { el, showToast, openModal } from '../../lib/dom.js';
-import { insertDeptRecords } from '../../lib/records.js';
+import { insertDeptRecords, fetchDeptRecords } from '../../lib/records.js';
 import { DEPT_SECTIONS, DEPT_CAT_COLORS } from '../../lib/sections.js';
 import { attachJalaliDatePicker } from '../../lib/jalaliDatePicker.js';
 
 const DATE_KEY_RE = /تاریخ/;
+
+// نرمال‌سازی سبک برای تشخیص نام‌های «همان واحد» با نگارش کمی متفاوت (فاصله/نیم‌فاصله/ی-ي) —
+// دقیقاً همان الگویی که باعث شد یک معدن («سریش آباد») دو بار جدا ثبت شود (یکی با پرانتز کد
+// کاداستر) بدون اینکه کسی متوجه شود، تا وقتی یک بررسی دستی جدا آن را لو داد.
+function normalizeName(s) {
+  return (s || '').replace(/[\u200c\s]+/g, ' ').replace(/ي/g, 'ی').replace(/ك/g, 'ک').trim().toLowerCase();
+}
 
 /**
  * قبلاً تنها راه اضافه‌کردن رکورد، ایمپورت گروهی اکسل/CSV بود (importModal.js) — برای یک واحد
@@ -17,6 +24,11 @@ export function openAddRecordModal(department, nameField, userEmail, onDone) {
   const draft = {};
 
   const { body } = openModal({ title: `➕ افزودن رکورد جدید — ${department}`, width: '560px' });
+
+  let existingNames = [];
+  fetchDeptRecords(department).then((rows) => {
+    existingNames = rows.map((r) => ({ raw: r[nameField], norm: normalizeName(r[nameField]) })).filter((x) => x.norm);
+  }).catch(() => {});
 
   const catSelect = el('select', {}, [
     el('option', { value: '' }, '— انتخاب نشده —'),
@@ -47,6 +59,11 @@ export function openAddRecordModal(department, nameField, userEmail, onDone) {
   saveBtn.addEventListener('click', async () => {
     if (!draft[nameField] || !String(draft[nameField]).trim()) {
       showToast('⚠️ نام واحد/معدن را وارد کنید');
+      return;
+    }
+    const newNorm = normalizeName(draft[nameField]);
+    const dup = existingNames.find((x) => x.norm === newNorm || x.norm.includes(newNorm) || newNorm.includes(x.norm));
+    if (dup && !window.confirm(`⚠️ یک رکورد با نامی خیلی نزدیک از قبل ثبت شده: «${dup.raw}»\nاگه این همون واحده، به‌جای رکورد جدید، همون رکورد رو ویرایش کنید — رکورد تکراری باعث گم‌شدن اطلاعات می‌شه (مثل اتفاقی که قبلاً برای «سریش‌آباد» افتاد).\n\nمطمئنید می‌خواید رکورد جدید و جدا ثبت کنید؟`)) {
       return;
     }
     saveBtn.disabled = true; const orig = saveBtn.textContent; saveBtn.textContent = '⏳ در حال ثبت...';
