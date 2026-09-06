@@ -148,7 +148,13 @@ export function openImportModal(department, existingRecords, onDone) {
         if (!license && !name) return;
         let match = null;
         if (license && licenseField) match = existingRecords.find((r) => String(r[licenseField] || '').trim() === license);
-        if (!match && name) match = existingRecords.find((r) => String(r[nameField] || '').trim() === name);
+        if (!match && name) {
+          const nn = normalizeKey(name);
+          match = existingRecords.find((r) => {
+            const rn = normalizeKey(String(r[nameField] || '').trim());
+            return rn && (rn === nn || rn.includes(nn) || nn.includes(rn));
+          });
+        }
         if (match) willUpdate++; else willAdd++;
         preview.push({ rowIdx, license, name, matchId: match ? match._rowId : null });
       });
