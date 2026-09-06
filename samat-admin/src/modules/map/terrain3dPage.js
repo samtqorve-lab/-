@@ -41,7 +41,7 @@ export async function renderTerrain3D(container, state) {
     if (!chosen) { showToast('⚠️ ابتدا یک معدن انتخاب کنید'); return; }
     terrainBtn.disabled = true; const orig = terrainBtn.textContent; terrainBtn.textContent = '⏳ در حال بارگذاری کتابخانه‌ی سه‌بعدی...';
     try {
-      // بارگذاری تنبل (dynamic import): Three.js حجیم است (~۷۰۰ کیلوبایت) و فقط وقتی این دکمه
+      // بارگذاری تنبل (dynamic import): MapLibre GL JS حجیم است (~۱ مگابایت) و فقط وقتی این دکمه
       // زده می‌شود لازم است.
       const { open3DTerrainModal } = await import('./terrain3d.js');
       open3DTerrainModal(chosen.r, nameField);
