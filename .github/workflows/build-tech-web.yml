@@ -46,7 +46,7 @@ jobs:
         working-directory: samat-tech
         run: npm install
 
-      # همان شماره‌ی build (برای این‌که __APP_BUILD__ نسخه‌ی وب هم با بقیه هم‌راستا بماند،
+      # همان شماره‌ی build (برای این‌که APP_BUILD نسخه‌ی وب هم با بقیه هم‌راستا بماند،
       # هرچند نسخه‌ی وب خودش چک آپدیت اندرویدی ندارد — appUpdate.js فقط روی Capacitor فعال است).
       - name: "Build web-sub bundle (base: /tech-officer/)"
         working-directory: samat-tech
@@ -54,9 +54,10 @@ jobs:
           APP_BUILD_NUMBER: ${{ github.run_number }}
         run: npm run build:web-sub
 
-      # --delete تا فایل‌های hashed قدیمی (که دیگر در build جدید نیستند) باقی نمانند و تکه‌های
-      # ناسازگار بین نسخه‌ی قدیم و جدید سرو نشوند.
-     - name: Commit and push updated web build (retry-safe on push races)
+      # هر بار push رد شود، به‌جای rebase (که روی فایل‌های hash‌دار build شده راحت conflict
+      # می‌کند و گیر می‌کند)، مستقیم reset --hard روی origin/main تازه می‌زنیم و پوشه‌ی مقصد را
+      # از روی dist-web-sub (که در .gitignore است و با reset دست‌نخورده می‌ماند) دوباره می‌سازیم.
+      - name: Commit and push updated web build (retry-safe on push races)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -80,14 +81,5 @@ jobs:
             git reset --hard origin/main
           done
 
-          echo "push نهایی هم شکست خورد" >&2
-          exit 1
-          fi
-          git commit -m "chore: به‌روزرسانی خودکار build وب مسئول فنی (tech-officer) از commit ${{ github.sha }}"
-          for i in 1 2 3 4 5; do
-            if git push; then exit 0; fi
-            echo "push rejected (احتمالاً به‌خاطر workflow دیگری که هم‌زمان push کرد) — تلاش دوباره..."
-            git pull --rebase origin main
-          done
           echo "push نهایی هم شکست خورد" >&2
           exit 1
