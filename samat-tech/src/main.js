@@ -45,7 +45,7 @@ async function boot() {
   const { data: { session } } = await sb.auth.getSession();
 
   if (!session) {
-    mountLogin(root, () => window.location.reload());
+    mountLogin(root, boot);
     return;
   }
   const email = session.user.email;
@@ -78,7 +78,7 @@ async function boot() {
   );
   if (profileIncomplete) {
     const { mountCompleteProfile } = await import('./modules/identity/completeProfile.js');
-    mountCompleteProfile(root, email, row, () => window.location.reload(), logoutAndReload);
+    mountCompleteProfile(root, email, row, boot, logoutAndReload);
     return;
   }
 
