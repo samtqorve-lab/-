@@ -172,11 +172,11 @@ export async function renderMap(container, state) {
     }
   });
 
-  const directionsLink = (lat, lon) => el('a', {
+  const directionsLink = (lat, lon, label = '') => el('a', {
     href: '#',
     onclick: (e) => {
       e.preventDefault();
-      openDirectionsTo(lat, lon).catch((err) => showToast(`⚠️ ${err.message}`));
+      openDirectionsTo(lat, lon, label).catch((err) => showToast(`⚠️ ${err.message}`));
     },
   }, '🧭 مسیریابی از موقعیت من');
 
@@ -192,7 +192,7 @@ export async function renderMap(container, state) {
       el('br'),
       el('a', { href: '#', onclick: (e) => { e.preventDefault(); setMine(r._rowId); } }, 'مشاهده جزئیات'),
       el('br'),
-      directionsLink(mineCenter[0], mineCenter[1]),
+      directionsLink(mineCenter[0], mineCenter[1], name),
     ]);
     const poly = L.polygon(corners, { color: '#fff', weight: 2, fillColor: cat.border, fillOpacity: 0.35 }).addTo(map);
     poly.bindPopup(popup);
@@ -208,7 +208,7 @@ export async function renderMap(container, state) {
       el('br'),
       el('a', { href: '#', onclick: (e) => { e.preventDefault(); setMine(r._rowId); } }, 'مشاهده جزئیات'),
       el('br'),
-      directionsLink(r._lat, r._lon),
+      directionsLink(r._lat, r._lon, name),
     ]);
     const marker = L.circleMarker([r._lat, r._lon], {
       radius: 8, color: '#fff', weight: 2, fillColor: cat.badge, fillOpacity: 1,

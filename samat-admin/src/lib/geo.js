@@ -94,29 +94,38 @@ export function getMineCorners(record) {
 }
 
 /**
- * موقعیت فعلی کاربر را می‌گیرد و مسیریابی تا مختصات مقصد (مثلاً یک معدن) را در اپلیکیشن نقشه‌ی
- * سیستم (گوگل‌مپ) باز می‌کند — داخل اپ اندروید با پلاگین Browser (که برای ورود گوگل هم استفاده
- * می‌شود)، در وب با یک تب جدید. عمداً موتور مسیریابی داخل خودِ لیفلت پیاده‌سازی نشده تا وابستگی و
- * نگه‌داری اضافه (سرویس مسیریابی/کلید API) به پروژه اضافه نشود؛ گوگل‌مپ خودش این کار را بهتر انجام می‌دهد.
+ * موقعیت فعلی کاربر را می‌گیرد و مسیریابی تا مختصات مقصد (مثلاً یک معدن) را باز می‌کند.
+ * قبلاً این کار همیشه با یک لینک اختصاصی گوگل‌مپ انجام می‌شد — یعنی حتی اگر کاربر ویز، نشان،
+ * بلد یا هر اپ مسیریابی دیگری را ترجیح می‌داد (یا اصلاً گوگل‌مپ روی گوشی‌اش نصب نبود)، به‌زور
+ * گوگل‌مپ باز می‌شد. حالا در اپ اندروید از URI استاندارد `geo:` استفاده می‌شود — این طرحواره
+ * مخصوص گوگل‌مپ نیست، بلکه یک Intent عمومی اندرویدی است؛ خودِ سیستم‌عامل تمام اپ‌هایی که در
+ * مانیفست خود اعلام کرده‌اند «من می‌توانم geo: را باز کنم» (که تقریباً همه‌ی اپ‌های مسیریابی
+ * از جمله ویز، نشان و بلد هستند) را در یک دیالوگ «باز کردن با...» فهرست می‌کند — دقیقاً همان
+ * چیزی که از سیستم‌عامل انتظار می‌رود، بدون این‌که ما مجبور باشیم اسکیم اختصاصی هر اپ را
+ * جداگانه پیاده‌سازی و نگه‌داری کنیم. در وب/دسکتاپ (که مفهوم «اپ نصب‌شده روی گوشی» اصلاً وجود
+ * ندارد) همچنان لینک وب گوگل‌مپ باز می‌شود، چون تنها گزینه‌ی معقول در یک تب مرورگر همین است.
+ * @param {string} [label] نام مقصد (مثلاً نام معدن) — روی نقشه‌ی مقصد به‌عنوان برچسب نشان داده می‌شود
  * @throws در صورت رد شدن/ناموفق بودن دریافت موقعیت مکانی (تا فراخوان‌کننده toast مناسب نشان دهد)
  */
-export async function openDirectionsTo(destLat, destLon) {
+export async function openDirectionsTo(destLat, destLon, label = '') {
   await ensureNativeLocationPermission();
   if (!navigator.geolocation) throw new Error('مرورگر از موقعیت‌مکانی پشتیبانی نمی‌کند');
-  const pos = await new Promise((resolve, reject) => {
+  await new Promise((resolve, reject) => {
     navigator.geolocation.getCurrentPosition(
       resolve,
       (err) => reject(new Error(err.message || 'دریافت موقعیت مکانی ممکن نشد')),
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 },
     );
   });
-  const { latitude, longitude } = pos.coords;
-  const url = `https://www.google.com/maps/dir/?api=1&origin=${latitude},${longitude}&destination=${destLat},${destLon}&travelmode=driving`;
+  // مبدأ را عمداً به خودِ geo: URI نمی‌دهیم — این طرحواره اصلاً فیلد «مبدأ» ندارد (فقط مقصد را
+  // مشخص می‌کند)، و هر اپ مسیریابی، مسیر را خودش از موقعیت زنده‌ی فعلی گوشی محاسبه می‌کند؛
+  // دریافت GPS در بالا فقط برای اطمینان از فعال‌بودن دسترسی موقعیت پیش از باز شدن اپ لازم بود.
+  const q = label ? `${destLat},${destLon}(${encodeURIComponent(label)})` : `${destLat},${destLon}`;
   const { Capacitor } = await import('@capacitor/core');
   if (Capacitor.isNativePlatform()) {
-    const { Browser } = await import('@capacitor/browser');
-    await Browser.open({ url });
+    window.location.href = `geo:${destLat},${destLon}?q=${q}`;
   } else {
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${destLat},${destLon}&travelmode=driving`;
     window.open(url, '_blank', 'noopener');
   }
 }
