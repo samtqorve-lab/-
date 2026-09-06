@@ -7,6 +7,7 @@ import { getMineCorners } from '../../lib/geo.js';
 import { openCornersEditModal } from './cornersEditModal.js';
 import { openVolumeModal, openVolumeHistoryModal } from './volumeModal.js';
 import { openEquipmentDefaultsModal } from './equipmentDefaultsModal.js';
+import { openFuelPrintModal } from './fuelPrintModal.js';
 import { setTab, onChange } from '../../router.js';
 import { sb } from '../../lib/supabase.js';
 
@@ -131,6 +132,9 @@ export async function renderMineDetail(container, state, ctx) {
       ]),
       el('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end' }, [
         backBtn,
+        ...(isAdminRole && (state.department === 'معدن' || state.department === 'صنعت')
+          ? [el('button', { class: 'btn btn-ghost', style: compactBtnStyle, onclick: () => openFuelPrintModal(record, state.department, state.mineId, ctx) }, '🖨️ چاپ درخواست سوخت')]
+          : []),
         ...(isAdminRole && state.department === 'معدن'
           ? [
             el('button', { class: 'btn btn-ghost', style: compactBtnStyle, onclick: () => openEquipmentDefaultsModal(record, state.department, state.mineId) }, '🛢️ ماشین‌آلات پیش‌فرض'),
