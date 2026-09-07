@@ -128,6 +128,56 @@ jobs:
             --data-binary "@$APK_PATH"
           echo "url=$SUPABASE_URL/storage/v1/object/public/app-updates/samat-tech.apk?v=${{ github.run_number }}" >> "$GITHUB_OUTPUT"
 
+      # پیش‌نیاز: اپ باید حداقل یک‌بار دستی در کافه‌بازار منتشر شده باشد (توکن API فقط برای
+      # اپ‌های موجود صادر می‌شود). تا وقتی secret زیر تنظیم نشده (یا اپ هنوز در صف بررسی اولیه‌ی
+      # بازار است)، این مرحله فقط یک پیام اطلاع‌رسانی می‌دهد و شکست نمی‌خورد — بقیه‌ی ورک‌فلو
+      # (انتشار APK در GitHub Release و آپدیت خودکار داخل اپ) بدون وقفه ادامه پیدا می‌کند.
+      - name: Publish to Café Bazaar (پیشخان API)
+        env:
+          BAZAAR_TOKEN: ${{ secrets.CAFEBAZAAR_TECH_API_SECRET }}
+        run: |
+          set -e
+          if [ -z "$BAZAAR_TOKEN" ]; then
+            echo "ℹ️ CAFEBAZAAR_TECH_API_SECRET تنظیم نشده — انتشار در کافه‌بازار رد شد (این خطا نیست)."
+            exit 0
+          fi
+          BASE="https://api.pishkhan.cafebazaar.ir/v1"
+          AUTH_HEADER="CAFEBAZAAR-PISHKHAN-API-SECRET: $BAZAAR_TOKEN"
+          APK_PATH="samat-tech/android/app/build/outputs/apk/release/app-release.apk"
+
+          # ابزار کوچک برای بیرون‌کشیدن کلید "type" از پاسخ‌های JSON بازار، بدون نیاز به jq
+          get_type () { python3 -c "import json,sys; print(json.load(sys.stdin).get('type',''))" <<< "$1"; }
+
+          echo "بررسی رهانش‌های ناتمام قبلی..."
+          UNCOMMITTED=$(curl -sS -H "$AUTH_HEADER" "$BASE/apps/releases/last-uncommitted")
+          if [ "$(get_type "$UNCOMMITTED")" = "success" ]; then
+            echo "حذف رهانش ناتمام باقی‌مانده از اجرای قبلی..."
+            curl -sS -X DELETE -H "$AUTH_HEADER" "$BASE/apps/releases/" > /dev/null
+          fi
+
+          echo "ایجاد رهانش جدید..."
+          CREATE_RES=$(curl -sS -X POST -H "$AUTH_HEADER" -H "Content-Type: application/json" -d '{}' "$BASE/apps/releases/")
+          if [ "$(get_type "$CREATE_RES")" != "success" ]; then
+            echo "❌ ایجاد رهانش ناموفق بود: $CREATE_RES"; exit 1
+          fi
+
+          echo "آپلود بسته..."
+          UPLOAD_RES=$(curl -sS -X POST -H "$AUTH_HEADER" \
+            -F "apk=@$APK_PATH" -F "architecture=all" \
+            "$BASE/apps/releases/upload/")
+          if [ "$(get_type "$UPLOAD_RES")" != "success" ]; then
+            echo "❌ آپلود بسته ناموفق بود: $UPLOAD_RES"; exit 1
+          fi
+
+          echo "ارسال برای بررسی (با انتشار خودکار پس از تایید تیم بازار)..."
+          COMMIT_BODY=$(python3 -c "import json; print(json.dumps({'changelog_fa': 'به‌روزرسانی خودکار — commit ${{ github.sha }}', 'changelog_en': 'Automated update', 'developer_note': 'Automated CI release', 'staged_rollout_percentage': 100, 'auto_publish': True}))")
+          COMMIT_RES=$(curl -sS -X POST -H "$AUTH_HEADER" -H "Content-Type: application/json" \
+            -d "$COMMIT_BODY" "$BASE/apps/releases/commit/")
+          if [ "$(get_type "$COMMIT_RES")" != "success" ]; then
+            echo "❌ ارسال برای بررسی ناموفق بود: $COMMIT_RES"; exit 1
+          fi
+          echo "✅ رهانش با موفقیت برای بررسی تیم بازار ارسال شد."
+
       - name: Update Android update-manifest (Contents API)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
