@@ -1,10 +1,21 @@
-import { Map as MapLibreMap, NavigationControl, AttributionControl } from 'maplibre-gl';
+import { Map as MapLibreMap, NavigationControl, AttributionControl, setWorkerUrl } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+// خودِ maplibre-gl در زمان اجرا آدرس اسکریپت Worker خودش (maplibre-gl-worker.mjs) را با
+// import.meta.url نسبی به فایل خودش می‌سازد. این الگو برای Vite قابل تشخیص نیست (نه در dev که
+// dependency pre-bundling می‌کند و نه در build که فقط import های استاتیک را دنبال می‌کند)، پس این
+// فایل هیچ‌وقت کپی/سرو نمی‌شود و درخواستش ۴۰۴ می‌خورد — نتیجه: DEM هیچ‌وقت روی Worker دیکد
+// نمی‌شود، پس setTerrain ظاهراً موفق است ولی نتیجه‌اش یک نقشه‌ی کاملاً مسطح (۲بعدی) است، نه خطا.
+// ⚠️ این fix قبلاً یک‌بار در کامیت 22df63e اضافه شده بود ولی در یک کامیت بعدی از سشن موازی
+// (ef9de2c) به‌طور ناخواسته حذف شد — لطفاً این import و خط setWorkerUrl زیر را در ادیت‌های بعدیِ
+// این فایل حفظ کنید.
+import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { el, showToast, openModal } from '../../lib/dom.js';
 import { getMineCorners } from '../../lib/geo.js';
 import {
   getMineBBox, checkCopernicusStatus, getCopernicusToken, fetchSentinelImage, SAT_LAYERS,
 } from '../../lib/sentinelHub.js';
+
+setWorkerUrl(maplibreWorkerUrl);
 
 /**
  * قبلاً این ماژول با Three.js دستی یک صفحه‌ی مربع می‌ساخت و ارتفاع را با یک ضریب اغراقِ کور
