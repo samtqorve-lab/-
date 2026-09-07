@@ -38,6 +38,17 @@ function createSatelliteLayers() {
   };
 }
 
+// لایه‌ی زمین‌شناسی — فقط برای بخش اکتشاف بارگذاری می‌شود (سرویس عمومی/رایگان USGS، شامل
+// واحدهای سنگ‌شناسی، گسل‌های اصلی، و محدوده‌های نفت/گاز ایران). توجه: این نقشه در مقیاس
+// منطقه‌ای/کلان است (نه دقت محلیِ نقشه‌های ۱:۲۵۰۰۰ سازمان زمین‌شناسی کشور که سرویس زنده‌ی
+// رایگانی ندارند) — برای دید کلی زمین‌شناسی محدوده مفید است، نه تصمیم‌گیری اکتشافی دقیق.
+function createGeologyLayer() {
+  return L.tileLayer('https://certmapper.cr.usgs.gov/server/rest/services/geology/iran/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom: 11, minZoom: 0, opacity: 0.65,
+    attribution: 'Geology: USGS World Energy Project',
+  });
+}
+
 export async function renderMap(container, state) {
   container.append(el('div', { class: 'loading-state' }, [
     el('div', { class: 'spinner' }),
@@ -146,7 +157,7 @@ export async function renderMap(container, state) {
     '🛰️ ماهواره + عوارض (جاده/نام مکان)': layers.hybrid,
     '🛰️ ماهواره خالص': layers.pure,
     '🗺️ خیابانی': layers.street,
-  }, null, { position: 'topleft', collapsed: true }).addTo(map);
+  }, state.department === 'اکتشاف' ? { '⛏️ زمین‌شناسی (USGS — مقیاس منطقه‌ای)': createGeologyLayer() } : null, { position: 'topleft', collapsed: true }).addTo(map);
 
   let userMarker = null;
   let userAccuracyCircle = null;
