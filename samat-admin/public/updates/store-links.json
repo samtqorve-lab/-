@@ -1,9 +1,11 @@
 {
   "admin": {
+    "bazaarUrl": null,
     "myketUrl": null,
     "googlePlayUrl": null
   },
   "tech": {
+    "bazaarUrl": null,
     "myketUrl": null,
     "googlePlayUrl": null
   }

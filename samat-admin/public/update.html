@@ -8,23 +8,26 @@
 <style>
   :root{
     --bg: #12161B;
+    --bg-glow: #1A2129;
     --panel: #1B2129;
     --panel-raised: #232A33;
+    --panel-raised-2: #2A323D;
     --hair: #2E3641;
     --text: #EDF0F3;
     --text-muted: #8B95A3;
     --accent: #E8830A;
+    --accent-2: #F2A33D;
     --accent-ink: #12161B;
     --accent-dim: #3A2C15;
     --ok: #4C9A6A;
     --ok-dim: #1C2B21;
-    --stripe-a: #E8830A;
-    --stripe-b: #1B2129;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
   body{
-    background: var(--bg);
+    background:
+      radial-gradient(720px 420px at 50% -10%, var(--bg-glow), transparent 65%),
+      var(--bg);
     color: var(--text);
     font-family: 'Vazirmatn','IRANYekanX', Tahoma, 'Segoe UI', system-ui, sans-serif;
     min-height: 100vh;
@@ -39,38 +42,38 @@
     max-width: 440px;
     background: var(--panel);
     border: 1px solid var(--hair);
-    border-radius: 14px;
+    border-radius: 16px;
     overflow: hidden;
+    box-shadow: 0 24px 60px -20px rgba(0,0,0,.55);
+    animation: rise .35s ease;
   }
+  @keyframes rise{ from{ opacity:0; transform: translateY(10px); } to{ opacity:1; transform:none; } }
   .stripe{
-    height: 8px;
-    background: repeating-linear-gradient(
-      -45deg,
-      var(--stripe-a) 0 10px,
-      var(--stripe-b) 10px 20px
-    );
+    height: 6px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2), var(--accent));
   }
   .body{ padding: 26px 22px 22px; }
 
   .app-row{
     display:flex;
     align-items:center;
-    gap:10px;
-    margin-bottom: 18px;
+    gap:12px;
+    margin-bottom: 20px;
   }
   .app-icon{
-    width:38px; height:38px; border-radius:9px;
-    background: var(--panel-raised);
+    width:44px; height:44px; border-radius:12px;
+    background: linear-gradient(155deg, var(--panel-raised-2), var(--panel-raised));
     border:1px solid var(--hair);
     display:flex; align-items:center; justify-content:center;
     flex-shrink:0;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
   }
-  .app-icon svg{ width:20px; height:20px; }
-  .app-name{ font-size: 14px; color: var(--text-muted); }
-  .app-name b{ color: var(--text); font-weight:700; }
+  .app-icon svg{ width:23px; height:23px; }
+  .app-name{ font-size: 13.5px; color: var(--text-muted); }
+  .app-name b{ color: var(--text); font-weight:700; font-size:15px; display:block; margin-top:1px; }
 
   h1{
-    font-size: 21px;
+    font-size: 20px;
     font-weight: 800;
     margin: 0 0 14px;
     letter-spacing: -0.01em;
@@ -82,32 +85,36 @@
     gap: 10px;
     background: var(--panel-raised);
     border: 1px solid var(--hair);
-    border-radius: 10px;
-    padding: 12px 14px;
+    border-radius: 12px;
+    padding: 14px;
     margin-bottom: 18px;
   }
-  .gauge .v{ text-align:center; }
-  .gauge .v .num{ font-size: 20px; font-weight:800; font-variant-numeric: tabular-nums; }
-  .gauge .v .lbl{ font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .gauge .v{ text-align:center; flex:1; }
+  .gauge .v .num{ font-size: 21px; font-weight:800; font-variant-numeric: tabular-nums; }
+  .gauge .v .lbl{ font-size: 11px; color: var(--text-muted); margin-top: 3px; }
   .gauge .v.new .num{ color: var(--accent); }
-  .gauge .arrow{ color: var(--text-muted); flex:1; text-align:center; font-size:16px; }
+  .gauge .arrow{ color: var(--accent); flex:0; font-size:17px; opacity:.8; }
 
   .notes{
-    font-size: 14px;
+    font-size: 13.5px;
     color: var(--text-muted);
     background: var(--panel-raised);
-    border-right: 3px solid var(--hair);
+    border-inline-start: 3px solid var(--accent);
     padding: 12px 14px;
     border-radius: 8px;
     margin-bottom: 20px;
   }
-  .notes b{ color: var(--text); display:block; font-size:13px; margin-bottom:4px; font-weight:700;}
+  .notes b{ color: var(--text); display:block; font-size:12.5px; margin-bottom:4px; font-weight:700;}
 
-  .actions{ display:flex; flex-direction:column; gap: 10px; }
+  .section-lbl{ font-size:11.5px; color:var(--text-muted); font-weight:700; margin: 0 2px 8px; display:flex; align-items:center; gap:6px; }
+  .section-lbl::after{ content:''; flex:1; height:1px; background:var(--hair); }
+
+  .actions{ display:flex; flex-direction:column; gap: 9px; margin-bottom: 14px; }
   .btn{
+    position:relative;
     display:flex;
     align-items:center;
-    gap: 10px;
+    gap: 11px;
     width:100%;
     border: 1px solid var(--hair);
     background: var(--panel-raised);
@@ -116,17 +123,25 @@
     font-size: 14.5px;
     font-weight: 700;
     padding: 13px 16px;
-    border-radius: 10px;
+    border-radius: 11px;
     cursor: pointer;
     text-decoration:none;
     transition: transform .12s ease, border-color .12s ease, background .12s ease;
   }
-  .btn svg{ width:19px; height:19px; flex-shrink:0; }
+  .btn:hover{ border-color:#3C4653; background:var(--panel-raised-2); }
+  .btn-icon{ width:26px; height:26px; border-radius:7px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.04); }
+  .btn svg{ width:17px; height:17px; flex-shrink:0; }
   .btn:active{ transform: scale(0.98); }
   .btn.primary{
-    background: var(--accent);
+    background: linear-gradient(155deg, var(--accent-2), var(--accent));
     border-color: var(--accent);
     color: var(--accent-ink);
+  }
+  .btn.primary .btn-icon{ background: rgba(18,22,27,.14); }
+  .btn.primary::after{
+    content:'پیشنهادی'; position:absolute; inset-inline-start:14px; top:-9px;
+    background:var(--accent-ink); color:var(--accent-2); font-size:10px; font-weight:800;
+    padding:2px 8px; border-radius:999px; border:1px solid var(--accent);
   }
   .btn .sub{ margin-inline-start:auto; font-size:11.5px; color: var(--text-muted); font-weight:500; }
   .btn.primary .sub{ color: rgba(18,22,27,.65); }
@@ -135,6 +150,13 @@
     0%,100%{ box-shadow: 0 0 0 0 rgba(232,131,10,0); }
     50%{ box-shadow: 0 0 0 4px rgba(232,131,10,.25); }
   }
+
+  .trust-note{
+    display:flex; align-items:flex-start; gap:8px;
+    font-size:12px; color:var(--text-muted);
+    padding: 4px 2px 0;
+  }
+  .trust-note svg{ width:14px; height:14px; flex-shrink:0; margin-top:2px; color:var(--text-muted); }
 
   .notice{
     display:none;
@@ -157,14 +179,16 @@
   .ok-badge{
     display:flex; align-items:center; gap:10px;
     background: var(--ok-dim); border:1px solid #2C4536;
-    color: var(--ok); border-radius:10px; padding:14px 16px; font-weight:700; font-size:14.5px;
+    color: var(--ok); border-radius:12px; padding:16px 16px; font-weight:700; font-size:14.5px;
     margin-bottom: 4px;
   }
-  .ok-badge svg{ width:20px; height:20px; flex-shrink:0; }
+  .ok-badge svg{ width:22px; height:22px; flex-shrink:0; }
 
   .loading, .error{ display:none; text-align:center; padding: 10px 0 4px; color: var(--text-muted); font-size:13.5px; }
-  .loading.show, .error.show{ display:block; }
-  .error.show{ color:#E0A385; }
+  .loading.show, .error.show{ display:flex; align-items:center; justify-content:center; gap:8px; }
+  .error.show{ color:#E0A385; display:block; }
+  .spinner{ width:15px; height:15px; border-radius:50%; border:2px solid var(--hair); border-top-color:var(--accent); animation:spin .7s linear infinite; flex-shrink:0; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
 
   .foot{
     text-align:center;
@@ -183,7 +207,7 @@
 
       <div class="app-row">
         <div class="app-icon" id="appIcon"></div>
-        <div class="app-name">سامانه معادن قروه — <b id="appLabel">پنل ادمین</b></div>
+        <div class="app-name">سامانه معادن قروه<b id="appLabel">پنل ادمین</b></div>
       </div>
 
       <div class="updating">
@@ -206,21 +230,8 @@
           <span id="notesText"></span>
         </div>
 
-        <div class="actions">
-          <a class="btn primary" id="btnDirect" href="#">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13"/><path d="m7 11 5 5 5-5"/><path d="M5 21h14"/></svg>
-            دانلود مستقیم فایل نصب
-            <span class="sub">APK</span>
-          </a>
-          <a class="btn" id="btnMyket" href="#">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"/></svg>
-            دریافت از مایکت
-          </a>
-          <a class="btn" id="btnGoogle" href="#">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 3 14 9-14 9V3Z"/></svg>
-            دریافت از گوگل‌پلی
-          </a>
-        </div>
+        <div class="section-lbl">راه‌های دریافت</div>
+        <div class="actions" id="actionsBox"></div>
 
         <div class="notice" id="notice">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v5"/><path d="M12 16h.01"/></svg>
@@ -235,7 +246,7 @@
         </div>
       </div>
 
-      <div class="loading" id="loading">در حال بررسی آخرین نسخه…</div>
+      <div class="loading show" id="loading"><span class="spinner"></span>در حال بررسی آخرین نسخه…</div>
       <div class="error" id="errorBox">اطلاعات بروزرسانی در دسترس نیست. لطفاً بعداً دوباره تلاش کنید.</div>
 
       <div class="foot">این صفحه به‌صورت خودکار توسط اپلیکیشن باز شده است</div>
@@ -254,6 +265,27 @@
   };
   var LABELS = { admin: 'پنل ادمین', tech: 'اپلیکیشن مسئول فنی' };
 
+  // ترتیب و آیکون هر منبع نصب — کافه‌بازار و مایکت اول (نصب‌های پرکاربردتر در ایران و همراه با
+  // آپدیت خودکار خودشان)، لینک مستقیم APK آخرین گزینه (چون آپدیت بعدی را باز هم باید دستی بگیرید)
+  var SOURCES = [
+    {
+      key: 'bazaar', label: 'دریافت از کافه‌بازار',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>',
+    },
+    {
+      key: 'myket', label: 'دریافت از مایکت',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"/></svg>',
+    },
+    {
+      key: 'googlePlay', label: 'دریافت از گوگل‌پلی',
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 3 14 9-14 9V3Z"/></svg>',
+    },
+    {
+      key: 'direct', label: 'دانلود مستقیم فایل نصب', sub: 'APK', alwaysAvailable: true,
+      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13"/><path d="m7 11 5 5 5-5"/><path d="M5 21h14"/></svg>',
+    },
+  ];
+
   document.getElementById('appIcon').innerHTML = ICONS[appKey];
   document.getElementById('appLabel').textContent = LABELS[appKey];
   document.title = 'بروزرسانی ' + LABELS[appKey] + ' — سامانه معادن قروه';
@@ -264,8 +296,7 @@
   var loading = document.getElementById('loading');
   var errorBox = document.getElementById('errorBox');
   var card = document.getElementById('card');
-
-  loading.classList.add('show');
+  var actionsBox = document.getElementById('actionsBox');
 
   Promise.all([
     fetch(manifestUrl, { cache: 'no-store' }).then(function(r){ if(!r.ok) throw new Error('manifest'); return r.json(); }),
@@ -294,28 +325,50 @@
       document.getElementById('notesBox').style.display = 'block';
     }
 
-    setupButton('btnDirect', manifest.url, false);
-    setupButton('btnMyket', storeLinks.myketUrl, true);
-    setupButton('btnGoogle', storeLinks.googlePlayUrl, true);
+    var urlByKey = {
+      bazaar: storeLinks.bazaarUrl,
+      myket: storeLinks.myketUrl,
+      googlePlay: storeLinks.googlePlayUrl,
+      direct: manifest.url,
+    };
+
+    // اولین منبعی که واقعاً لینک دارد، دکمه‌ی «پیشنهادی» (primary) می‌شود — نه همیشه لینک مستقیم
+    var primaryAssigned = false;
+    SOURCES.forEach(function(src){
+      var url = urlByKey[src.key];
+      var isPrimary = !primaryAssigned && (url || src.alwaysAvailable);
+      if (url || src.alwaysAvailable) primaryAssigned = true;
+      actionsBox.appendChild(buildButton(src, url, isPrimary));
+    });
+
+    var trust = document.createElement('div');
+    trust.className = 'trust-note';
+    trust.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>'
+      + '<span>فایل نصب مستقیم امن است؛ فقط لازم است اجازه‌ی «نصب از منابع نامشخص» را برای مرورگر یا مدیر فایل خود موقتاً فعال کنید.</span>';
+    actionsBox.appendChild(trust);
 
   }).catch(function(){
     loading.classList.remove('show');
     errorBox.classList.add('show');
   });
 
-  function setupButton(id, url, isStoreLink){
-    var el = document.getElementById(id);
+  function buildButton(src, url, isPrimary){
+    var a = document.createElement('a');
+    a.className = 'btn' + (isPrimary ? ' primary' : '');
+    a.href = url || '#';
+    var iconWrap = '<span class="btn-icon">' + src.icon + '</span>';
+    var subHtml = src.sub ? '<span class="sub">' + src.sub + '</span>' : '';
+    a.innerHTML = iconWrap + src.label + subHtml;
     if (url) {
-      el.href = url;
-      el.target = '_blank';
-      el.rel = 'noopener';
+      a.target = '_blank';
+      a.rel = 'noopener';
     } else {
-      el.href = '#';
-      el.addEventListener('click', function(ev){
+      a.addEventListener('click', function(ev){
         ev.preventDefault();
-        showNotice(el.textContent.trim());
+        showNotice(src.label);
       });
     }
+    return a;
   }
 
   function showNotice(missingLabel){
@@ -323,7 +376,7 @@
     document.getElementById('noticeText').textContent =
       'لینک «' + missingLabel + '» یافت نشد. با استفاده از لینک مستقیم تلاش کنید.';
     notice.classList.add('show');
-    var direct = document.getElementById('btnDirect');
+    var direct = actionsBox.querySelector('.btn.primary') || actionsBox.querySelector('.btn');
     direct.classList.remove('pulse');
     void direct.offsetWidth;
     direct.classList.add('pulse');
