@@ -1,10 +1,21 @@
-import { Map as MapLibreMap, NavigationControl, AttributionControl } from 'maplibre-gl';
+import { Map as MapLibreMap, NavigationControl, AttributionControl, setWorkerUrl } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+// خودِ maplibre-gl در زمان اجرا آدرس اسکریپت Worker خودش (maplibre-gl-worker.mjs) را با
+// import.meta.url نسبی به فایل خودش می‌سازد. این الگو برای Vite قابل تشخیص نیست (نه در dev که
+// dependency pre-bundling می‌کند و نه در build که فقط import های استاتیک را دنبال می‌کند)، پس این
+// فایل هیچ‌وقت کپی/سرو نمی‌شود و درخواستش ۴۰۴ می‌خورد — نتیجه: مدل سه‌بعدی برای همیشه روی
+// «در حال بارگذاری» می‌ماند چون Worker هیچ‌وقت ساخته نمی‌شود (دیتای DEM هم روی همین Worker
+// پردازش می‌شود). با import صریح همراه با پسوند ?url به Vite می‌گوییم این فایل را به‌عنوان یک
+// asset مستقل کپی/هش کند و آدرس نهایی‌اش را به‌صورت رشته بدهد، و آن را قبل از ساخت هر Map با
+// setWorkerUrl معرفی می‌کنیم.
+import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { el, showToast, openModal } from '../../lib/dom.js';
 import { getMineCorners } from '../../lib/geo.js';
 import {
   getMineBBox, checkCopernicusStatus, getCopernicusToken, fetchSentinelImage, SAT_LAYERS,
 } from '../../lib/sentinelHub.js';
+
+setWorkerUrl(maplibreWorkerUrl);
 
 /**
  * قبلاً این ماژول با Three.js دستی یک صفحه‌ی مربع می‌ساخت و ارتفاع را با یک ضریب اغراقِ کور
