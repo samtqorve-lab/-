@@ -59,6 +59,13 @@ export function openVolumeModal(record, department, nameField, onSaved) {
       );
       renderVolumeHeatmap(canvas, grid);
 
+      const view3dBtn = el('button', { class: 'btn btn-ghost', style: 'width:100%;justify-content:center;margin-top:8px' }, '🗻 نمای سه‌بعدی روی تصویر ماهواره‌ای');
+      view3dBtn.addEventListener('click', async () => {
+        const { open3DVolumeModal } = await import('./volumeModal3D.js');
+        open3DVolumeModal(grid.triangles, record, nameField);
+      });
+      resultBox.append(view3dBtn);
+
       const saveBtn = el('button', { class: 'btn btn-primary', style: 'width:100%;justify-content:center;margin-top:12px' }, '💾 ذخیره نتیجه در پرونده‌ی این معدن');
       saveBtn.addEventListener('click', () => saveResult(saveBtn));
       resultBox.append(saveBtn);
