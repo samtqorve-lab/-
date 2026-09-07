@@ -77,7 +77,12 @@ export function open3DTerrainModal(record, nameField) {
         type: 'raster', tiles: ESRI_SATELLITE_TILES, tileSize: 256, attribution: '© Esri World Imagery',
       },
       terrainSource: {
-        type: 'raster-dem', tiles: TERRAIN_TILES, tileSize: 256, encoding: 'terrarium', maxzoom: 15,
+        // نکته‌ی مهم: کاشی‌های Terrarium بالاتر از زوم ۱۳ اصلاً وجود ندارند — اگر maxzoom بالاتر
+        // تنظیم شود، MapLibre مستقیم درخواست z14/z15 می‌فرستد که ۴۰۴ برمی‌گردد و باعث می‌شد
+        // زمین سه‌بعدی اصلاً فعال نشود (دقیقاً همان چیزی که باعث افتادن به نمای دوبعدی می‌شد).
+        // با maxzoom:13، خودِ MapLibre از کاشی‌های زوم ۱۳ به‌صورت بزرگ‌نمایی‌شده (oversample)
+        // استفاده می‌کند.
+        type: 'raster-dem', tiles: TERRAIN_TILES, tileSize: 256, encoding: 'terrarium', maxzoom: 13,
       },
     },
     layers: [{ id: 'satellite-layer', type: 'raster', source: 'satellite' }],
@@ -107,7 +112,7 @@ export function open3DTerrainModal(record, nameField) {
     if (!disposed && !map.loaded()) {
       statusLine.textContent = '⚠️ بارگذاری بیش از حد معمول طول کشید — احتمالاً اتصال شبکه یا یکی از سرویس‌های نقشه/ارتفاع در دسترس نیست. لطفاً اتصال اینترنت را چک کنید یا بعداً دوباره امتحان کنید.';
     }
-  }, 12000);
+  }, 18000);
 
   map.on('load', () => {
     if (disposed) return;
@@ -130,7 +135,7 @@ export function open3DTerrainModal(record, nameField) {
     // و کاربر همچنان نقشه‌ی مسطح (ماهواره + محدوده) را می‌بیند، نه یک صفحه‌ی خالیِ گیرکرده.
     const terrainTimeout = setTimeout(() => {
       if (!disposed && !terrainApplied) statusLine.textContent = '⚠️ نقشه آماده است، ولی زمین سه‌بعدی بارگذاری نشد (مشکل شبکه/سرویس ارتفاع) — نمای مسطح نمایش داده می‌شود.';
-    }, 8000);
+    }, 20000);
     try {
       map.setTerrain({ source: 'terrainSource', exaggeration });
       map.setPitch(65);
