@@ -142,6 +142,9 @@ export async function renderMineDetail(container, state, ctx) {
             el('button', { class: 'btn btn-ghost', style: compactBtnStyle, onclick: async () => { const { openPhotoTimelineModal } = await import('./photoTimeline.js'); openPhotoTimelineModal(record[nameField]); } }, '🖼️ گالری زمانی'),
           ]
           : []),
+        ...(isAdminRole && state.department === 'اکتشاف'
+          ? [el('button', { class: 'btn btn-ghost', style: compactBtnStyle, onclick: async () => { const { openExplorationLogModal } = await import('./explorationLogModal.js'); openExplorationLogModal(record, state.mineId); } }, '⛏️ دفترچه‌ی گمانه‌زنی')]
+          : []),
         ...(deleteBtn ? [deleteBtn] : []),
         editBtn,
       ]),
