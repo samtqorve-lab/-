@@ -1,21 +1,10 @@
-import { Map as MapLibreMap, NavigationControl, AttributionControl, setWorkerUrl } from 'maplibre-gl';
+import { Map as MapLibreMap, NavigationControl, AttributionControl } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-// خودِ maplibre-gl در زمان اجرا آدرس اسکریپت Worker خودش (maplibre-gl-worker.mjs) را با
-// import.meta.url نسبی به فایل خودش می‌سازد. این الگو برای Vite قابل تشخیص نیست (نه در dev که
-// dependency pre-bundling می‌کند و نه در build که فقط import های استاتیک را دنبال می‌کند)، پس این
-// فایل هیچ‌وقت کپی/سرو نمی‌شود و درخواستش ۴۰۴ می‌خورد — نتیجه: مدل سه‌بعدی برای همیشه روی
-// «در حال بارگذاری» می‌ماند چون Worker هیچ‌وقت ساخته نمی‌شود (دیتای DEM هم روی همین Worker
-// پردازش می‌شود). با import صریح همراه با پسوند ?url به Vite می‌گوییم این فایل را به‌عنوان یک
-// asset مستقل کپی/هش کند و آدرس نهایی‌اش را به‌صورت رشته بدهد، و آن را قبل از ساخت هر Map با
-// setWorkerUrl معرفی می‌کنیم.
-import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { el, showToast, openModal } from '../../lib/dom.js';
 import { getMineCorners } from '../../lib/geo.js';
 import {
   getMineBBox, checkCopernicusStatus, getCopernicusToken, fetchSentinelImage, SAT_LAYERS,
 } from '../../lib/sentinelHub.js';
-
-setWorkerUrl(maplibreWorkerUrl);
 
 /**
  * قبلاً این ماژول با Three.js دستی یک صفحه‌ی مربع می‌ساخت و ارتفاع را با یک ضریب اغراقِ کور
@@ -92,7 +81,9 @@ export function open3DTerrainModal(record, nameField) {
       },
     },
     layers: [{ id: 'satellite-layer', type: 'raster', source: 'satellite' }],
-    terrain: { source: 'terrainSource', exaggeration },
+    // عمداً terrain این‌جا در استایل اولیه تنظیم نمی‌شود — اگر منبع ارتفاع (DEM) هر مشکلی داشته
+    // باشد (شبکه/CORS/...)، نباید کل نقشه‌ی پایه هم به‌خاطرش گیر کند؛ بعد از «load» جداگانه با
+    // setTerrain اضافه می‌شود، تا حداقل تصویر ماهواره‌ای مسطح همیشه دیده شود.
   };
 
   const map = new MapLibreMap({
@@ -100,7 +91,7 @@ export function open3DTerrainModal(record, nameField) {
     style,
     center: [(west + east) / 2, (south + north) / 2],
     zoom: 14,
-    pitch: 65,
+    pitch: 0,
     bearing: -20,
     antialias: true,
     attributionControl: false,
@@ -110,10 +101,18 @@ export function open3DTerrainModal(record, nameField) {
 
   let disposed = false;
   let hasBoundaryLayer = false;
+  let terrainApplied = false;
+
+  const loadTimeout = setTimeout(() => {
+    if (!disposed && !map.loaded()) {
+      statusLine.textContent = '⚠️ بارگذاری بیش از حد معمول طول کشید — احتمالاً اتصال شبکه یا یکی از سرویس‌های نقشه/ارتفاع در دسترس نیست. لطفاً اتصال اینترنت را چک کنید یا بعداً دوباره امتحان کنید.';
+    }
+  }, 12000);
 
   map.on('load', () => {
     if (disposed) return;
-    map.fitBounds([[west, south], [east, north]], { pitch: 65, padding: 24, duration: 0 });
+    clearTimeout(loadTimeout);
+    map.fitBounds([[west, south], [east, north]], { padding: 24, duration: 0 });
 
     if (corners.length >= 3) {
       const coords = corners.map(([lat, lon]) => [lon, lat]);
@@ -126,11 +125,27 @@ export function open3DTerrainModal(record, nameField) {
       hasBoundaryLayer = true;
     }
 
-    statusLine.textContent = '✅ آماده — در حال تلاش برای دریافت تصویر ماهواره‌ای دقیق‌تر (Sentinel Hub)...';
+    statusLine.textContent = '✅ نقشه‌ی پایه آماده شد — در حال فعال‌سازی زمین سه‌بعدی...';
+    // اگر بارگذاری کاشی‌های ارتفاع (DEM) گیر کند یا خطا بدهد، بعد از چند ثانیه بی‌صدا رها می‌کنیم
+    // و کاربر همچنان نقشه‌ی مسطح (ماهواره + محدوده) را می‌بیند، نه یک صفحه‌ی خالیِ گیرکرده.
+    const terrainTimeout = setTimeout(() => {
+      if (!disposed && !terrainApplied) statusLine.textContent = '⚠️ نقشه آماده است، ولی زمین سه‌بعدی بارگذاری نشد (مشکل شبکه/سرویس ارتفاع) — نمای مسطح نمایش داده می‌شود.';
+    }, 8000);
+    try {
+      map.setTerrain({ source: 'terrainSource', exaggeration });
+      map.setPitch(65);
+      terrainApplied = true;
+      clearTimeout(terrainTimeout);
+      statusLine.textContent = '✅ آماده — در حال تلاش برای دریافت تصویر ماهواره‌ای دقیق‌تر (Sentinel Hub)...';
+    } catch (err) {
+      clearTimeout(terrainTimeout);
+      statusLine.textContent = `⚠️ زمین سه‌بعدی فعال نشد (${err.message}) — نمای مسطح نمایش داده می‌شود.`;
+    }
+
     fetchSatelliteImageUrl(bbox).then((url) => {
       if (disposed) return;
       if (!url) {
-        statusLine.textContent = '✅ آماده (تصویر پس‌زمینه: Esri — برای تصویر دقیق‌تر Sentinel Hub را از پنل «پایش ماهواره‌ای» تنظیم کنید)';
+        if (terrainApplied) statusLine.textContent = '✅ آماده (تصویر پس‌زمینه: Esri — برای تصویر دقیق‌تر Sentinel Hub را از پنل «پایش ماهواره‌ای» تنظیم کنید)';
         return;
       }
       map.addSource('sentinel-overlay', {
@@ -144,9 +159,13 @@ export function open3DTerrainModal(record, nameField) {
   });
 
   map.on('error', (e) => {
+    const msg = e && e.error && e.error.message ? e.error.message : '';
     // بعضی کاشی‌های لبه‌ی محدوده ممکن است ۴۰۴ بدهند (خارج از پوشش) — این‌ها را نادیده می‌گیریم و
-    // فقط خطاهای واقعی را نشان می‌دهیم تا کاربر مزاحم نشود.
-    if (e && e.error && String(e.error.message || '').includes('404')) return;
+    // فقط خطاهای واقعی/مسدودکننده را به کاربر نشان می‌دهیم (نه فقط در کنسول، که کاربر نمی‌بیند).
+    if (msg.includes('404')) return;
+    if (!disposed && !map.loaded()) {
+      statusLine.textContent = `❌ خطا در بارگذاری نقشه: ${msg || 'نامشخص'}`;
+    }
     // eslint-disable-next-line no-console
     console.warn('نقشه‌ی سه‌بعدی: خطا', e);
   });
