@@ -1,6 +1,6 @@
 import Delaunator from 'delaunator';
 
-function buildTriIndex(coordsFlat, triangles, minX, minY, maxX, maxY) {
+export function buildTriIndex(coordsFlat, triangles, minX, minY, maxX, maxY) {
   const cells = 40;
   const cw = (maxX - minX) / cells || 1;
   const ch = (maxY - minY) / cells || 1;
@@ -39,7 +39,7 @@ function baryCoords(px, py, x0, y0, x1, y1, x2, y2) {
   return [l0, l1, l2];
 }
 
-function interpolateZ(idx, coordsFlat, triangles, zvals, px, py) {
+export function interpolateZ(idx, coordsFlat, triangles, zvals, px, py) {
   const cx = Math.min(idx.cells - 1, Math.max(0, Math.floor((px - idx.minX) / idx.cw)));
   const cy = Math.min(idx.cells - 1, Math.max(0, Math.floor((py - idx.minY) / idx.ch)));
   const cand = idx.grid.get(cy * idx.cells + cx);
@@ -154,7 +154,23 @@ export async function computeTinVolume(ptsPrev, ptsCurr) {
   if (cellCount === 0) throw new Error('هیچ مثلث مشترکی بین دو سطح یافت نشد — محدوده هم‌پوشانی را بررسی کنید');
 
   return {
-    method: 'tin', minX, minY, maxX, maxY, triangles, cutVolume, fillVolume, netVolume: fillVolume - cutVolume, cellCount,
+    method: 'tin',
+    minX,
+    minY,
+    maxX,
+    maxY,
+    triangles,
+    cutVolume,
+    fillVolume,
+    netVolume: fillVolume - cutVolume,
+    cellCount,
+    // برای ابزار برش عرضی (cross-section) — نمونه‌برداری نقطه‌ای دلخواه از هر دو سطح در آینده
+    surfaceA: {
+      idx: idxA, coordsFlat: coordsA, triangles: delA.triangles, zvals: zA, bbox: bA,
+    },
+    surfaceB: {
+      idx: idxB, coordsFlat: coordsB, triangles: delB.triangles, zvals: zB, bbox: bB,
+    },
   };
 }
 
