@@ -28,7 +28,41 @@ export function mountSatellitePanel(hostContainer, { records, nameField }) {
 
   const mapBox = el('div', { style: 'height:280px;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--stone-200);margin-bottom:10px' });
   const wrap = el('div', {});
-  hostContainer.append(mapBox, wrap);
+  const container = el('div', { style: 'position:relative' });
+  container.append(mapBox, wrap);
+  hostContainer.append(container);
+
+  let fullscreen = false;
+  const fsBtn = el('button', {
+    class: 'btn-sm',
+    style: 'position:absolute;top:8px;left:8px;z-index:1000;background:rgba(255,255,255,0.92)',
+    onclick: () => { fullscreen = !fullscreen; applyFullscreenLayout(); },
+  }, '⛶ تمام‌صفحه');
+  container.append(fsBtn);
+
+  function applyFullscreenLayout() {
+    if (fullscreen) {
+      container.style.cssText = 'position:fixed;inset:0;z-index:2000;background:#111';
+      mapBox.style.cssText = 'position:absolute;inset:0;border-radius:0;border:none';
+      // در حالت تمام‌صفحه، ابزارها (انتخاب معدن/لایه/تاریخ/دکمه‌ها) به‌جای زیرِ نقشه، به‌صورت یک
+      // پنل شناور نیمه‌شفاف روی خودِ تصویر منتقل می‌شوند — چون در تمام‌صفحه دیگر جایی برای اسکرول
+      // زیر نقشه نیست و کل هدف، دیدن خودِ تصویر در بزرگ‌ترین اندازه‌ی ممکن است.
+      wrap.style.cssText = 'position:absolute;top:8px;right:8px;bottom:8px;width:300px;max-width:80vw;overflow-y:auto;background:rgba(255,255,255,0.95);border-radius:var(--radius-md);padding:10px;z-index:1000;box-shadow:var(--shadow-lg)';
+      fsBtn.textContent = '✕ خروج از تمام‌صفحه';
+    } else {
+      container.style.cssText = 'position:relative';
+      mapBox.style.cssText = 'height:280px;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--stone-200);margin-bottom:10px';
+      wrap.style.cssText = '';
+      fsBtn.textContent = '⛶ تمام‌صفحه';
+    }
+    // Leaflet اندازه‌ی container را خودش تشخیص نمی‌دهد؛ باید بعد از تغییر layout صریحاً خبردار شود.
+    setTimeout(() => map.invalidateSize(), 50);
+  }
+
+  function onEscKey(e) {
+    if (e.key === 'Escape' && fullscreen && document.body.contains(container)) { fullscreen = false; applyFullscreenLayout(); }
+  }
+  document.addEventListener('keydown', onEscKey);
 
   const map = L.map(mapBox, { attributionControl: false }).setView([35.16, 47.8], 12);
   L.tileLayer('https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', { subdomains: ['0', '1', '2', '3'], maxZoom: 21 }).addTo(map);
@@ -287,5 +321,5 @@ export function mountSatellitePanel(hostContainer, { records, nameField }) {
   }
 
   /** برای صدا زدن از بیرون (drawer) موقع بسته‌شدن، تا نمونه‌ی Leaflet جدا از DOM آزاد شود */
-  return { destroy: () => map.remove() };
+  return { destroy: () => { document.removeEventListener('keydown', onEscKey); map.remove(); } };
 }
