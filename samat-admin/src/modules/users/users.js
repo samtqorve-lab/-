@@ -146,6 +146,9 @@ function renderPendingRow(u, refresh) {
       u.national_code ? `کد ملی: ${u.national_code}` : '',
       u.national_code ? el('br') : '',
       u.membership_no ? `شماره عضویت نظام مهندسی: ${u.membership_no}` : '',
+      u.membership_no ? (u.membership_verified
+        ? el('span', { style: 'color:var(--patina-700);font-weight:700' }, ' ✅ منطبق با فهرست اعضای نظام مهندسی')
+        : el('span', { style: 'color:var(--rust-600)' }, ' ⚠️ کاربر دستی وارد کرده (با فهرست اعضا تایید نشده)')) : '',
       u.membership_no ? el('br') : '',
       u.license_no ? `شماره پروانه اشتغال: ${u.license_no}` : '',
       u.license_no ? el('br') : '',
@@ -221,7 +224,11 @@ function renderActiveRow(u, { myEmail, isSuper, isAdminRole, refresh }) {
     techInfo = el('div', { style: 'background:var(--patina-50);border-radius:8px;padding:8px 10px;font-size:var(--text-xs);color:var(--stone-600);line-height:2;margin-top:6px;width:100%' }, [
       el('b', { style: 'color:var(--patina-700)' }, officerTitle), el('br'),
       u.national_code ? `کد ملی: ${u.national_code}` : '', u.national_code ? el('br') : '',
-      u.membership_no ? `شماره عضویت نظام مهندسی: ${u.membership_no}` : '', u.membership_no ? el('br') : '',
+      u.membership_no ? `شماره عضویت نظام مهندسی: ${u.membership_no}` : '',
+      u.membership_no ? (u.membership_verified
+        ? el('span', { style: 'color:var(--patina-700);font-weight:700' }, ' ✅ منطبق با فهرست اعضا')
+        : el('span', { style: 'color:var(--rust-600)' }, ' ⚠️ تایید نشده با فهرست اعضا')) : '',
+      u.membership_no ? el('br') : '',
       u.license_no ? `شماره پروانه اشتغال: ${u.license_no}` : '', u.license_no ? el('br') : '',
       (u.assigned_mines || []).length
         ? `مورد(های) اختصاصی: ${u.assigned_mines.join('، ')}`
