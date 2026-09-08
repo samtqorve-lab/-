@@ -30,18 +30,18 @@ setWorkerUrl(maplibreWorkerUrl);
 // ایران فیلتر/مسدودند، Mapterhorn (زیرساخت جدا، پروژه‌ی متن‌باز NLnet) شانس بهتری برای در دسترس
 // بودن دارد؛ ولی چون از قبل مطمئن نیستیم، دکمه‌ی تعویض گذاشته‌ایم تا در محل واقعی کاربر تست/مقایسه شود.
 const DEM_SOURCES = {
-  aws: {
-    label: 'AWS (Terrarium)',
-    tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
-    tileSize: 256,
-  },
   mapterhorn: {
     label: 'Mapterhorn',
     tiles: ['https://tiles.mapterhorn.com/terrarium/{z}/{x}/{y}.webp'],
     tileSize: 512,
   },
+  aws: {
+    label: 'AWS (Terrarium)',
+    tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+    tileSize: 256,
+  },
 };
-const DEFAULT_DEM_KEY = 'aws';
+const DEFAULT_DEM_KEY = 'mapterhorn';
 // کاشی‌های Terrarium (هر دو منبع) بالاتر از این زوم پوشش ندارند — اگر maxzoom بالاتر تنظیم شود،
 // MapLibre مستقیم درخواست زوم بالاتر می‌فرستد که ۴۰۴ برمی‌گردد و باعث می‌شد زمین سه‌بعدی اصلاً
 // فعال نشود (دقیقاً همان چیزی که باعث افتادن به نمای دوبعدی می‌شد). MapLibre خودش از کاشی‌های این
