@@ -37,6 +37,7 @@ export function mountCompleteProfile(root, email, currentRow, onDone, onLogout) 
 
   const memberLookupHint = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin:-4px 0 4px' });
   let lastLookedUpNo = null;
+  let membershipVerified = false;
   f.membership_no.addEventListener('blur', async () => {
     const no = parseInt(f.membership_no.value.trim(), 10);
     if (!Number.isFinite(no) || no === lastLookedUpNo) return;
@@ -53,8 +54,10 @@ export function mountCompleteProfile(root, email, currentRow, onDone, onLogout) 
       if (ok) {
         f.full_name.value = suggestedName;
         if (suggestedPhone) f.phone.value = suggestedPhone;
+        membershipVerified = true;
         memberLookupHint.textContent = '✅ نام و تلفن از فهرست اعضا پر شد — در صورت نیاز می‌توانید ویرایش کنید.';
       } else {
+        membershipVerified = false;
         memberLookupHint.textContent = '';
       }
     } catch {
@@ -76,6 +79,8 @@ export function mountCompleteProfile(root, email, currentRow, onDone, onLogout) 
     }
     submitBtn.disabled = true; submitBtn.textContent = '⏳ در حال ارسال...';
     try {
+      const { data: taken } = await sb.rpc('is_membership_no_taken', { p_membership_no: f.membership_no.value.trim(), p_exclude_email: email });
+      if (taken) throw new Error(`شماره عضویت ${f.membership_no.value.trim()} قبلاً ثبت‌نام شده — با مدیر سامانه تماس بگیرید.`);
       const { error } = await sb.from('user_roles').update({
         full_name: f.full_name.value.trim(),
         phone: f.phone.value.trim(),
@@ -88,6 +93,7 @@ export function mountCompleteProfile(root, email, currentRow, onDone, onLogout) 
         department: deptForSpecialty(f.specialty.value),
         preferred_messenger: f.messenger.value,
         messenger_chat_id: f.messenger_chat_id.value.trim(),
+        membership_verified: membershipVerified,
       }).eq('email', email);
       if (error) throw error;
       onDone();
