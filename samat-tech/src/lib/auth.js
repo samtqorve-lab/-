@@ -109,6 +109,10 @@ async function signInWithGoogleNative() {
  */
 export async function signUp(fields) {
   const { email, password, ...meta } = fields;
+  if (meta.membership_no) {
+    const { data: taken } = await sb.rpc('is_membership_no_taken', { p_membership_no: meta.membership_no });
+    if (taken) throw new Error(`شماره عضویت ${meta.membership_no} قبلاً ثبت‌نام شده — اگر حساب قبلی خودتان است، وارد شوید یا با مدیر سامانه تماس بگیرید.`);
+  }
   const { data, error } = await sb.auth.signUp({
     email, password,
     options: { data: meta },
@@ -150,6 +154,7 @@ export async function ensureMyRoleRow(user) {
         license_no: meta.license_no || null, requested_mine_name: meta.requested_mine_name || null,
         contract_no: meta.contract_no || null, tech_officer_specialty: meta.tech_officer_specialty || null,
         preferred_messenger: meta.preferred_messenger || null, messenger_chat_id: meta.messenger_chat_id || null,
+        membership_verified: !!meta.membership_verified,
       }],
       { onConflict: 'email', ignoreDuplicates: true },
     ).select();
