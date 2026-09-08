@@ -183,6 +183,7 @@ export function mountLogin(root, onSuccess) {
     // انجام شود) یا رد کند و خودش دستی وارد/ویرایش کند.
     const memberLookupHint = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin:-4px 0 4px' });
     let lastLookedUpNo = null;
+    let membershipVerified = false;
     f.membership_no.addEventListener('blur', async () => {
       const no = parseInt(f.membership_no.value.trim(), 10);
       if (!Number.isFinite(no) || no === lastLookedUpNo) return;
@@ -199,8 +200,10 @@ export function mountLogin(root, onSuccess) {
         if (ok) {
           f.full_name.value = suggestedName;
           if (suggestedPhone) f.phone.value = suggestedPhone;
+          membershipVerified = true;
           memberLookupHint.textContent = '✅ نام و تلفن از فهرست اعضا پر شد — در صورت نیاز می‌توانید ویرایش کنید.';
         } else {
+          membershipVerified = false;
           memberLookupHint.textContent = '';
         }
       } catch {
@@ -230,6 +233,7 @@ export function mountLogin(root, onSuccess) {
           membership_no: f.membership_no.value.trim(), license_no: f.license_no.value.trim(),
           requested_mine_name: f.mine_name.value.trim(), contract_no: f.contract_no.value.trim(),
           tech_officer_specialty: f.specialty.value, preferred_messenger: f.messenger.value, messenger_chat_id: f.messenger_chat_id.value.trim(),
+          membership_verified: membershipVerified,
         });
         if (result.needsEmailConfirm) {
           pendingSignupEmail = f.email.value.trim();
