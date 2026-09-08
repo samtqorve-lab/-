@@ -161,6 +161,7 @@ export function mountLogin(root, onSuccess) {
       national_code: el('input', { type: 'text', dir: 'ltr', maxlength: '10' }),
       phone: el('input', { type: 'text', dir: 'ltr' }),
       email: el('input', { type: 'email', dir: 'ltr' }),
+      emailConfirm: el('input', { type: 'email', dir: 'ltr' }),
       pass: passInput,
       pass2: pass2Input,
       specialty: el('select', {}, [
@@ -175,6 +176,12 @@ export function mountLogin(root, onSuccess) {
       messenger: el('select', {}, Object.entries(MESSENGER_HINTS).map(([v, l]) => el('option', { value: v }, l.replace(/^آیدی |^شماره /, '')))),
       messenger_chat_id: el('input', { type: 'text', dir: 'ltr' }),
     };
+    // چسباندن (paste) روی فیلد «تکرار ایمیل» را عمداً غیرفعال می‌کنیم — اگر کاربر بتواند همان
+    // متنی که تایپ کرده (حتی با غلط تایپی) را در فیلد دوم هم paste کند، تکرار ایمیل هیچ محافظتی
+    // اضافه نمی‌کند. وادار کردن به تایپ دوباره، دقیقاً همان مکانیزمی است که یک غلط تایپی مثل
+    // «gorveh» به‌جای «qorveh» را می‌گیرد — چون تایپ کردن دقیقاً همان غلط برای بار دوم بعید است.
+    f.emailConfirm.addEventListener('paste', (ev) => { ev.preventDefault(); showToast('⚠️ برای جلوگیری از غلط تایپی، ایمیل را در این فیلد دوباره تایپ کنید (نه Paste)'); });
+
     const messengerLabel = el('label', {}, MESSENGER_HINTS[f.messenger.value]);
     f.messenger.addEventListener('change', () => { messengerLabel.textContent = MESSENGER_HINTS[f.messenger.value]; });
 
@@ -219,6 +226,9 @@ export function mountLogin(root, onSuccess) {
       if (!f.full_name.value.trim() || !f.national_code.value.trim() || !f.phone.value.trim() || !f.email.value.trim() || !f.pass.value) {
         errBox.textContent = 'اطلاعات هویتی، ایمیل و رمز عبور را کامل کنید'; return;
       }
+      if (f.email.value.trim().toLowerCase() !== f.emailConfirm.value.trim().toLowerCase()) {
+        errBox.textContent = 'ایمیل و تکرار ایمیل یکسان نیستند — لطفاً دوباره چک کنید'; return;
+      }
       if (f.pass.value.length < 6) { errBox.textContent = 'رمز عبور باید حداقل ۶ کاراکتر باشد'; return; }
       if (f.pass.value !== f.pass2.value) { errBox.textContent = 'تکرار رمز عبور با رمز عبور یکسان نیست'; return; }
       if (!/^\d{10}$/.test(f.national_code.value.trim())) { errBox.textContent = 'کد ملی باید ۱۰ رقم باشد'; return; }
@@ -256,6 +266,7 @@ export function mountLogin(root, onSuccess) {
       el('label', {}, 'کد ملی'), f.national_code,
       el('label', {}, 'تلفن همراه'), f.phone,
       el('label', {}, 'ایمیل'), f.email,
+      el('label', {}, 'تکرار ایمیل (دوباره تایپ کنید، Paste غیرفعال است)'), f.emailConfirm,
       el('label', {}, 'رمز عبور'), passWrap,
       el('label', {}, 'تکرار رمز عبور'), pass2Wrap,
       el('label', {}, 'نوع تخصص'), f.specialty,
