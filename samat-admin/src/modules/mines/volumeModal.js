@@ -62,7 +62,7 @@ export function openVolumeModal(record, department, nameField, onSaved) {
       const view3dBtn = el('button', { class: 'btn btn-ghost', style: 'width:100%;justify-content:center;margin-top:8px' }, '🗻 نمای سه‌بعدی روی تصویر ماهواره‌ای');
       view3dBtn.addEventListener('click', async () => {
         const { open3DVolumeModal } = await import('./volumeModal3D.js');
-        open3DVolumeModal(grid.triangles, record, nameField);
+        open3DVolumeModal({ triangles: grid.triangles, surfaceA: grid.surfaceA, surfaceB: grid.surfaceB }, record, nameField);
       });
       resultBox.append(view3dBtn);
 
@@ -98,6 +98,28 @@ export function openVolumeModal(record, department, nameField, onSaved) {
       if (e3) throw e3;
       const snapshotUrl = sb.storage.from('survey-maps').getPublicUrl(pathSnap).data.publicUrl;
 
+      // برای این‌که «نمای سه‌بعدی» (و برش عرضی) برای این محاسبه بعداً هم از تاریخچه در دسترس
+      // باشد، هندسه‌ی خام مثلث‌ها را هم جدا (نه داخل رکورد اصلی معدن که حجیمش می‌کرد) ذخیره
+      // می‌کنیم. آرایه‌های تایپ‌شده (Float64Array/Uint32Array) قابل JSON نیستند، پس تبدیل می‌شوند.
+      const geometryPayload = {
+        triangles: lastResult.grid.triangles,
+        surfaceA: {
+          coordsFlat: Array.from(lastResult.grid.surfaceA.coordsFlat),
+          triangles: Array.from(lastResult.grid.surfaceA.triangles),
+          zvals: lastResult.grid.surfaceA.zvals,
+          bbox: lastResult.grid.surfaceA.bbox,
+        },
+        surfaceB: {
+          coordsFlat: Array.from(lastResult.grid.surfaceB.coordsFlat),
+          triangles: Array.from(lastResult.grid.surfaceB.triangles),
+          zvals: lastResult.grid.surfaceB.zvals,
+          bbox: lastResult.grid.surfaceB.bbox,
+        },
+      };
+      const pathGeom = `${safeName}/${ts}_geometry.json`;
+      const { error: e4 } = await sb.storage.from('survey-maps').upload(pathGeom, new Blob([JSON.stringify(geometryPayload)], { type: 'application/json' }));
+      const geometryUrl = e4 ? null : sb.storage.from('survey-maps').getPublicUrl(pathGeom).data.publicUrl;
+
       const rec = {
         date: new Date().toLocaleDateString('fa-IR'),
         method: 'tin',
@@ -108,6 +130,7 @@ export function openVolumeModal(record, department, nameField, onSaved) {
         prevMapUrl: prevUrl,
         currMapUrl: currUrl,
         snapshotUrl,
+        geometryUrl,
         createdAt: new Date().toISOString(),
       };
       const updated = { ...record };
@@ -131,6 +154,23 @@ export function openVolumeHistoryModal(record, nameField) {
   const { body } = openModal({ title: `📐 تاریخچه‌ی محاسبات حجم — ${record[nameField] || ''}`, width: '440px' });
   if (!list.length) { body.append(el('div', { class: 'empty-state' }, 'هنوز محاسبه‌ای ثبت نشده')); return; }
   list.slice().reverse().forEach((s) => {
+    const view3dBtn = s.geometryUrl ? el('button', { class: 'btn-sm', style: 'background:var(--patina-50);color:var(--patina-700)' }, '🗻 نمای سه‌بعدی') : null;
+    if (view3dBtn) {
+      view3dBtn.addEventListener('click', async () => {
+        view3dBtn.disabled = true; const orig = view3dBtn.textContent; view3dBtn.textContent = '⏳ در حال بارگذاری...';
+        try {
+          const res = await fetch(s.geometryUrl);
+          if (!res.ok) throw new Error('فایل هندسه یافت نشد');
+          const data = await res.json();
+          const { open3DVolumeModal } = await import('./volumeModal3D.js');
+          open3DVolumeModal(data, record, nameField);
+        } catch (err) {
+          showToast(`❌ خطا: ${err.message}`);
+        } finally {
+          view3dBtn.disabled = false; view3dBtn.textContent = orig;
+        }
+      });
+    }
     body.append(el('div', { class: 'card', style: 'margin-bottom:10px' }, [
       el('div', { style: 'display:flex;justify-content:space-between;font-size:var(--text-sm)' }, [
         el('b', {}, s.date), el('span', {}, `خالص: ${fmtNum(s.netVolume)} m³`),
@@ -141,6 +181,7 @@ export function openVolumeHistoryModal(record, nameField) {
       el('div', { style: 'display:flex;gap:8px;margin-top:8px;flex-wrap:wrap' }, [
         s.prevMapUrl ? el('a', { href: s.prevMapUrl, target: '_blank', class: 'btn-sm', style: 'background:var(--stone-100);color:var(--ink-700);text-decoration:none' }, '⬇️ نقشه قبلی') : null,
         s.currMapUrl ? el('a', { href: s.currMapUrl, target: '_blank', class: 'btn-sm', style: 'background:var(--stone-100);color:var(--ink-700);text-decoration:none' }, '⬇️ نقشه جدید') : null,
+        view3dBtn,
       ]),
     ]));
   });
