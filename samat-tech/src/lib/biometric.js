@@ -18,6 +18,21 @@ async function getPlugin() {
   return NativeBiometric;
 }
 
+// روی بعضی گوشی‌ها (مخصوصاً بعضی نسخه‌های MIUI شیائومی که BiometricPrompt استاندارد اندروید را
+// با UI اختصاصی خودشان جایگزین می‌کنند) پل ارتباطی بین جاوااسکریپت و دیالوگ نیتیو اثر انگشت
+// می‌تواند برای همیشه گیر کند — نه موفق می‌شود، نه خطا می‌دهد، فقط ساکت می‌ماند. بدون این
+// timeout، کاربر برای همیشه با دکمه‌ای مواجه می‌شود که «هیچ واکنشی نشان نمی‌دهد» و هیچ سرنخی هم
+// از دلیلش نمی‌بیند.
+function withTimeout(promise, ms, timeoutMessage) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(timeoutMessage)), ms);
+    promise.then(
+      (v) => { clearTimeout(timer); resolve(v); },
+      (e) => { clearTimeout(timer); reject(e); },
+    );
+  });
+}
+
 export function bioSupported() {
   return Capacitor.isNativePlatform();
 }
@@ -26,7 +41,7 @@ export async function biometricHardwareAvailable() {
   const plugin = await getPlugin();
   if (!plugin) return false;
   try {
-    const result = await plugin.isAvailable({ useFallback: false });
+    const result = await withTimeout(plugin.isAvailable({ useFallback: false }), 6000, 'بررسی سخت‌افزار اثر انگشت پاسخ نداد (timeout)');
     return !!result.isAvailable;
   } catch {
     return false;
@@ -77,11 +92,15 @@ export async function enableBiometric(email) {
   if (!plugin || !(await biometricHardwareAvailable())) {
     throw new Error('روی این دستگاه سنسور اثر انگشت/Face ID فعال یافت نشد');
   }
-  await plugin.verifyIdentity({
-    reason: 'برای فعال‌سازی ورود سریع با اثر انگشت/Face ID',
-    title: 'تایید هویت',
-    subtitle: 'سامانه سامت',
-  });
+  await withTimeout(
+    plugin.verifyIdentity({
+      reason: 'برای فعال‌سازی ورود سریع با اثر انگشت/Face ID',
+      title: 'تایید هویت',
+      subtitle: 'سامانه سامت',
+    }),
+    15000,
+    'دیالوگ اثر انگشت پاسخ نداد (احتمالاً به‌خاطر تنظیمات این گوشی) — لطفاً دوباره امتحان کنید',
+  );
   localStorage.setItem(storageKey(email), '1');
 }
 
@@ -91,11 +110,15 @@ export async function verifyBiometricGate(email) {
   const plugin = await getPlugin();
   if (!plugin) return true; // پلتفرم عوض شده (مثلاً نسخه‌ی وب) — به رمز عادی برنگردیم، فقط رد شویم
   try {
-    await plugin.verifyIdentity({
-      reason: 'برای ورود به سامت',
-      title: 'تایید هویت',
-      subtitle: 'اثر انگشت یا Face ID خود را نشان دهید',
-    });
+    await withTimeout(
+      plugin.verifyIdentity({
+        reason: 'برای ورود به سامت',
+        title: 'تایید هویت',
+        subtitle: 'اثر انگشت یا Face ID خود را نشان دهید',
+      }),
+      15000,
+      'دیالوگ اثر انگشت پاسخ نداد',
+    );
     return true;
   } catch {
     return false;

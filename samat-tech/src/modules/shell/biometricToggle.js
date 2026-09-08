@@ -13,7 +13,9 @@ export function mountBiometricToggle(container, email) {
       el('span', { style: 'font-size:var(--text-xs)' }, enabled ? '✅ ورود با اثر انگشت روی این دستگاه فعال است' : '👆 برای ورود سریع‌تر دفعات بعد، اثر انگشت را فعال کنید'),
       enabled
         ? el('button', { class: 'btn-sm', style: 'background:var(--rust-100);color:var(--rust-700)', onclick: () => { removeBiometricCred(email); showToast('🔓 غیرفعال شد'); draw(); } }, 'غیرفعال‌سازی')
-        : el('button', { class: 'btn-sm', style: 'background:var(--patina-700);color:#fff', onclick: async () => {
+        : el('button', { class: 'btn-sm', style: 'background:var(--patina-700);color:#fff', onclick: async (ev) => {
+          const btn = ev.currentTarget;
+          btn.disabled = true; btn.textContent = '⏳ در انتظار تایید...';
           try { await enableBiometric(email); showToast('✅ ورود با اثر انگشت فعال شد'); } catch (err) { showToast(`⚠️ ${err.message}`); }
           draw();
         } }, 'فعال‌سازی'),
