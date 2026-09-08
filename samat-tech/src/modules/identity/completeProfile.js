@@ -35,6 +35,33 @@ export function mountCompleteProfile(root, email, currentRow, onDone, onLogout) 
   const messengerLabel = el('label', {}, MESSENGER_HINTS[f.messenger.value]);
   f.messenger.addEventListener('change', () => { messengerLabel.textContent = MESSENGER_HINTS[f.messenger.value]; });
 
+  const memberLookupHint = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin:-4px 0 4px' });
+  let lastLookedUpNo = null;
+  f.membership_no.addEventListener('blur', async () => {
+    const no = parseInt(f.membership_no.value.trim(), 10);
+    if (!Number.isFinite(no) || no === lastLookedUpNo) return;
+    lastLookedUpNo = no;
+    memberLookupHint.textContent = '⏳ در حال جست‌وجو در فهرست اعضای نظام مهندسی...';
+    try {
+      const { data, error } = await sb.rpc('lookup_engineering_member', { p_membership_no: no });
+      if (error) throw error;
+      const member = data && data[0];
+      if (!member) { memberLookupHint.textContent = ''; return; }
+      const suggestedName = `${member.first_name} ${member.last_name}`.trim();
+      const suggestedPhone = member.phone || '';
+      const ok = window.confirm(`این مشخصات برای عضو شماره ${no} پیدا شد:\nنام: ${suggestedName}\nتلفن: ${suggestedPhone || '—'}\n\nاگه درسته «OK» بزنید تا خودکار پر بشه، وگرنه «Cancel» بزنید و خودتون دستی وارد کنید.`);
+      if (ok) {
+        f.full_name.value = suggestedName;
+        if (suggestedPhone) f.phone.value = suggestedPhone;
+        memberLookupHint.textContent = '✅ نام و تلفن از فهرست اعضا پر شد — در صورت نیاز می‌توانید ویرایش کنید.';
+      } else {
+        memberLookupHint.textContent = '';
+      }
+    } catch {
+      memberLookupHint.textContent = '';
+    }
+  });
+
   const errBox = el('div', { class: 'gate-err' });
   const submitBtn = el('button', { class: 'btn btn-primary', style: 'margin-top:14px' }, 'ثبت و ارسال برای تایید');
 
@@ -78,11 +105,11 @@ export function mountCompleteProfile(root, email, currentRow, onDone, onLogout) 
     ]),
     el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:8px' },
       `با حساب گوگل ${email} وارد شدید — قبل از ارسال درخواست برای تایید مدیر سامانه، این اطلاعات را کامل کنید:`),
+    el('label', {}, 'شماره عضویت نظام مهندسی (اول این را وارد کنید)'), f.membership_no, memberLookupHint,
     el('label', {}, 'نام و نام خانوادگی'), f.full_name,
     el('label', {}, 'کد ملی'), f.national_code,
     el('label', {}, 'تلفن همراه'), f.phone,
     el('label', {}, 'نوع تخصص'), f.specialty,
-    el('label', {}, 'شماره عضویت نظام مهندسی'), f.membership_no,
     el('label', {}, 'شماره پروانه اشتغال به کار'), f.license_no,
     el('label', {}, 'نام معدن/محدوده/واحدی که مسئولیتش با شماست'), f.mine_name,
     el('label', {}, 'شماره ثبت قرارداد نظام مهندسی'), f.contract_no,
