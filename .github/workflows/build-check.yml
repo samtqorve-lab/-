@@ -1,0 +1,49 @@
+name: Build Check (fast — no APK)
+
+# این ورک‌فلو جدا از چهار ورک‌فلوی بیلد APK/دسکتاپ است — فقط build جاوااسکریپت (npm run build) هر
+# دو اپ را روی هر push به‌سرعت چک می‌کند، بدون ساخت APK (که چند دقیقه طول می‌کشد). هدف: باگ‌هایی
+# مثل dependency نصب‌نشده یا خطای سینتکس همان لحظه‌ی push لو بروند، نه هفته‌ها بعد وقتی کسی دستی
+# یک بیلد کامل APK بگیرد (دقیقاً همان چیزی که باعث شد باگ three.js مدت‌ها مخفی بماند).
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'samat-admin/**'
+      - 'samat-tech/**'
+      - '!samat-admin/public/updates/**'
+      - '!samat-admin/public/tech-officer/**'
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build-admin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: samat-admin/package-lock.json
+      - name: Install
+        working-directory: samat-admin
+        run: npm ci
+      - name: Build
+        working-directory: samat-admin
+        run: npm run build
+
+  build-tech:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: samat-tech/package-lock.json
+      - name: Install
+        working-directory: samat-tech
+        run: npm ci
+      - name: Build
+        working-directory: samat-tech
+        run: npm run build
