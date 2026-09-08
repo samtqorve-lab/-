@@ -1,5 +1,5 @@
 import { el, showToast, openModal } from '../../lib/dom.js';
-import { getMineCorners, dmsToDec, decToDMS } from '../../lib/geo.js';
+import { getMineCorners, dmsToDec, decToDMS, ensureNativeLocationPermission } from '../../lib/geo.js';
 import { updateDeptRecord } from '../../lib/records.js';
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
@@ -43,9 +43,19 @@ export function openCornersEditModal(record, department, nameField, onSaved) {
   });
 
   const gpsBtn = el('button', { class: 'btn-sm', style: 'background:var(--patina-100);color:var(--patina-700)' }, '📍 افزودن با موقعیت مکانی فعلی');
-  gpsBtn.addEventListener('click', () => {
+  gpsBtn.addEventListener('click', async () => {
     if (!navigator.geolocation) { showToast('⚠️ مرورگر شما از موقعیت‌مکانی پشتیبانی نمی‌کند'); return; }
     gpsBtn.disabled = true; gpsBtn.textContent = '⏳ در حال دریافت...';
+    // قبل از خودِ navigator.geolocation، اول مجوز سطح سیستم اندروید را می‌گیریم — بدون این خط،
+    // داخل WebView اندروید (اگر کاربر قبلاً از راه دیگری مثل نقشه/مسیریابی این مجوز را نگرفته
+    // باشد) این تماس بدون هیچ دیالوگی مستقیم با خطا رد می‌شود؛ همان الگویی که در اپ مسئول فنی هم
+    // باعث مشکل شده بود.
+    try {
+      await ensureNativeLocationPermission();
+    } catch {
+      // بی‌صدا رد می‌شویم — اگر مجوز واقعاً رد شده باشد، همان getCurrentPosition زیر با پیام
+      // خطای مناسب به کاربر اطلاع می‌دهد.
+    }
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         points.push({ lat: pos.coords.latitude, lon: pos.coords.longitude });
