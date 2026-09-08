@@ -1,21 +1,37 @@
-import { Map as MapLibreMap, NavigationControl, AttributionControl } from 'maplibre-gl';
+import {
+  Map as MapLibreMap, NavigationControl, AttributionControl, Popup,
+} from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { el, openModal } from '../../lib/dom.js';
+import { el, openModal, showToast } from '../../lib/dom.js';
 import { getMineCorners } from '../../lib/geo.js';
 import { getMineBBox } from '../../lib/sentinelHub.js';
 import { utmZoneForLon, utmToLatLon } from '../../lib/utm.js';
+import { buildTriIndex, interpolateZ } from '../../lib/volumeCalc.js';
 
 const ESRI_SATELLITE_TILES = ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'];
+const TERRAIN_TILES = ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'];
 
 /**
- * محاسبه‌ی حجم (volumeCalc.js) قبلاً فقط یک نقشه‌ی حرارتی دوبعدیِ مسطح (renderVolumeHeatmap)
- * تولید می‌کرد. این ماژول همان مثلث‌های TIN محاسبه‌شده (هرکدام با اختلاف ارتفاع d) را به‌صورت
- * منشورهای سه‌بعدیِ واقعی (fill-extrusion در MapLibre) روی تصویر ماهواره‌ای و محدوده‌ی قانونی
- * معدن نمایش می‌دهد — قرمز = کات (برداشت خاک)، آبی = فیل (خاک‌ریزی).
- * محدودیت: چون triangles در دیتابیس ذخیره نمی‌شود (فقط عدد نهایی حجم)، این نما فقط بلافاصله
- * بعد از محاسبه (در همان نشست) در دسترس است، نه برای محاسبات قدیمیِ ذخیره‌شده.
+ * محاسبه‌ی حجم (volumeCalc.js) قبلاً فقط یک نقشه‌ی حرارتی دوبعدیِ مسطح تولید می‌کرد. این ماژول
+ * همان مثلث‌های TIN محاسبه‌شده را به‌صورت منشورهای سه‌بعدیِ واقعی (fill-extrusion در MapLibre)
+ * روی تصویر ماهواره‌ای، توپوگرافی واقعی زمین، و محدوده‌ی قانونی معدن نمایش می‌دهد — قرمز = کات،
+ * آبی = فیل. با کلیک روی هر بخش جزئیات دقیق دیده می‌شود، و یک ابزار برش عرضی هم برای مقایسه‌ی
+ * پروفایل قبل/بعد در یک خط دلخواه هست.
+ *
+ * @param {object} data { triangles, surfaceA, surfaceB } — یا مستقیم از computeTinVolume (idx
+ *   خودش موجود است) یا بازسازی‌شده از فایل ذخیره‌شده در Storage (که در آن صورت idx باید از روی
+ *   bbox دوباره با buildTriIndex ساخته شود — این تابع خودش این تشخیص را می‌دهد).
  */
-export function open3DVolumeModal(triangles, record, nameField) {
+export function open3DVolumeModal(data, record, nameField) {
+  const { triangles } = data;
+  let { surfaceA, surfaceB } = data;
+  if (surfaceA && !surfaceA.idx) {
+    surfaceA = { ...surfaceA, idx: buildTriIndex(surfaceA.coordsFlat, surfaceA.triangles, surfaceA.bbox.minX, surfaceA.bbox.minY, surfaceA.bbox.maxX, surfaceA.bbox.maxY) };
+  }
+  if (surfaceB && !surfaceB.idx) {
+    surfaceB = { ...surfaceB, idx: buildTriIndex(surfaceB.coordsFlat, surfaceB.triangles, surfaceB.bbox.minX, surfaceB.bbox.minY, surfaceB.bbox.maxX, surfaceB.bbox.maxY) };
+  }
+
   const mineName = record[nameField] || '—';
   const corners = getMineCorners(record);
   const bbox = getMineBBox(corners, record._lat, record._lon);
@@ -29,12 +45,13 @@ export function open3DVolumeModal(triangles, record, nameField) {
     return [lon, lat];
   }
 
-  const { body, overlay } = openModal({ title: `🗻 نمای سه‌بعدی حجم کات/فیل — ${mineName}`, width: '90vw' });
-  const mapHost = el('div', { style: 'width:100%;height:70vh;border-radius:var(--radius-md);overflow:hidden;background:var(--stone-200)' });
+  const { body, overlay } = openModal({ title: `🗻 نمای سه‌بعدی حجم کات/فیل — ${mineName}`, width: '92vw' });
+  const mapHost = el('div', { style: 'width:100%;height:62vh;border-radius:var(--radius-md);overflow:hidden;background:var(--stone-200)' });
   const statusLine = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-top:8px' }, '⏳ در حال بارگذاری نقشه...');
-  const legend = el('div', { style: 'display:flex;gap:14px;margin-top:6px;font-size:var(--text-xs)' }, [
+  const legend = el('div', { style: 'display:flex;gap:14px;margin-top:6px;font-size:var(--text-xs);flex-wrap:wrap' }, [
     el('span', {}, [el('span', { style: 'display:inline-block;width:12px;height:12px;background:#e53935;border-radius:3px;margin-left:4px;vertical-align:middle' }), 'کات (برداشت خاک)']),
     el('span', {}, [el('span', { style: 'display:inline-block;width:12px;height:12px;background:#1e88e5;border-radius:3px;margin-left:4px;vertical-align:middle' }), 'فیل (خاک‌ریزی)']),
+    el('span', { style: 'color:var(--stone-500)' }, '💡 روی هر بخش کلیک کنید برای جزئیات دقیق'),
   ]);
   body.append(mapHost, statusLine, legend);
 
@@ -50,11 +67,31 @@ export function open3DVolumeModal(triangles, record, nameField) {
       }
     },
   }, `×${n}`));
-  body.append(el('div', { style: 'display:flex;align-items:center;gap:6px;margin-top:8px;font-size:var(--text-xs);color:var(--stone-600)' }, [
-    'اغراق ارتفاع (۱× = مقیاس واقعی):', ...exagButtons,
-  ]));
 
-  // ── ساخت GeoJSON از مثلث‌های محاسبه‌شده — هر مثلث یک چندضلعی با ارتفاع/رنگ متناظر ──
+  let crossSectionMode = false;
+  let csPoints = [];
+  const csBtn = el('button', { class: 'btn-sm btn-ghost' }, '📏 برش عرضی (دو نقطه کلیک کنید)');
+  const csChartBox = el('div', { style: 'display:none;margin-top:10px' });
+  csBtn.addEventListener('click', () => {
+    crossSectionMode = !crossSectionMode;
+    csPoints = [];
+    if (map.getLayer('cs-line')) map.removeLayer('cs-line');
+    if (map.getSource('cs-line')) map.removeSource('cs-line');
+    csChartBox.style.display = 'none';
+    csBtn.className = crossSectionMode ? 'btn-sm' : 'btn-sm btn-ghost';
+    csBtn.textContent = crossSectionMode ? '📏 روی نقشه دو نقطه کلیک کنید...' : '📏 برش عرضی (دو نقطه کلیک کنید)';
+  });
+
+  const exportBtn = el('button', { class: 'btn-sm btn-ghost' }, '📷 دانلود عکس + گزارش');
+  exportBtn.addEventListener('click', () => exportSnapshot());
+
+  body.append(el('div', { style: 'display:flex;align-items:center;gap:6px;margin-top:10px;font-size:var(--text-xs);color:var(--stone-600);flex-wrap:wrap' }, [
+    'اغراق ارتفاع (۱× = واقعی):', ...exagButtons,
+    el('span', { style: 'width:1px;height:16px;background:var(--stone-300);margin:0 4px' }),
+    csBtn, exportBtn,
+  ]));
+  body.append(csChartBox);
+
   const features = [];
   triangles.forEach((tr) => {
     const p0 = toLngLat(tr.x0, tr.y0);
@@ -63,14 +100,19 @@ export function open3DVolumeModal(triangles, record, nameField) {
     if ([p0, p1, p2].some(([lo, la]) => !Number.isFinite(lo) || !Number.isFinite(la))) return;
     features.push({
       type: 'Feature',
-      properties: { absD: Math.abs(tr.d), isCut: tr.d < 0 },
+      properties: { absD: Math.abs(tr.d), isCut: tr.d < 0, d: tr.d },
       geometry: { type: 'Polygon', coordinates: [[p0, p1, p2, p0]] },
     });
   });
 
   const style = {
     version: 8,
-    sources: { satellite: { type: 'raster', tiles: ESRI_SATELLITE_TILES, tileSize: 256, attribution: '© Esri World Imagery' } },
+    sources: {
+      satellite: { type: 'raster', tiles: ESRI_SATELLITE_TILES, tileSize: 256, attribution: '© Esri World Imagery' },
+      terrainSource: {
+        type: 'raster-dem', tiles: TERRAIN_TILES, tileSize: 256, encoding: 'terrarium', maxzoom: 13,
+      },
+    },
     layers: [{ id: 'satellite-layer', type: 'raster', source: 'satellite' }],
   };
 
@@ -88,6 +130,8 @@ export function open3DVolumeModal(triangles, record, nameField) {
   map.addControl(new AttributionControl({ compact: true }));
 
   let disposed = false;
+  let clickPopup = null;
+
   map.on('load', () => {
     if (disposed) return;
     if (bbox) map.fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]], { padding: 24, duration: 0 });
@@ -108,12 +152,135 @@ export function open3DVolumeModal(triangles, record, nameField) {
         'fill-extrusion-color': ['case', ['get', 'isCut'], '#e53935', '#1e88e5'],
         'fill-extrusion-height': ['*', ['get', 'absD'], exaggeration],
         'fill-extrusion-base': 0,
-        'fill-extrusion-opacity': 0.85,
+        'fill-extrusion-opacity': 0.88,
+        'fill-extrusion-vertical-gradient': true,
       },
     });
 
+    try { map.setTerrain({ source: 'terrainSource', exaggeration: 1 }); } catch { /* بی‌صدا نادیده گرفته می‌شود، نمای مسطح جایگزین است */ }
+
     statusLine.textContent = `✅ ${features.length.toLocaleString('fa-IR')} مثلث نمایش داده شد`;
+
+    map.on('click', 'cutfill-extrusion', (e) => {
+      if (crossSectionMode) return;
+      const f = e.features && e.features[0];
+      if (!f) return;
+      if (clickPopup) clickPopup.remove();
+      const { d } = f.properties;
+      clickPopup = new Popup({ closeButton: true })
+        .setLngLat(e.lngLat)
+        .setHTML(`<div style="font-family:inherit;font-size:12px;direction:rtl">
+          <b>${d < 0 ? '🔴 کات' : '🔵 فیل'}</b><br>
+          اختلاف ارتفاع: ${Math.abs(d).toFixed(2)} متر<br>
+          مختصات: ${e.lngLat.lat.toFixed(5)}, ${e.lngLat.lng.toFixed(5)}
+        </div>`)
+        .addTo(map);
+    });
+    map.on('mouseenter', 'cutfill-extrusion', () => { if (!crossSectionMode) map.getCanvas().style.cursor = 'pointer'; });
+    map.on('mouseleave', 'cutfill-extrusion', () => { map.getCanvas().style.cursor = ''; });
+
+    map.on('click', (e) => {
+      if (!crossSectionMode) return;
+      csPoints.push([e.lngLat.lng, e.lngLat.lat]);
+      if (csPoints.length === 1) {
+        showToast('نقطه‌ی دوم را هم کلیک کنید');
+      } else if (csPoints.length === 2) {
+        drawCrossSection(csPoints[0], csPoints[1]);
+        crossSectionMode = false;
+        csBtn.className = 'btn-sm btn-ghost';
+        csBtn.textContent = '📏 برش عرضی (دو نقطه کلیک کنید)';
+      }
+    });
   });
+
+  function lngLatToUtmXY(lng, lat) {
+    const A = 6378137.0; const F = 1 / 298.257223563; const E2 = F * (2 - F); const E2P = E2 / (1 - E2); const K0 = 0.9996;
+    const toRad = (deg) => (deg * Math.PI) / 180;
+    const lonOrigin = toRad((zone - 1) * 6 - 180 + 3);
+    const latR = toRad(lat); const lonR = toRad(lng);
+    const N = A / Math.sqrt(1 - E2 * Math.sin(latR) ** 2);
+    const T = Math.tan(latR) ** 2; const C = E2P * Math.cos(latR) ** 2;
+    const Aa = Math.cos(latR) * (lonR - lonOrigin);
+    const M = A * ((1 - E2 / 4 - (3 * E2 ** 2) / 64 - (5 * E2 ** 3) / 256) * latR
+      - ((3 * E2) / 8 + (3 * E2 ** 2) / 32 + (45 * E2 ** 3) / 1024) * Math.sin(2 * latR)
+      + ((15 * E2 ** 2) / 256 + (45 * E2 ** 3) / 1024) * Math.sin(4 * latR)
+      - ((35 * E2 ** 3) / 3072) * Math.sin(6 * latR));
+    const easting = K0 * N * (Aa + ((1 - T + C) * Aa ** 3) / 6 + ((5 - 18 * T + T ** 2 + 72 * C - 58 * E2P) * Aa ** 5) / 120) + 500000;
+    let northing = K0 * (M + N * Math.tan(latR) * ((Aa ** 2) / 2 + ((5 - T + 9 * C + 4 * C ** 2) * Aa ** 4) / 24
+      + ((61 - 58 * T + T ** 2 + 600 * C - 330 * E2P) * Aa ** 6) / 720));
+    if (lat < 0) northing += 10000000;
+    return { x: easting, y: northing };
+  }
+
+  function drawCrossSection(lngLat0, lngLat1) {
+    map.addSource('cs-line', { type: 'geojson', data: { type: 'Feature', geometry: { type: 'LineString', coordinates: [lngLat0, lngLat1] } } });
+    map.addLayer({ id: 'cs-line', type: 'line', source: 'cs-line', paint: { 'line-color': '#ffeb3b', 'line-width': 3, 'line-dasharray': [2, 1] } });
+
+    const N = 60;
+    const profA = []; const profB = [];
+    for (let i = 0; i <= N; i += 1) {
+      const t = i / N;
+      const lng = lngLat0[0] + (lngLat1[0] - lngLat0[0]) * t;
+      const lat = lngLat0[1] + (lngLat1[1] - lngLat0[1]) * t;
+      const { x, y } = lngLatToUtmXY(lng, lat);
+      const zA = surfaceA ? interpolateZ(surfaceA.idx, surfaceA.coordsFlat, surfaceA.triangles, surfaceA.zvals, x, y) : NaN;
+      const zB = surfaceB ? interpolateZ(surfaceB.idx, surfaceB.coordsFlat, surfaceB.triangles, surfaceB.zvals, x, y) : NaN;
+      profA.push(zA); profB.push(zB);
+    }
+    renderCrossSectionChart(profA, profB);
+  }
+
+  function renderCrossSectionChart(profA, profB) {
+    csChartBox.innerHTML = '';
+    csChartBox.style.display = 'block';
+    const canvas = el('canvas', { width: '900', height: '220', style: 'width:100%;border-radius:8px;border:1px solid var(--stone-300);background:#fff' });
+    csChartBox.append(
+      el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:6px' },
+        'پروفایل برش عرضی — نارنجی: نقشه‌ی قبلی، آبی: نقشه‌ی جدید (ناحیه‌ی رنگی بین دو خط = فیل/کات در همان برش)'),
+      canvas,
+    );
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width; const H = canvas.height; const pad = 30;
+    const valid = [...profA, ...profB].filter(Number.isFinite);
+    if (!valid.length) { ctx.fillText('داده‌ی مشترکی در این خط یافت نشد', 20, 20); return; }
+    const zMin = Math.min(...valid); const zMax = Math.max(...valid);
+    const zRange = (zMax - zMin) || 1;
+    const N = profA.length - 1;
+    const toX = (i) => pad + (i / N) * (W - 2 * pad);
+    const toY = (z) => H - pad - ((z - zMin) / zRange) * (H - 2 * pad);
+
+    ctx.clearRect(0, 0, W, H);
+    for (let i = 0; i < N; i += 1) {
+      if (![profA[i], profA[i + 1], profB[i], profB[i + 1]].every(Number.isFinite)) continue;
+      ctx.beginPath();
+      ctx.moveTo(toX(i), toY(profA[i]));
+      ctx.lineTo(toX(i + 1), toY(profA[i + 1]));
+      ctx.lineTo(toX(i + 1), toY(profB[i + 1]));
+      ctx.lineTo(toX(i), toY(profB[i]));
+      ctx.closePath();
+      ctx.fillStyle = profB[i] > profA[i] ? 'rgba(30,136,229,0.25)' : 'rgba(229,57,53,0.25)';
+      ctx.fill();
+    }
+    const drawLine = (prof, color) => {
+      ctx.beginPath();
+      let started = false;
+      prof.forEach((z, i) => {
+        if (!Number.isFinite(z)) { started = false; return; }
+        if (!started) { ctx.moveTo(toX(i), toY(z)); started = true; } else ctx.lineTo(toX(i), toY(z));
+      });
+      ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke();
+    };
+    drawLine(profA, '#fb8c00');
+    drawLine(profB, '#1e88e5');
+  }
+
+  function exportSnapshot() {
+    const dataUrl = map.getCanvas().toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = `حجم-کات-فیل-${mineName}.png`;
+    a.click();
+  }
 
   map.on('error', (e) => {
     const msg = e && e.error && e.error.message ? e.error.message : '';
