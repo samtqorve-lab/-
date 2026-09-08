@@ -1,15 +1,33 @@
 import {
-  Map as MapLibreMap, NavigationControl, AttributionControl, Popup,
+  Map as MapLibreMap, NavigationControl, AttributionControl, Popup, setWorkerUrl,
 } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+// همان فیکس حیاتیِ terrain3d.js — بدون این، setWorkerUrl واقعی هیچ‌وقت اجرا نمی‌شود، DEM هیچ‌وقت
+// روی Worker دیکد نمی‌شود، و نقشه بی‌صدا کاملاً دوبعدی می‌ماند (بدون هیچ پیام خطایی). این دو فایل
+// (terrain3d.js و این فایل) باید همیشه همین fix را با هم داشته باشند.
+import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { el, openModal, showToast } from '../../lib/dom.js';
 import { getMineCorners } from '../../lib/geo.js';
 import { getMineBBox } from '../../lib/sentinelHub.js';
 import { utmZoneForLon, utmToLatLon } from '../../lib/utm.js';
 import { buildTriIndex, interpolateZ } from '../../lib/volumeCalc.js';
 
+setWorkerUrl(maplibreWorkerUrl);
+
 const ESRI_SATELLITE_TILES = ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'];
-const TERRAIN_TILES = ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'];
+// دو منبع کاشیِ ارتفاع برای مقایسه/جایگزینی — همان‌هایی که در terrain3d.js هستند (سرویس‌های
+// آمریکایی گاهی از ایران در دسترس نیستند؛ Mapterhorn زیرساخت جدایی دارد و پیش‌فرض شده چون در
+// تست‌های واقعی کاربر، AWS خطا می‌داد).
+const DEM_SOURCES = {
+  mapterhorn: {
+    label: 'Mapterhorn', tiles: ['https://tiles.mapterhorn.com/terrarium/{z}/{x}/{y}.webp'], tileSize: 512,
+  },
+  aws: {
+    label: 'AWS (Terrarium)', tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'], tileSize: 256,
+  },
+};
+const DEFAULT_DEM_KEY = 'mapterhorn';
+const DEM_MAXZOOM = 13;
 
 /**
  * محاسبه‌ی حجم (volumeCalc.js) قبلاً فقط یک نقشه‌ی حرارتی دوبعدیِ مسطح تولید می‌کرد. این ماژول
@@ -85,10 +103,24 @@ export function open3DVolumeModal(data, record, nameField) {
   const exportBtn = el('button', { class: 'btn-sm btn-ghost' }, '📷 دانلود عکس + گزارش');
   exportBtn.addEventListener('click', () => exportSnapshot());
 
+  let demKey = DEFAULT_DEM_KEY;
+  const demButtons = Object.keys(DEM_SOURCES).map((key) => el('button', {
+    class: `btn-sm${key === demKey ? '' : ' btn-ghost'}`,
+    onclick: () => {
+      if (key === demKey) return;
+      demKey = key;
+      demButtons.forEach((b, i) => { b.className = `btn-sm${Object.keys(DEM_SOURCES)[i] === key ? '' : ' btn-ghost'}`; });
+      switchDemSource(key);
+    },
+  }, DEM_SOURCES[key].label));
+
   body.append(el('div', { style: 'display:flex;align-items:center;gap:6px;margin-top:10px;font-size:var(--text-xs);color:var(--stone-600);flex-wrap:wrap' }, [
     'اغراق ارتفاع (۱× = واقعی):', ...exagButtons,
     el('span', { style: 'width:1px;height:16px;background:var(--stone-300);margin:0 4px' }),
     csBtn, exportBtn,
+  ]));
+  body.append(el('div', { style: 'display:flex;align-items:center;gap:6px;margin-top:4px;font-size:var(--text-xs);color:var(--stone-600)' }, [
+    'منبع داده‌ی ارتفاع:', ...demButtons,
   ]));
   body.append(csChartBox);
 
@@ -110,7 +142,7 @@ export function open3DVolumeModal(data, record, nameField) {
     sources: {
       satellite: { type: 'raster', tiles: ESRI_SATELLITE_TILES, tileSize: 256, attribution: '© Esri World Imagery' },
       terrainSource: {
-        type: 'raster-dem', tiles: TERRAIN_TILES, tileSize: 256, encoding: 'terrarium', maxzoom: 13,
+        type: 'raster-dem', tiles: DEM_SOURCES[demKey].tiles, tileSize: DEM_SOURCES[demKey].tileSize, encoding: 'terrarium', maxzoom: DEM_MAXZOOM,
       },
     },
     layers: [{ id: 'satellite-layer', type: 'raster', source: 'satellite' }],
@@ -128,6 +160,22 @@ export function open3DVolumeModal(data, record, nameField) {
   });
   map.addControl(new NavigationControl({ visualizePitch: true }), 'top-left');
   map.addControl(new AttributionControl({ compact: true }));
+
+  function switchDemSource(key) {
+    if (disposed) return;
+    statusLine.textContent = `⏳ در حال تعویض منبع ارتفاع به ${DEM_SOURCES[key].label}...`;
+    try {
+      map.setTerrain(null);
+      if (map.getSource('terrainSource')) map.removeSource('terrainSource');
+      map.addSource('terrainSource', {
+        type: 'raster-dem', tiles: DEM_SOURCES[key].tiles, tileSize: DEM_SOURCES[key].tileSize, encoding: 'terrarium', maxzoom: DEM_MAXZOOM,
+      });
+      map.setTerrain({ source: 'terrainSource', exaggeration: 1 });
+      map.once('idle', () => { if (!disposed && demKey === key) statusLine.textContent = `✅ منبع ارتفاع «${DEM_SOURCES[key].label}» فعال شد`; });
+    } catch (err) {
+      statusLine.textContent = `❌ منبع «${DEM_SOURCES[key].label}» فعال نشد (${err.message})`;
+    }
+  }
 
   let disposed = false;
   let clickPopup = null;
