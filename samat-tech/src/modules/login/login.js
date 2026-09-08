@@ -363,6 +363,7 @@ export function mountLogin(root, onSuccess) {
       el('label', {}, 'رمز عبور جدید'), p1Wrap,
       el('label', {}, 'تکرار رمز عبور جدید'), p2Wrap,
       errBox, submitBtn,
+      el('div', { class: 'gate-links', style: 'justify-content:center' }, [el('a', { onclick: () => { screen = 'login'; draw(); } }, '← بازگشت به ورود')]),
     );
   }
 

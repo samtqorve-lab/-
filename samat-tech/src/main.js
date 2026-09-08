@@ -35,6 +35,21 @@ initOfflineQueueWatcher(showToast);
 // مجوز موقعیت‌مکانی را بدهد و اولین خوانش‌ها زودتر آماده باشند.
 startManagedGpsPrewarm();
 
+// شنونده‌ی «تایید/رد ورود با Push» را همین ابتدای اجرای اپ سوار می‌کنیم — نه فقط داخل
+// registerForPushLogin (که فقط لحظه‌ی فعال‌سازی از تنظیمات صدا زده می‌شود). چون handlerAttached
+// در حافظه‌ی هر اجرای تازه صفر است، بدون این خط، بعد از هر بار کامل بستن و باز کردن اپ، حتی اگر
+// «ورود با تایید Push» قبلاً روی این دستگاه فعال شده باشد، ضربه‌زدن روی دکمه‌ی تایید/رد داخل
+// اعلان هیچ اثری نداشت — دقیقاً همان چیزی که باعث می‌شد صفحه‌ی ورود برای همیشه روی «در انتظار
+// تایید...» بماند. اینجا (نه داخل boot) قرار دارد چون خودِ لحظه‌ی انتظار تاییدیه هم روی همین
+// صفحه‌ی ورود (قبل از session کامل) اتفاق می‌افتد؛ تابع خودش نیازی به لاگین‌بودن ندارد، فقط
+// شنونده‌های Push/LocalNotifications را سوار می‌کند.
+import('@capacitor/core').then(({ Capacitor }) => {
+  if (!Capacitor.isNativePlatform()) return;
+  import('./lib/pushNative.js').then(({ attachLoginApprovalHandler }) => {
+    attachLoginApprovalHandler();
+  });
+}).catch(() => {});
+
 function logoutAndReload() {
   stopGpsPrewarm();
   sb.auth.signOut().then(() => window.location.reload());
