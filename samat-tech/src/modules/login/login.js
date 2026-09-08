@@ -6,6 +6,7 @@ import {
 import { isPushLoginEnabled, requestPushApproval, verifyFallbackCode } from '../../lib/pushLogin.js';
 import { friendlyError } from '../../lib/utils.js';
 import { autoEnableBiometricAfterLogin } from '../../lib/biometric.js';
+import { sb } from '../../lib/supabase.js';
 
 const MESSENGER_HINTS = {
   telegram: 'آیدی چت تلگرام', bale: 'شماره موبایل یا آیدی چت بله', eitaa: 'آیدی چت/کانال ایتا',
@@ -177,6 +178,36 @@ export function mountLogin(root, onSuccess) {
     const messengerLabel = el('label', {}, MESSENGER_HINTS[f.messenger.value]);
     f.messenger.addEventListener('change', () => { messengerLabel.textContent = MESSENGER_HINTS[f.messenger.value]; });
 
+    // به‌محض خروج از فیلد «شماره عضویت»، اگر در فهرست اعضای نظام مهندسی قروه پیدا شد، نام و
+    // تلفن همراه پیشنهادی خودکار پیشنهاد داده می‌شود — کاربر می‌تواند تایید کند (ثبت‌نام سریع‌تر
+    // انجام شود) یا رد کند و خودش دستی وارد/ویرایش کند.
+    const memberLookupHint = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin:-4px 0 4px' });
+    let lastLookedUpNo = null;
+    f.membership_no.addEventListener('blur', async () => {
+      const no = parseInt(f.membership_no.value.trim(), 10);
+      if (!Number.isFinite(no) || no === lastLookedUpNo) return;
+      lastLookedUpNo = no;
+      memberLookupHint.textContent = '⏳ در حال جست‌وجو در فهرست اعضای نظام مهندسی...';
+      try {
+        const { data, error } = await sb.rpc('lookup_engineering_member', { p_membership_no: no });
+        if (error) throw error;
+        const member = data && data[0];
+        if (!member) { memberLookupHint.textContent = ''; return; }
+        const suggestedName = `${member.first_name} ${member.last_name}`.trim();
+        const suggestedPhone = member.phone || '';
+        const ok = window.confirm(`این مشخصات برای عضو شماره ${no} پیدا شد:\nنام: ${suggestedName}\nتلفن: ${suggestedPhone || '—'}\n\nاگه درسته «OK» بزنید تا خودکار پر بشه، وگرنه «Cancel» بزنید و خودتون دستی وارد کنید.`);
+        if (ok) {
+          f.full_name.value = suggestedName;
+          if (suggestedPhone) f.phone.value = suggestedPhone;
+          memberLookupHint.textContent = '✅ نام و تلفن از فهرست اعضا پر شد — در صورت نیاز می‌توانید ویرایش کنید.';
+        } else {
+          memberLookupHint.textContent = '';
+        }
+      } catch {
+        memberLookupHint.textContent = '';
+      }
+    });
+
     const errBox = el('div', { class: 'gate-err' });
     const submitBtn = el('button', { class: 'btn btn-primary', style: 'margin-top:14px' }, 'ثبت‌نام');
 
@@ -216,6 +247,7 @@ export function mountLogin(root, onSuccess) {
 
     card.append(
       brand('ثبت‌نام'),
+      el('label', {}, 'شماره عضویت نظام مهندسی (اول این را وارد کنید)'), f.membership_no, memberLookupHint,
       el('label', {}, 'نام و نام خانوادگی'), f.full_name,
       el('label', {}, 'کد ملی'), f.national_code,
       el('label', {}, 'تلفن همراه'), f.phone,
@@ -223,7 +255,6 @@ export function mountLogin(root, onSuccess) {
       el('label', {}, 'رمز عبور'), passWrap,
       el('label', {}, 'تکرار رمز عبور'), pass2Wrap,
       el('label', {}, 'نوع تخصص'), f.specialty,
-      el('label', {}, 'شماره عضویت نظام مهندسی'), f.membership_no,
       el('label', {}, 'شماره پروانه اشتغال به کار'), f.license_no,
       el('label', {}, 'نام معدن/محدوده/واحدی که مسئولیتش با شماست'), f.mine_name,
       el('label', {}, 'شماره ثبت قرارداد نظام مهندسی'), f.contract_no,
