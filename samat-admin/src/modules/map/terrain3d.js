@@ -25,9 +25,28 @@ setWorkerUrl(maplibreWorkerUrl);
  * (raster-dem + camera pitch/bearing واقعی) استفاده می‌کنیم — دقیقاً همان روشی که گوگل‌ارث و
  * اکثر نقشه‌های سه‌بعدی واقعی از آن استفاده می‌کنند، پس نتیجه به‌طور طبیعی بسیار نزدیک‌تر است.
  */
-const TERRAIN_TILES = ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'];
-// تصویر ماهواره‌ای پیش‌فرض/بازگشتی وقتی Sentinel Hub تنظیم نشده — رایگان، بدون نیاز به کلید،
-// و تصویرش خیلی شبیه به‌همان چیزی‌ست که در گوگل‌ارث/گوگل‌مپ دیده می‌شود.
+// دو منبع کاشیِ ارتفاع (DEM) برای مقایسه‌ی مستقیم کنار هم: هر دو استاندارد Terrarium (بدون کلید)،
+// ولی روی زیرساخت‌های متفاوت میزبانی می‌شوند — چون سرویس‌های آمریکایی مثل AWS/Esri معمولاً از
+// ایران فیلتر/مسدودند، Mapterhorn (زیرساخت جدا، پروژه‌ی متن‌باز NLnet) شانس بهتری برای در دسترس
+// بودن دارد؛ ولی چون از قبل مطمئن نیستیم، دکمه‌ی تعویض گذاشته‌ایم تا در محل واقعی کاربر تست/مقایسه شود.
+const DEM_SOURCES = {
+  aws: {
+    label: 'AWS (Terrarium)',
+    tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+    tileSize: 256,
+  },
+  mapterhorn: {
+    label: 'Mapterhorn',
+    tiles: ['https://tiles.mapterhorn.com/terrarium/{z}/{x}/{y}.webp'],
+    tileSize: 512,
+  },
+};
+const DEFAULT_DEM_KEY = 'aws';
+// کاشی‌های Terrarium (هر دو منبع) بالاتر از این زوم پوشش ندارند — اگر maxzoom بالاتر تنظیم شود،
+// MapLibre مستقیم درخواست زوم بالاتر می‌فرستد که ۴۰۴ برمی‌گردد و باعث می‌شد زمین سه‌بعدی اصلاً
+// فعال نشود (دقیقاً همان چیزی که باعث افتادن به نمای دوبعدی می‌شد). MapLibre خودش از کاشی‌های این
+// زوم به‌صورت بزرگ‌نمایی‌شده (oversample) برای زوم‌های بالاتر استفاده می‌کند.
+const DEM_MAXZOOM = 13;
 const ESRI_SATELLITE_TILES = ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'];
 
 /**
@@ -81,6 +100,22 @@ export function open3DTerrainModal(record, nameField) {
     'اغراق ارتفاع (۱× = مقیاس واقعی، مثل گوگل‌ارث):', ...exagButtons,
   ]));
 
+  // دکمه‌ی تعویض منبع کاشی ارتفاع (DEM) — برای مقایسه‌ی مستقیم AWS در برابر Mapterhorn، مخصوصاً
+  // چون ممکن است یکی از این دو از ایران در دسترس نباشد و باید در محل واقعی تست شود.
+  let demKey = DEFAULT_DEM_KEY;
+  const demButtons = Object.keys(DEM_SOURCES).map((key) => el('button', {
+    class: `btn-sm${key === demKey ? '' : ' btn-ghost'}`,
+    onclick: () => {
+      if (key === demKey) return;
+      demKey = key;
+      demButtons.forEach((b, i) => { b.className = `btn-sm${Object.keys(DEM_SOURCES)[i] === key ? '' : ' btn-ghost'}`; });
+      switchDemSource(key);
+    },
+  }, DEM_SOURCES[key].label));
+  body.append(el('div', { style: 'display:flex;align-items:center;gap:6px;margin-top:4px;font-size:var(--text-xs);color:var(--stone-600)' }, [
+    'منبع داده‌ی ارتفاع (برای مقایسه):', ...demButtons,
+  ]));
+
   const style = {
     version: 8,
     sources: {
@@ -88,12 +123,11 @@ export function open3DTerrainModal(record, nameField) {
         type: 'raster', tiles: ESRI_SATELLITE_TILES, tileSize: 256, attribution: '© Esri World Imagery',
       },
       terrainSource: {
-        // نکته‌ی مهم: کاشی‌های Terrarium بالاتر از زوم ۱۳ اصلاً وجود ندارند — اگر maxzoom بالاتر
-        // تنظیم شود، MapLibre مستقیم درخواست z14/z15 می‌فرستد که ۴۰۴ برمی‌گردد و باعث می‌شد
-        // زمین سه‌بعدی اصلاً فعال نشود (دقیقاً همان چیزی که باعث افتادن به نمای دوبعدی می‌شد).
-        // با maxzoom:13، خودِ MapLibre از کاشی‌های زوم ۱۳ به‌صورت بزرگ‌نمایی‌شده (oversample)
-        // استفاده می‌کند.
-        type: 'raster-dem', tiles: TERRAIN_TILES, tileSize: 256, encoding: 'terrarium', maxzoom: 13,
+        type: 'raster-dem',
+        tiles: DEM_SOURCES[demKey].tiles,
+        tileSize: DEM_SOURCES[demKey].tileSize,
+        encoding: 'terrarium',
+        maxzoom: DEM_MAXZOOM,
       },
     },
     layers: [{ id: 'satellite-layer', type: 'raster', source: 'satellite' }],
@@ -118,6 +152,39 @@ export function open3DTerrainModal(record, nameField) {
   let disposed = false;
   let hasBoundaryLayer = false;
   let terrainApplied = false;
+
+  /**
+   * تعویض زنده‌ی منبع ارتفاع بدون بستن مودال — چون MapLibre اجازه‌ی عوض کردن tileSize یک منبع
+   * موجود را با setTiles نمی‌دهد (فقط آدرس تایل‌ها را عوض می‌کند، نه اندازه‌شان)، و دو منبع ما
+   * tileSize متفاوت دارند (۲۵۶ در برابر ۵۱۲)، ساده‌ترین و مطمئن‌ترین راه این است که کل
+   * terrainSource را حذف و با تنظیمات جدید دوباره اضافه کنیم.
+   */
+  function switchDemSource(key) {
+    if (disposed) return;
+    statusLine.textContent = `⏳ در حال تعویض منبع ارتفاع به ${DEM_SOURCES[key].label}...`;
+    terrainApplied = false;
+    try {
+      map.setTerrain(null);
+      if (map.getSource('terrainSource')) map.removeSource('terrainSource');
+      map.addSource('terrainSource', {
+        type: 'raster-dem',
+        tiles: DEM_SOURCES[key].tiles,
+        tileSize: DEM_SOURCES[key].tileSize,
+        encoding: 'terrarium',
+        maxzoom: DEM_MAXZOOM,
+      });
+      map.setTerrain({ source: 'terrainSource', exaggeration });
+      terrainApplied = true;
+      const switchTimeout = setTimeout(() => {
+        if (!disposed && demKey === key) {
+          statusLine.textContent = `⚠️ منبع «${DEM_SOURCES[key].label}» بعد از چند ثانیه هنوز کاشی نداده — احتمالاً این سرویس هم از اینجا در دسترس نیست.`;
+        }
+      }, 12000);
+      map.once('idle', () => { clearTimeout(switchTimeout); if (!disposed && demKey === key) statusLine.textContent = `✅ منبع ارتفاع «${DEM_SOURCES[key].label}» فعال شد`; });
+    } catch (err) {
+      statusLine.textContent = `❌ منبع «${DEM_SOURCES[key].label}» فعال نشد (${err.message})`;
+    }
+  }
 
   const loadTimeout = setTimeout(() => {
     if (!disposed && !map.loaded()) {
