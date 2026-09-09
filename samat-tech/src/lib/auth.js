@@ -5,10 +5,28 @@ export function deptForSpecialty(spec) {
   return spec === 'اکتشاف' ? 'اکتشاف' : (spec === 'فرآوری' ? 'فرآوری' : 'معدن');
 }
 
+/**
+ * سه RPC (این تابع، و lookup_engineering_member که در completeProfile.js/login.js صدا زده
+ * می‌شود) قبلاً مستقیماً از anon قابل صدا زدن بودند و با یک شماره‌ی کوچک و حدس‌زدنی (شماره
+ * عضویت/کد پرسنلی) اطلاعات شخصی برمی‌گرداندند — یعنی از بیرون قابل enumerate کردن بودند. حالا
+ * دسترسی مستقیم به آن RPCها بسته شده و فقط از طریق این Edge Function (که خودش محدودیت نرخ روی
+ * IP اعمال می‌کند) در دسترسند.
+ */
+export async function callPublicLookup(action, params) {
+  const res = await fetch(`${sb.supabaseUrl}/functions/v1/public-lookup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: sb.supabaseKey, Authorization: `Bearer ${sb.supabaseKey}` },
+    body: JSON.stringify({ action, ...params }),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || 'خطا در ارتباط با سرور');
+  return json.data;
+}
+
 /** ورود می‌تواند یا با ایمیل باشد یا شماره عضویت نظام مهندسی (که سرور از طریق RPC ترجمه می‌کند) */
 export async function resolveLoginIdentifier(identifier) {
   if (identifier.includes('@')) return identifier;
-  const { data } = await sb.rpc('resolve_login_email', { identifier });
+  const data = await callPublicLookup('resolveLoginEmail', { identifier }).catch(() => null);
   return data || null;
 }
 

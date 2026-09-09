@@ -28,12 +28,26 @@ export async function signInWithPersonnelCode(personnelCode, password) {
   return signIn(email, password);
 }
 
+/**
+ * این RPC قبلاً مستقیماً از anon قابل صدا زدن بود و با یک کد پرسنلی کوچک/حدس‌زدنی ایمیل کاربر
+ * را برمی‌گرداند — یعنی از بیرون قابل enumerate کردن بود. حالا دسترسی مستقیم بسته شده و فقط از
+ * طریق Edge Function «public-lookup» (که خودش محدودیت نرخ روی IP اعمال می‌کند) در دسترس است.
+ */
+async function callPublicLookup(action, params) {
+  const res = await fetch(`${sb.supabaseUrl}/functions/v1/public-lookup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: sb.supabaseKey, Authorization: `Bearer ${sb.supabaseKey}` },
+    body: JSON.stringify({ action, ...params }),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || 'خطا در ارتباط با سرور');
+  return json.data;
+}
+
 export async function emailForPersonnelCode(personnelCode) {
   const code = (personnelCode || '').trim();
   if (!code) return null;
-  const { data, error } = await sb.rpc('get_email_by_personnel_code', { p_code: code });
-  if (error) throw error;
-  return data || null;
+  return (await callPublicLookup('getEmailByPersonnelCode', { code })) || null;
 }
 
 /** برای بررسی در فرم ثبت‌نام که کد پرسنلی قبلاً توسط کاربر دیگری گرفته نشده باشد */

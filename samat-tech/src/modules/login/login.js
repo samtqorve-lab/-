@@ -1,12 +1,11 @@
 import { el, showToast, passwordFieldWithToggle } from '../../lib/dom.js';
 import {
   signIn, signUp, confirmSignupCode, resendSignupCode, sendPasswordResetCode, resetPasswordWithCode, signOut,
-  signInWithGoogle,
+  signInWithGoogle, callPublicLookup,
 } from '../../lib/auth.js';
 import { isPushLoginEnabled, requestPushApproval, verifyFallbackCode } from '../../lib/pushLogin.js';
 import { friendlyError } from '../../lib/utils.js';
 import { autoEnableBiometricAfterLogin } from '../../lib/biometric.js';
-import { sb } from '../../lib/supabase.js';
 
 const MESSENGER_HINTS = {
   telegram: 'آیدی چت تلگرام', bale: 'شماره موبایل یا آیدی چت بله', eitaa: 'آیدی چت/کانال ایتا',
@@ -197,8 +196,7 @@ export function mountLogin(root, onSuccess) {
       lastLookedUpNo = no;
       memberLookupHint.textContent = '⏳ در حال جست‌وجو در فهرست اعضای نظام مهندسی...';
       try {
-        const { data, error } = await sb.rpc('lookup_engineering_member', { p_membership_no: no });
-        if (error) throw error;
+        const data = await callPublicLookup('lookupEngineeringMember', { membershipNo: no });
         const member = data && data[0];
         if (!member) { memberLookupHint.textContent = ''; return; }
         const suggestedName = `${member.first_name} ${member.last_name}`.trim();
