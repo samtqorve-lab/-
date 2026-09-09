@@ -104,8 +104,10 @@ async function signInWithGoogleNative() {
 }
 
 /**
- * ثبت‌نام مسئول فنی/ایمنی/بهداشت. اگر تایید ایمیل فعال باشد، یک کد ۶ رقمی ارسال می‌شود که باید
- * با confirmSignupCode تایید شود — این با needsEmailConfirm مشخص می‌کنیم.
+ * ثبت‌نام مسئول فنی/ایمنی/بهداشت. اگر تایید ایمیل فعال باشد، یک کد ارسال می‌شود که باید با
+ * confirmSignupCode تایید شود — این با needsEmailConfirm مشخص می‌کنیم. طول کد را خودِ تنظیمات
+ * Auth پروژه‌ی Supabase تعیین می‌کند (فعلاً ۸ رقم)، نه این فایل — اگر در Dashboard عوض شود، فقط
+ * متن راهنمای فرم (drawConfirmSignup/drawForgot2) باید همگام به‌روز شود.
  */
 export async function signUp(fields) {
   const { email, password, ...meta } = fields;

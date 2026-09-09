@@ -283,7 +283,7 @@ export function mountLogin(root, onSuccess) {
   }
 
   function drawConfirmSignup(card) {
-    const codeInput = el('input', { type: 'text', dir: 'ltr', placeholder: 'کد ۶ رقمی' });
+    const codeInput = el('input', { type: 'text', dir: 'ltr', placeholder: 'کد ۸ رقمی' });
     const errBox = el('div', { class: 'gate-err' });
     const submitBtn = el('button', { class: 'btn btn-primary', style: 'margin-top:14px' }, 'تایید کد');
     submitBtn.addEventListener('click', async () => {
@@ -304,7 +304,7 @@ export function mountLogin(root, onSuccess) {
     });
     card.append(
       brand('تایید ایمیل'),
-      el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:8px' }, `یک کد ۶ رقمی به ${pendingSignupEmail} ارسال شد.`),
+      el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:8px' }, `یک کد ۸ رقمی به ${pendingSignupEmail} ارسال شد.`),
       el('label', {}, 'کد تایید'), codeInput,
       errBox, submitBtn, resendBtn,
     );
@@ -349,7 +349,7 @@ export function mountLogin(root, onSuccess) {
   }
 
   function drawForgot2(card) {
-    const codeInput = el('input', { type: 'text', dir: 'ltr', placeholder: 'کد ۶ رقمی' });
+    const codeInput = el('input', { type: 'text', dir: 'ltr', placeholder: 'کد ۸ رقمی' });
     const { wrap: p1Wrap, input: p1 } = passwordFieldWithToggle({ dir: 'ltr' });
     const { wrap: p2Wrap, input: p2 } = passwordFieldWithToggle({ dir: 'ltr' });
     const errBox = el('div', { class: 'gate-err' });
