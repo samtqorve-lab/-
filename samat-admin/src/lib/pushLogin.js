@@ -76,22 +76,8 @@ export async function requestPushApproval(email, onResolve, onAwaitingCode) {
     }
   }
 
-  let notifyResult = null;
-  try {
-    notifyResult = await callFn('push-login-notify', { approvalId: approval.id });
-  } catch (err) {
-    await tryTelegramFallback();
-    return () => finish('denied');
-  }
-
-  if (notifyResult && notifyResult.ok === false) {
-    // Push از همان ابتدا در دسترس نبود (تنظیم نشده/دستگاه ثبت نشده) — مستقیم فال‌بک
-    await tryTelegramFallback();
-  } else {
-    // Push فرستاده شد — ۲۰ ثانیه صبر می‌کنیم، بعد اگر پاسخی نیامد فال‌بک را فعال می‌کنیم
-    timer = setTimeout(tryTelegramFallback, 20000);
-  }
-
+  // Realtime را همین اول (قبل از هر فراخوانی شبکه‌ای دیگر) وصل می‌کنیم — نه بعد از notify — چون
+  // اگر تماس notify زیر دچار تأخیر/گیر شبکه شود، نباید لحظه‌ی تاییدشدن را از دست بدهیم.
   channel = sb
     .channel(`login-approval-${approval.id}`)
     .on('postgres_changes', {
@@ -102,6 +88,28 @@ export async function requestPushApproval(email, onResolve, onAwaitingCode) {
       finish(status);
     })
     .subscribe();
+
+  // نکته‌ی مهم: fetch اصلاً timeout پیش‌فرض ندارد — اگر شبکه (خصوصاً از ایران، به‌خاطر
+  // تحریم/فیلترینگ) این درخواست را stall کند (نه رد کند، فقط بی‌پاسخ بماند)، این await برای
+  // همیشه معلق می‌ماند و تایمر ۲۰ ثانیه‌ی فال‌بک (که قبلاً *بعد* از این await شروع می‌شد) هیچ‌وقت
+  // حتی شروع نمی‌شود — دقیقاً همان چیزی که باعث می‌شد دکمه‌ی ورود برای همیشه روی «در انتظار
+  // تایید...» بماند. با Promise.race یک سقف زمانی مستقل (۸ ثانیه) روی خودِ این تماس می‌گذاریم تا
+  // صرفِ کند/گیرکردن شبکه هم مثل شکست واقعی به فال‌بک تلگرام برسد.
+  const notifyPromise = callFn('push-login-notify', { approvalId: approval.id });
+  const notifyTimeout = new Promise((resolve) => { setTimeout(() => resolve({ ok: false, reason: 'notify-network-stall' }), 8000); });
+
+  Promise.race([notifyPromise, notifyTimeout]).then((notifyResult) => {
+    if (settled) return;
+    if (notifyResult && notifyResult.ok === false) {
+      // Push از همان ابتدا در دسترس نبود (تنظیم نشده/دستگاه ثبت نشده/شبکه معلق) — مستقیم فال‌بک
+      tryTelegramFallback();
+    } else {
+      // Push فرستاده شد — ۲۰ ثانیه صبر می‌کنیم، بعد اگر پاسخی نیامد فال‌بک را فعال می‌کنیم
+      timer = setTimeout(tryTelegramFallback, 20000);
+    }
+  }).catch(() => {
+    if (!settled) tryTelegramFallback();
+  });
 
   return () => finish('denied');
 }
