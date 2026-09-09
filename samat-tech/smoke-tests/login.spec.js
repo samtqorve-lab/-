@@ -10,7 +10,7 @@ test.describe('صفحه‌ی ورود اپ مسئول فنی', () => {
     // فیلد ایمیل/شماره عضویت و دکمه‌ی «ورود» باید ظاهر شوند — یعنی boot() اجرا شده، نشستی پیدا
     // نکرده (چون کاربر واقعی وارد نشده)، و mountLogin() صفحه‌ی ورود را درست رندر کرده.
     await expect(page.getByPlaceholder('ایمیل یا شماره عضویت نظام مهندسی')).toBeVisible({ timeout: 15000 });
-    await expect(page.getByRole('button', { name: 'ورود' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'ورود', exact: true })).toBeVisible();
 
     expect(jsErrors, `خطاهای جاوااسکریپت رخ داده در بارگذاری صفحه: ${jsErrors.join('; ')}`).toEqual([]);
   });
