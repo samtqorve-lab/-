@@ -18,15 +18,30 @@ export async function isPushLoginEnabled(email) {
   return !!data?.push_login_enabled;
 }
 
-async function callFn(name, body) {
+/**
+ * fetch() به‌خودی‌خود هیچ timeout پیش‌فرضی ندارد — اگر شبکه (که در همین پروژه قبلاً چندبار با
+ * AWS/Firebase/Esri دیده شده، خصوصاً از ایران) درخواست را stall کند (نه رد کند، فقط بی‌پاسخ
+ * بماند)، این تماس برای همیشه معلق می‌ماند. بدون AbortController، این مشکل را فقط برای اولین
+ * تماس (notify) با یک race بیرونی پوشش داده بودیم، ولی خودِ تماس فال‌بک (push-login-fallback)
+ * هم از همان مشکل رنج می‌برد و می‌توانست دوباره برای همیشه گیر کند. حالا timeout مستقیم روی
+ * خودِ fetch است، پس هر فراخوانی این تابع (هرجا که باشد) محافظت دارد.
+ */
+async function callFn(name, body, timeoutMs = 8000) {
   const { data: sessionData } = await sb.auth.getSession();
   const accessToken = sessionData?.session?.access_token;
-  const res = await fetch(`${sb.supabaseUrl}/functions/v1/${name}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-    body: JSON.stringify(body),
-  });
-  return res.json();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${sb.supabaseUrl}/functions/v1/${name}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**
@@ -72,7 +87,7 @@ export async function requestPushApproval(email, onResolve, onAwaitingCode) {
         finish('error', data.reason || 'fallback-send-failed');
       }
     } catch (err) {
-      finish('error', err.message);
+      finish('error', err.name === 'AbortError' ? 'اتصال به سرور برقرار نشد (شبکه/فیلترینگ) — دوباره تلاش کنید' : err.message);
     }
   }
 
@@ -110,6 +125,11 @@ export async function requestPushApproval(email, onResolve, onAwaitingCode) {
   }).catch(() => {
     if (!settled) tryTelegramFallback();
   });
+
+  // شبکه‌ی محافظ نهایی: حتی اگر هر بخش دیگری از این تابع هم (نه فقط دو fetch بالا) به هر دلیلی
+  // معلق بماند، بعد از ۳۰ ثانیه به‌طور قطعی خطا نشان می‌دهیم — رابط‌کاربری هرگز نباید برای همیشه
+  // روی «در انتظار تایید...» بماند.
+  setTimeout(() => { if (!settled) finish('error', 'اتصال به سرور برقرار نشد — دوباره تلاش کنید'); }, 30000);
 
   return () => finish('denied');
 }
