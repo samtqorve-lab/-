@@ -104,9 +104,13 @@ export function mountLogin(root, onSuccess) {
       }
     });
 
-    /** بعد از ورود موفق با رمز، اگر ورود با تایید Push روشن باشد، تا تایید/رد/انقضا صبر می‌کند */
+    /** بعد از ورود موفق با رمز، اگر ورود با تایید Push روشن باشد، تا تایید/رد/انقضا صبر می‌کند.
+     * یک سقف مطلق ۳۵ ثانیه‌ای بیرونی هم اینجا گذاشته شده — مستقل از هر منطق داخلی
+     * requestPushApproval — چون حتی خودِ insert اولیه‌ی login_approvals (یک فراخوانی شبکه‌ای
+     * دیگر، این‌بار نه از طریق Edge Function بلکه مستقیم Postgrest) هم می‌تواند تحت شرایط
+     * شبکه‌ی مشابه گیر کند؛ این آخرین خط دفاعی است تا در هر صورت رابط‌کاربری آزاد شود. */
     async function waitForPushApproval(email, onAwaitingCode) {
-      return new Promise((resolve, reject) => {
+      const inner = new Promise((resolve, reject) => {
         requestPushApproval(email, async (status, detail) => {
           if (status === 'approved') { resolve(); return; }
           await signOut();
@@ -115,6 +119,10 @@ export function mountLogin(root, onSuccess) {
           reject(new Error(detail || 'push-error'));
         }, onAwaitingCode);
       });
+      const hardDeadline = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('اتصال به سرور برقرار نشد — دوباره تلاش کنید (ممکن است فیلترینگ/شبکه باشد)')), 35000);
+      });
+      return Promise.race([inner, hardDeadline]);
     }
 
     const googleBtn = el('button', {
