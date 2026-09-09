@@ -3,10 +3,6 @@ import { sb } from './supabase.js';
 /**
  * ثبت این دستگاه به‌عنوان دستگاه تاییدکننده‌ی ورود: مجوز اعلان می‌گیرد، توکن FCM را می‌گیرد و در
  * user_roles ذخیره می‌کند، و شنونده‌ی دریافت Push را برای نمایش اعلان تایید/رد سوار می‌کند.
- *
- * توجه: تا وقتی google-services.json واقعی در پروژه‌ی اندروید قرار نگرفته و پروژه‌ی Firebase وصل
- * نشده، PushNotifications.register() اینجا با خطا مواجه می‌شود (چون FirebaseApp مقداردهی نشده) —
- * این طبیعی است و به همین دلیل مرحله‌ی فعلی پروژه صبر می‌کند تا این دو فایل از Firebase تامین شوند.
  */
 export async function registerForPushLogin(email) {
   const { PushNotifications } = await import('@capacitor/push-notifications');
@@ -47,46 +43,37 @@ export async function attachLoginApprovalHandler() {
     const { Capacitor } = await import('@capacitor/core');
     if (!Capacitor.isNativePlatform()) return;
     const { PushNotifications } = await import('@capacitor/push-notifications');
-    const { LocalNotifications } = await import('@capacitor/local-notifications');
 
-    await LocalNotifications.registerActionTypes({
-      types: [{
-        id: 'LOGIN_APPROVAL',
-        actions: [
-          { id: 'approve', title: '✅ تایید می‌کنم' },
-          { id: 'deny', title: '❌ رد می‌کنم' },
-        ],
-      }],
-    });
-
-    // پیام Push فقط data دارد (نه notification خودکار سیستم) تا بتوانیم دکمه‌های تایید/رد را
-    // خودمان با یک Local Notification بسازیم — نگاه کنید به android.data در payload سرور.
-    PushNotifications.addListener('pushNotificationReceived', async (notification) => {
-      const data = notification.data || {};
-      if (data.type !== 'login-approval') return;
-      await LocalNotifications.schedule({
-        notifications: [{
-          id: Date.now() % 2147483647,
-          title: '🔐 درخواست ورود به پنل ادمین صمت',
-          body: `آیا شما (${data.email || ''}) در حال ورود هستید؟`,
-          actionTypeId: 'LOGIN_APPROVAL',
-          extra: { approvalId: data.approvalId },
-        }],
-      });
-    });
-
-    LocalNotifications.addListener('localNotificationActionPerformed', async (action) => {
-      const approvalId = action.notification?.extra?.approvalId;
-      if (!approvalId) return;
-      const decision = action.actionId === 'approve' ? 'approved' : action.actionId === 'deny' ? 'denied' : null;
-      if (!decision) return; // لمس خودِ بدنه‌ی اعلان (نه دکمه) را نادیده می‌گیریم
+    async function respond(approvalId, decision) {
       const { data: sessionData } = await sb.auth.getSession();
       const accessToken = sessionData?.session?.access_token;
+      if (!accessToken) return;
       await fetch(`${sb.supabaseUrl}/functions/v1/push-login-respond`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ approvalId, decision }),
       }).catch(() => {});
+    }
+
+    // دکمه‌های اکشن روی نوتیفیکیشن (نسخه‌ی قبلی این تابع) فقط وقتی کار می‌کردند که pushNotificationReceived
+    // فایر شود — که طبق مستندات Capacitor فقط وقتی اپ در پیش‌زمینه/در حافظه باز است اتفاق می‌افتد.
+    // چون دستگاه تاییدکننده معمولاً دقیقاً برعکس این حالت است (بسته یا پس‌زمینه، چون کاربر روی
+    // دستگاه دیگری وارد می‌شود)، اندروید فقط یک اعلان ساده‌ی سیستمی (بدون دکمه) نشان می‌داد و لمس
+    // آن فقط اپ را باز می‌کرد — بدون تایید/رد واقعی؛ برای همین همه‌ی درخواست‌ها در login_approvals
+    // برای همیشه pending می‌ماندند. حالا هم pushNotificationReceived (پیش‌زمینه) و هم
+    // pushNotificationActionPerformed (لمس اعلان وقتی اپ بسته/پس‌زمینه بوده) هندل می‌شوند و در هر
+    // دو حالت یک دیالوگ تایید/رد درون‌اپی نشان داده می‌شود.
+    function handleLoginApprovalData(data) {
+      if (!data || data.type !== 'login-approval' || !data.approvalId) return;
+      const ok = window.confirm(`🔐 درخواست ورود به پنل ادمین صمت\nآیا شما (${data.email || ''}) در حال ورود هستید؟\n\nOK = تایید می‌کنم\nCancel = رد می‌کنم`);
+      respond(data.approvalId, ok ? 'approved' : 'denied');
+    }
+
+    PushNotifications.addListener('pushNotificationReceived', (notification) => {
+      handleLoginApprovalData(notification.data);
+    });
+    PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+      handleLoginApprovalData(action.notification?.data);
     });
   } catch {
     handlerAttached = false;
