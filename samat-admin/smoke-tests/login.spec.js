@@ -8,7 +8,7 @@ test.describe('صفحه‌ی ورود پنل ادمین', () => {
     await page.goto('/');
 
     await expect(page.getByPlaceholder('کد پرسنلی')).toBeVisible({ timeout: 15000 });
-    await expect(page.getByRole('button', { name: 'ورود' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'ورود', exact: true })).toBeVisible();
 
     expect(jsErrors, `خطاهای جاوااسکریپت رخ داده در بارگذاری صفحه: ${jsErrors.join('; ')}`).toEqual([]);
   });
