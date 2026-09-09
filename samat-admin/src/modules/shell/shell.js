@@ -1,7 +1,7 @@
 import { el } from '../../lib/dom.js';
 import { getState, setTab, setDepartment, onChange } from '../../router.js';
 import { signOut } from '../../lib/auth.js';
-import { fetchPendingIdentityCount } from '../../lib/identity.js';
+import { fetchPendingIdentityCount, fetchPendingBoundaryCount } from '../../lib/identity.js';
 import { mountGlobalSearch } from './globalSearch.js';
 import { DEPT_PLURAL_LABEL } from '../../lib/sections.js';
 
@@ -115,6 +115,16 @@ export function mountShell(root, { userLabel, renderContent }) {
         });
         btn.append(badge);
         fetchPendingIdentityCount(state.department).then((count) => {
+          if (count > 0) { badge.textContent = String(count); badge.style.display = 'inline-block'; }
+        });
+      }
+      if (item.tab === 'boundaryMonitor') {
+        // قبلاً هیچ نشانه‌ای در منو نبود — ادمین باید خودش یادش می‌ماند هر چند وقت یک‌بار سر بزند
+        const badge = el('span', {
+          style: 'display:none;background:var(--rust-600);color:#fff;border-radius:10px;font-size:10px;padding:1px 6px;margin-inline-start:auto;font-weight:700',
+        });
+        btn.append(badge);
+        fetchPendingBoundaryCount().then((count) => {
           if (count > 0) { badge.textContent = String(count); badge.style.display = 'inline-block'; }
         });
       }

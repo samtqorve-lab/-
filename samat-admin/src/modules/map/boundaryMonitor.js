@@ -1,4 +1,5 @@
-import { el, showToast, fmtDateTime } from '../../lib/dom.js';
+import { el, showToast, fmtDate, fmtDateTime } from '../../lib/dom.js';
+import { compareSlider } from '../../lib/compareSlider.js';
 import { sb } from '../../lib/supabase.js';
 import { fetchDeptRecords } from '../../lib/records.js';
 import { getMineCorners } from '../../lib/geo.js';
@@ -89,15 +90,18 @@ export async function renderBoundaryMonitor(container, state, appCtx) {
       `آخرین بررسی: ${fmtDateTime(row.last_run_at)} | تفاضل BSI: ${row.delta_differential != null ? (row.delta_differential * 100).toFixed(1) : '—'} واحد`));
 
     if (!collapsed && row.preview_before_path && row.preview_after_path) {
-      const imgRow = el('div', { style: 'display:flex;gap:10px;margin-top:10px;flex-wrap:wrap' });
-      for (const [label, path] of [['قبل (خط‌مبنا)', row.preview_before_path], ['اکنون', row.preview_after_path]]) {
-        const { data: signed } = await sb.storage.from('boundary-monitoring').createSignedUrl(path, 3600);
-        imgRow.append(el('div', {}, [
-          el('div', { style: 'font-size:var(--text-xs);margin-bottom:4px' }, label),
-          signed ? el('img', { src: signed.signedUrl, style: 'width:220px;height:220px;object-fit:cover;border-radius:8px;border:1px solid var(--stone-200)' }) : el('div', {}, '—'),
+      const [{ data: beforeSigned }, { data: afterSigned }] = await Promise.all([
+        sb.storage.from('boundary-monitoring').createSignedUrl(row.preview_before_path, 3600),
+        sb.storage.from('boundary-monitoring').createSignedUrl(row.preview_after_path, 3600),
+      ]);
+      if (beforeSigned && afterSigned) {
+        card.append(el('div', { style: 'margin-top:10px' }, [
+          compareSlider(beforeSigned.signedUrl, afterSigned.signedUrl, {
+            height: '240px', beforeLabel: `قبل (${fmtDate(row.baseline_captured_at)})`, afterLabel: `اکنون (${fmtDate(row.current_captured_at)})`,
+          }),
+          el('div', { style: 'font-size:var(--text-xs);color:var(--stone-500);margin-top:4px;text-align:center' }, '↔ برای مقایسه، خط وسط را بکشید'),
         ]));
       }
-      card.append(imgRow);
     }
 
     if (row.status === 'pending_review') {

@@ -69,6 +69,14 @@ export async function fetchPendingIdentityCount(department) {
   return count || 0;
 }
 
+/** تعداد مواردی که پایش خودکار مرزی (ماهانه) به‌عنوان تخلف احتمالی پرچم زده و هنوز کسی بررسیشان
+ * نکرده — قبلاً هیچ نشانه‌ای در منوی کناری برای این موارد نبود و ادمین باید خودش یادش می‌ماند
+ * هر چند وقت یک‌بار برود تب «پایش مرزی» را باز کند. */
+export async function fetchPendingBoundaryCount() {
+  const { count } = await sb.from('mine_boundary_monitoring').select('id', { count: 'exact', head: true }).eq('status', 'pending_review');
+  return count || 0;
+}
+
 const IDENTITY_INTERVAL_DEFAULT_DAYS = 30;
 const IDENTITY_REMINDER_DEFAULT_DAYS = 5;
 

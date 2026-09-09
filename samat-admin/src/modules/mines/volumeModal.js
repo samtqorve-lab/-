@@ -4,9 +4,43 @@ import { computeTinVolume, renderVolumeHeatmap } from '../../lib/volumeCalc.js';
 import { getMineCorners } from '../../lib/geo.js';
 import { updateDeptRecord } from '../../lib/records.js';
 import { sb } from '../../lib/supabase.js';
+import { parseJalaliDateString, getCurrentJalaliYMD } from '../../lib/jalali.js';
 
 function fmtNum(n) {
   return Number(n).toLocaleString('fa-IR', { maximumFractionDigits: 1 });
+}
+
+/**
+ * تبدیل حجم کات (کسر شده از زمین) به تناژ با وزن مخصوصِ ثبت‌شده در پروانه‌ی همین معدن، و مقایسه
+ * با ذخیره‌ی قطعی و نرخ مجاز استخراج سالیانه — قبلاً محاسبه‌ی حجم فقط عدد m³ خام می‌داد و کاربر
+ * باید خودش دستی این تبدیل و مقایسه را انجام می‌داد.
+ */
+function buildLicenseComparisonBox(record, cutVolumeM3) {
+  const sg = parseFloat(record.وزن_مخصوص);
+  if (!(sg > 0)) {
+    return el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-top:8px' },
+      'ℹ️ برای تبدیل حجم کات به تناژ و مقایسه با ذخیره‌ی پروانه، فیلد «وزن مخصوص» این رکورد خالی یا نامعتبر است.');
+  }
+  const tons = cutVolumeM3 * sg;
+  const lines = [`⚖️ معادل تناژیِ حجم کات (با وزن مخصوص ${sg} پروانه): <b>${fmtNum(tons)} تن</b>`];
+  if (record.ذخیره_قطعی) {
+    const pct = (tons / parseFloat(record.ذخیره_قطعی)) * 100;
+    lines.push(`📊 نسبت به ذخیره‌ی قطعی ثبت‌شده (${fmtNum(parseFloat(record.ذخیره_قطعی))} تن): <b>${pct.toFixed(1)}٪</b>`);
+  }
+  if (record.استخراج_سالیانه && record.تاریخ_پروانه) {
+    const licenseDate = parseJalaliDateString(record.تاریخ_پروانه);
+    if (licenseDate) {
+      const now = getCurrentJalaliYMD();
+      const yearsElapsed = Math.max(0.1, (now.y - licenseDate.y) + (now.mo - licenseDate.mo) / 12);
+      const expectedTons = parseFloat(record.استخراج_سالیانه) * yearsElapsed;
+      lines.push(`📅 با نرخ مجاز سالیانه (${fmtNum(parseFloat(record.استخراج_سالیانه))} تن/سال) طی ${yearsElapsed.toFixed(1)} سال از تاریخ پروانه، انتظار می‌رفت حدود <b>${fmtNum(expectedTons)} تن</b> برداشت شده باشد.`);
+    }
+  }
+  const box = el('div', {
+    style: 'font-size:var(--text-xs);line-height:1.9;background:var(--stone-50);border-radius:8px;padding:10px 12px;margin-top:8px',
+  });
+  box.innerHTML = lines.map((l) => `<div>${l}</div>`).join('');
+  return box;
 }
 
 export function openVolumeModal(record, department, nameField, onSaved) {
@@ -55,6 +89,7 @@ export function openVolumeModal(record, department, nameField, onSaved) {
           el('div', { class: 'kpi-card', style: '--kpi-accent:var(--patina-600)' }, [el('div', { class: 'kpi-n' }, `${fmtNum(grid.fillVolume)}`), el('div', { class: 'kpi-l' }, 'حجم فیل (m³)')]),
           el('div', { class: 'kpi-card' }, [el('div', { class: 'kpi-n' }, `${fmtNum(grid.netVolume)}`), el('div', { class: 'kpi-l' }, 'خالص (m³)')]),
         ]),
+        buildLicenseComparisonBox(record, grid.cutVolume),
         canvas,
       );
       renderVolumeHeatmap(canvas, grid);
