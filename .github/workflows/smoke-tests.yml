@@ -1,0 +1,79 @@
+name: Smoke Tests (Playwright)
+
+# سطح ۳ تست خودکار: با یک مرورگر واقعی (Chromium) چک می‌کند که هر دو اپ واقعاً در مرورگر بالا
+# می‌آیند و صفحه‌ی ورود را بدون خطای جاوااسکریپت نشان می‌دهند. برخلاف build-check.yml (که فقط
+# کامپایل‌شدن کد را چک می‌کند)، این‌جا خودِ اجرای واقعی در یک مرورگر تست می‌شود — دقیقاً همان
+# دسته باگ‌هایی که «کد کامپایل می‌شود ولی در عمل صفحه‌ی سفید/گیرکرده نشان می‌دهد» را می‌گیرد.
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'samat-admin/**'
+      - 'samat-tech/**'
+      - '!samat-admin/public/updates/**'
+      - '!samat-admin/public/tech-officer/**'
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  smoke-admin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: samat-admin/package-lock.json
+      - name: Install deps
+        working-directory: samat-admin
+        run: npm ci
+      - name: Install Chromium
+        working-directory: samat-admin
+        run: npx playwright install --with-deps chromium
+      - name: Write .env
+        working-directory: samat-admin
+        run: |
+          echo "VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}" >> .env
+          echo "VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}" >> .env
+      - name: Run smoke tests
+        working-directory: samat-admin
+        run: npm run test:e2e
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-playwright-report
+          path: samat-admin/playwright-report/
+          retention-days: 7
+
+  smoke-tech:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: samat-tech/package-lock.json
+      - name: Install deps
+        working-directory: samat-tech
+        run: npm ci
+      - name: Install Chromium
+        working-directory: samat-tech
+        run: npx playwright install --with-deps chromium
+      - name: Write .env
+        working-directory: samat-tech
+        run: |
+          echo "VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}" >> .env
+          echo "VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}" >> .env
+      - name: Run smoke tests
+        working-directory: samat-tech
+        run: npm run test:e2e
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tech-playwright-report
+          path: samat-tech/playwright-report/
+          retention-days: 7
