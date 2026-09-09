@@ -114,9 +114,15 @@ async function signInWithGoogleNative() {
       }
     }).then((s) => { urlSub = s; });
 
-    // کاربر مرورگر را بدون تکمیل ورود بست — نباید برای همیشه در حال «بارگذاری» بماند
+    // مرورگر معمولاً دقیقاً همان لحظه‌ای که ریدایرکت موفق اتفاق می‌افتد هم بسته می‌شود — یعنی این
+    // رویداد به‌تنهایی نشانه‌ی «لغو واقعی» نیست؛ چون exchangeCodeForSession در appUrlOpen یک
+    // درخواست شبکه‌ی async است، ممکن است مرورگر زودتر از تمام‌شدنِ آن ببندد و این‌جا زودتر «لغو
+    // شد» گزارش شود، درحالی‌که ورود در واقع دارد با موفقیت تکمیل می‌شود. قبل از قطعی دانستنِ لغو،
+    // چند لحظه صبر می‌کنیم تا اگر appUrlOpen برنده شد، این fail دیگر اثری نداشته باشد.
     Browser.addListener('browserFinished', () => {
-      fail(Object.assign(new Error('ورود لغو شد'), { userCancelled: true }));
+      setTimeout(() => {
+        fail(Object.assign(new Error('ورود لغو شد'), { userCancelled: true }));
+      }, 1500);
     }).then((s) => { closeSub = s; });
 
     Browser.open({ url: data.url });
