@@ -57,6 +57,17 @@ export function mountLogin(root, onSuccess) {
         '📲 اعلان Push پاسخی نداشت — یک کد ۶ رقمی از طریق تلگرام برایتان فرستاده شد.'),
       codeInput, codeErrBox, codeSubmitBtn,
     ]);
+    let currentEmail = null;
+    let loginCompleted = false;
+    function finishSuccessfulLogin(email) {
+      if (loginCompleted) return;
+      loginCompleted = true;
+      onSuccess();
+      autoEnableBiometricAfterLogin(email).then((didEnable) => {
+        if (didEnable) showToast('👆 ورود سریع با اثر انگشت/Face ID روی این دستگاه فعال شد');
+      });
+    }
+
     codeSubmitBtn.addEventListener('click', async () => {
       codeErrBox.textContent = '';
       if (!codeInput.value.trim() || !currentApprovalId) return;
@@ -65,9 +76,16 @@ export function mountLogin(root, onSuccess) {
         const result = await verifyFallbackCode(currentApprovalId, codeInput.value.trim());
         if (!result.ok) {
           codeErrBox.textContent = result.expired ? 'مهلت وارد کردن کد به پایان رسید — دوباره وارد شوید.' : 'کد نادرست است.';
+          return;
         }
-        // در صورت درست بودن کد، سرور status را approved می‌کند و اشتراک Realtime در
-        // requestPushApproval خودکار این تغییر را تشخیص و ورود را کامل می‌کند.
+        // قبلاً از اینجا به بعد فقط منتظر می‌ماندیم تا اشتراک Realtime (در requestPushApproval)
+        // تغییر status به approved را تشخیص بدهد و از همان مسیر لاگین را کامل کند. اما Realtime
+        // یک اتصال websocket پایدار است که در شبکه‌های با فیلترینگ/DPI معمولاً شکننده‌تر از یک
+        // فراخوانی معمولی HTTPS عمل می‌کند — یعنی حتی وقتی سرور همین الان با موفقیت کد را تایید
+        // کرده (نتیجه‌ی result.ok که همین بالا گرفتیم، مستقیم و قطعی است)، ممکن است این پیام
+        // هیچ‌وقت از طریق Realtime به مرورگر نرسد و کاربر با «کد را وارد کردم ولی چیزی باز نشد»
+        // مواجه شود. حالا مستقیم از همینجا (بدون نیاز به Realtime) لاگین را کامل می‌کنیم.
+        if (currentEmail) finishSuccessfulLogin(currentEmail);
       } catch (err) {
         codeErrBox.textContent = err.message;
       } finally {
@@ -82,6 +100,7 @@ export function mountLogin(root, onSuccess) {
       submitBtn.disabled = true; submitBtn.textContent = '⏳ در حال ورود...';
       try {
         const email = await signIn(idInput.value, passInput.value);
+        currentEmail = email;
         if (await isPushLoginEnabled(email)) {
           submitBtn.textContent = '🔐 در انتظار تایید روی گوشی ثبت‌شده...';
           await waitForPushApproval(email, (approvalId) => {
@@ -90,18 +109,19 @@ export function mountLogin(root, onSuccess) {
             submitBtn.textContent = '📲 در انتظار کد تلگرام...';
           });
         }
-        onSuccess();
-        autoEnableBiometricAfterLogin(email).then((didEnable) => {
-          if (didEnable) showToast('👆 ورود سریع با اثر انگشت/Face ID روی این دستگاه فعال شد');
-        });
+        finishSuccessfulLogin(email);
       } catch (err) {
+        // اگر لاگین از مسیر «تایید کد» (بالا) قبلاً با موفقیت کامل شده، این reject دیرهنگام
+        // (که می‌تواند از سقف ۳۵ ثانیه‌ای یا حتی Realtime که با تأخیر resolve شده باشد) را نادیده
+        // می‌گیریم — کاربر را با یک خطای گمراه‌کننده بعد از ورود موفق مواجه نکنیم.
+        if (loginCompleted) return;
         errBox.textContent = err.pushDenied
           ? 'ورود از طریق اعلان رد شد.'
           : err.pushTimeout
             ? 'زمان تایید ورود به پایان رسید — دوباره تلاش کنید.'
             : friendlyError(err);
       } finally {
-        submitBtn.disabled = false; submitBtn.textContent = 'ورود';
+        if (!loginCompleted) { submitBtn.disabled = false; submitBtn.textContent = 'ورود'; }
       }
     });
 

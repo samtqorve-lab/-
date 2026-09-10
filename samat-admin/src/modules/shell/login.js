@@ -49,6 +49,17 @@ export function mountLogin(root, onSuccess) {
         '📲 اعلان Push پاسخی نداشت — یک کد ۶ رقمی از طریق تلگرام برایتان فرستاده شد.'),
       codeInput, codeErrBox, codeSubmitBtn,
     ]);
+    let currentEmail = null;
+    let loginCompleted = false;
+    function finishSuccessfulLogin(email) {
+      if (loginCompleted) return;
+      loginCompleted = true;
+      onSuccess();
+      autoEnableBiometricAfterLogin(email).then((didEnable) => {
+        if (didEnable) showToast('👆 ورود سریع با اثر انگشت/Face ID روی این دستگاه فعال شد');
+      });
+    }
+
     codeSubmitBtn.addEventListener('click', async () => {
       codeErrBox.textContent = '';
       if (!codeInput.value.trim() || !currentApprovalId) return;
@@ -57,9 +68,14 @@ export function mountLogin(root, onSuccess) {
         const result = await verifyFallbackCode(currentApprovalId, codeInput.value.trim());
         if (!result.ok) {
           codeErrBox.textContent = result.expired ? 'مهلت وارد کردن کد به پایان رسید — دوباره وارد شوید.' : 'کد نادرست است.';
+          return;
         }
-        // در صورت درست بودن کد، سرور status را approved می‌کند و همان اشتراک Realtime که در
-        // requestPushApproval فعال است خودکار این تغییر را تشخیص و ورود را کامل می‌کند.
+        // قبلاً از اینجا به بعد فقط منتظر می‌ماندیم تا اشتراک Realtime تغییر status به approved
+        // را تشخیص بدهد. Realtime یک websocket پایدار است که در شبکه‌های با فیلترینگ معمولاً
+        // شکننده‌تر از یک فراخوانی HTTPS معمولی عمل می‌کند — یعنی حتی وقتی سرور همین الان کد را
+        // با موفقیت تایید کرده (result.ok، مستقیم و قطعی)، ممکن است این پیام هیچ‌وقت از طریق
+        // Realtime نرسد. حالا مستقیم از همینجا (بدون نیاز به Realtime) لاگین را کامل می‌کنیم.
+        if (currentEmail) finishSuccessfulLogin(currentEmail);
       } catch (err) {
         codeErrBox.textContent = err.message;
       } finally {
@@ -79,6 +95,7 @@ export function mountLogin(root, onSuccess) {
           const email = await emailForPersonnelCode(code);
           if (!email) { errBox.textContent = 'کد پرسنلی یافت نشد'; return; }
           await signIn(email, passInput.value);
+          currentEmail = email;
 
           if (await isPushLoginEnabled(email)) {
             submitBtn.textContent = 'در انتظار تایید...';
@@ -88,19 +105,16 @@ export function mountLogin(root, onSuccess) {
               submitBtn.textContent = 'در انتظار کد تلگرام...';
             });
           }
-          onSuccess();
-          autoEnableBiometricAfterLogin(email).then((didEnable) => {
-            if (didEnable) showToast('👆 ورود سریع با اثر انگشت/Face ID روی این دستگاه فعال شد');
-          });
+          finishSuccessfulLogin(email);
         } catch (err) {
+          if (loginCompleted) return;
           errBox.textContent = err.pushDenied
             ? 'ورود از طریق اعلان روی گوشی رد شد.'
             : err.pushTimeout
               ? 'زمان تایید ورود به پایان رسید — دوباره تلاش کنید.'
               : 'کد پرسنلی یا رمز عبور نادرست است.';
         } finally {
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'ورود';
+          if (!loginCompleted) { submitBtn.disabled = false; submitBtn.textContent = 'ورود'; }
         }
       },
     }, [
