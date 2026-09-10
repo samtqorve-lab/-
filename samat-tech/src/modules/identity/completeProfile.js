@@ -4,7 +4,8 @@ import { deptForSpecialty, callPublicLookup } from '../../lib/auth.js';
 import { friendlyError } from '../../lib/utils.js';
 
 const MESSENGER_HINTS = {
-  telegram: 'آیدی چت تلگرام', bale: 'شماره موبایل یا آیدی چت بله', eitaa: 'آیدی چت/کانال ایتا',
+  telegram: 'آیدی عددی چت تلگرام (نه یوزرنیم @) — برای گرفتنش تو تلگرام به ربات @userinfobot پیام بدید و /start بزنید',
+  bale: 'شماره موبایل یا آیدی چت بله', eitaa: 'آیدی چت/کانال ایتا',
   rubika: 'شناسه چت روبیکا', whatsapp: 'شماره موبایل واتساپ (با کد کشور)',
 };
 
@@ -75,6 +76,13 @@ export function mountCompleteProfile(root, email, currentRow, onDone, onLogout) 
     if (!/^\d{10}$/.test(f.national_code.value.trim())) { errBox.textContent = 'کد ملی باید ۱۰ رقم باشد'; return; }
     if (!f.membership_no.value.trim() || !f.license_no.value.trim() || !f.mine_name.value.trim() || !f.contract_no.value.trim() || !f.messenger_chat_id.value.trim()) {
       errBox.textContent = 'اطلاعات نظام مهندسی، معدن و شناسه پیام‌رسان را کامل کنید'; return;
+    }
+    // برای تلگرام، ربات فقط می‌تواند با آیدی عددی چت پیام خصوصی بفرستد — یوزرنیم (که با @ شروع
+    // می‌شود) کار نمی‌کند و باعث می‌شود ارسال کد یادآوری/تایید ورود بی‌صدا و بدون خطای قابل‌مشاهده
+    // شکست بخورد (این دقیقاً همان مشکلی بود که برای یک کاربر واقعی رخ داد و کشفش سخت بود، چون
+    // سرور HTTP 200 برمی‌گرداند حتی وقتی ارسال واقعی ناموفق است).
+    if (f.messenger.value === 'telegram' && !/^\d+$/.test(f.messenger_chat_id.value.trim())) {
+      errBox.textContent = 'آیدی چت تلگرام باید فقط عدد باشد (نه یوزرنیم @) — از ربات @userinfobot تو تلگرام بگیرید'; return;
     }
     submitBtn.disabled = true; submitBtn.textContent = '⏳ در حال ارسال...';
     try {
