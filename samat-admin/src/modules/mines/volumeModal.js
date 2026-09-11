@@ -1,10 +1,11 @@
 import { el, esc, showToast, openModal, fmtDate } from '../../lib/dom.js';
 import { extractPointsFromFile, getFileExt } from '../../lib/surveyParsers.js';
-import { computeTinVolume, renderVolumeHeatmap } from '../../lib/volumeCalc.js';
+import {
+  computeTinVolume, renderVolumeHeatmap, computeLicenseComparison,
+} from '../../lib/volumeCalc.js';
 import { getMineCorners } from '../../lib/geo.js';
 import { updateDeptRecord } from '../../lib/records.js';
 import { sb } from '../../lib/supabase.js';
-import { parseJalaliDateString, getCurrentJalaliYMD } from '../../lib/jalali.js';
 
 function fmtNum(n) {
   return Number(n).toLocaleString('fa-IR', { maximumFractionDigits: 1 });
@@ -16,25 +17,17 @@ function fmtNum(n) {
  * باید خودش دستی این تبدیل و مقایسه را انجام می‌داد.
  */
 function buildLicenseComparisonBox(record, cutVolumeM3) {
-  const sg = parseFloat(record.وزن_مخصوص);
-  if (!(sg > 0)) {
+  const c = computeLicenseComparison(record, cutVolumeM3);
+  if (!c) {
     return el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-top:8px' },
       'ℹ️ برای تبدیل حجم کات به تناژ و مقایسه با ذخیره‌ی پروانه، فیلد «وزن مخصوص» این رکورد خالی یا نامعتبر است.');
   }
-  const tons = cutVolumeM3 * sg;
-  const lines = [`⚖️ معادل تناژیِ حجم کات (با وزن مخصوص ${sg} پروانه): <b>${fmtNum(tons)} تن</b>`];
-  if (record.ذخیره_قطعی) {
-    const pct = (tons / parseFloat(record.ذخیره_قطعی)) * 100;
-    lines.push(`📊 نسبت به ذخیره‌ی قطعی ثبت‌شده (${fmtNum(parseFloat(record.ذخیره_قطعی))} تن): <b>${pct.toFixed(1)}٪</b>`);
+  const lines = [`⚖️ معادل تناژیِ حجم کات (با وزن مخصوص ${c.sg} پروانه): <b>${fmtNum(c.tons)} تن</b>`];
+  if (c.pctOfReserve != null) {
+    lines.push(`📊 نسبت به ذخیره‌ی قطعی ثبت‌شده (${fmtNum(c.reserveTons)} تن): <b>${c.pctOfReserve.toFixed(1)}٪</b>`);
   }
-  if (record.استخراج_سالیانه && record.تاریخ_پروانه) {
-    const licenseDate = parseJalaliDateString(record.تاریخ_پروانه);
-    if (licenseDate) {
-      const now = getCurrentJalaliYMD();
-      const yearsElapsed = Math.max(0.1, (now.y - licenseDate.y) + (now.mo - licenseDate.mo) / 12);
-      const expectedTons = parseFloat(record.استخراج_سالیانه) * yearsElapsed;
-      lines.push(`📅 با نرخ مجاز سالیانه (${fmtNum(parseFloat(record.استخراج_سالیانه))} تن/سال) طی ${yearsElapsed.toFixed(1)} سال از تاریخ پروانه، انتظار می‌رفت حدود <b>${fmtNum(expectedTons)} تن</b> برداشت شده باشد.`);
-    }
+  if (c.expectedTons != null) {
+    lines.push(`📅 با نرخ مجاز سالیانه (${fmtNum(c.annualRateTons)} تن/سال) طی ${c.yearsElapsed.toFixed(1)} سال از تاریخ پروانه، انتظار می‌رفت حدود <b>${fmtNum(c.expectedTons)} تن</b> برداشت شده باشد.`);
   }
   const box = el('div', {
     style: 'font-size:var(--text-xs);line-height:1.9;background:var(--stone-50);border-radius:8px;padding:10px 12px;margin-top:8px',
@@ -97,7 +90,10 @@ export function openVolumeModal(record, department, nameField, onSaved) {
       const view3dBtn = el('button', { class: 'btn btn-ghost', style: 'width:100%;justify-content:center;margin-top:8px' }, '🗻 نمای سه‌بعدی روی تصویر ماهواره‌ای');
       view3dBtn.addEventListener('click', async () => {
         const { open3DVolumeModal } = await import('./volumeModal3D.js');
-        open3DVolumeModal({ triangles: grid.triangles, surfaceA: grid.surfaceA, surfaceB: grid.surfaceB }, record, nameField);
+        open3DVolumeModal({
+          triangles: grid.triangles, surfaceA: grid.surfaceA, surfaceB: grid.surfaceB,
+          cutVolume: grid.cutVolume, fillVolume: grid.fillVolume, netVolume: grid.netVolume,
+        }, record, nameField);
       });
       resultBox.append(view3dBtn);
 
@@ -197,6 +193,7 @@ export function openVolumeHistoryModal(record, nameField) {
           const res = await fetch(s.geometryUrl);
           if (!res.ok) throw new Error('فایل هندسه یافت نشد');
           const data = await res.json();
+          data.cutVolume = s.cutVolume; data.fillVolume = s.fillVolume; data.netVolume = s.netVolume; data.calcDate = s.date;
           const { open3DVolumeModal } = await import('./volumeModal3D.js');
           open3DVolumeModal(data, record, nameField);
         } catch (err) {

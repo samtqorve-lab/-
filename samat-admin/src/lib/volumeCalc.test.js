@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  computeTinVolume, buildTriIndex, interpolateZ,
+  computeTinVolume, buildTriIndex, interpolateZ, computeSlopeStats, computeLicenseComparison,
 } from './volumeCalc.js';
 
 // یک شبکه‌ی ۴×۴ نقطه روی مربع ۱۰×۱۰ متر (۰,۰ تا ۱۰,۱۰) با ارتفاع ثابت z می‌سازد — برای این‌که
@@ -70,5 +70,54 @@ describe('interpolateZ (درون‌یابی ارتفاع داخل یک مثلث)
     const idx = buildTriIndex(coordsFlat, triangles, 0, 0, 10, 10);
     const z = interpolateZ(idx, coordsFlat, triangles, zvals, 500, 500);
     expect(Number.isNaN(z)).toBe(true);
+  });
+});
+
+describe('computeSlopeStats (شیب سطح از روی مثلث‌های نقشه‌برداری)', () => {
+  it('روی یک سطح کاملاً مسطح (بدون هیچ اختلاف ارتفاعی)، شیب باید صفر باشد', () => {
+    // مربع ۱۰×۱۰ متر با ارتفاع ثابت ۵ برای هر ۴ گوشه — دو مثلث پوشاننده‌ی کل سطح
+    const coordsFlat = new Float64Array([0, 0, 10, 0, 10, 10, 0, 10]);
+    const zvals = [5, 5, 5, 5];
+    const triangles = [0, 1, 2, 0, 2, 3];
+    const stats = computeSlopeStats({ coordsFlat, triangles, zvals }, 45);
+    expect(stats.maxSlopeDeg).toBeCloseTo(0, 6);
+    expect(stats.steepCount).toBe(0);
+  });
+
+  it('یک دیواره‌ی کاملاً عمودی (۹۰ درجه) باید به‌عنوان شیب خطرناک تشخیص داده شود', () => {
+    // مثلثی با دو ضلعِ هم‌عرض (x,y ثابت روی یک خط) و فقط اختلاف در z ⇒ صفحه‌ای کاملاً عمودی
+    const coordsFlat = new Float64Array([0, 0, 0, 0, 5, 0]);
+    const zvals = [0, 10, 5];
+    const triangles = [0, 1, 2];
+    const stats = computeSlopeStats({ coordsFlat, triangles, zvals }, 45);
+    expect(stats.maxSlopeDeg).toBeCloseTo(90, 3);
+    expect(stats.steepCount).toBe(1);
+  });
+
+  it('شیب دقیقاً ۴۵ درجه (وقتی ارتفاع و فاصله‌ی افقی برابرند) باید در آستانه‌ی ۴۵ محاسبه شود', () => {
+    // یک مثلث قائم‌الزاویه با ران‌های افقی/عمودی برابر (۱۰ متر) روی صفحه‌ی x-z ⇒ شیب دقیقاً ۴۵ درجه
+    const coordsFlat = new Float64Array([0, 0, 10, 0, 0, 5]);
+    const zvals = [0, 10, 0];
+    const triangles = [0, 1, 2];
+    const stats = computeSlopeStats({ coordsFlat, triangles, zvals }, 45);
+    expect(stats.maxSlopeDeg).toBeCloseTo(45, 3);
+  });
+});
+
+describe('computeLicenseComparison (تبدیل حجم به تناژ و مقایسه با پروانه)', () => {
+  it('بدون وزن مخصوص معتبر باید null برگرداند', () => {
+    expect(computeLicenseComparison({ وزن_مخصوص: '' }, 1000)).toBeNull();
+    expect(computeLicenseComparison({ وزن_مخصوص: '0' }, 1000)).toBeNull();
+  });
+
+  it('با وزن مخصوص معتبر، تناژ باید دقیقاً حاصل‌ضرب حجم در وزن مخصوص باشد', () => {
+    const c = computeLicenseComparison({ وزن_مخصوص: '2.7' }, 1000);
+    expect(c.tons).toBeCloseTo(2700, 6);
+  });
+
+  it('درصد نسبت به ذخیره‌ی قطعی باید درست محاسبه شود', () => {
+    const c = computeLicenseComparison({ وزن_مخصوص: '2', ذخیره_قطعی: '10000' }, 1000);
+    // تناژ = ۱۰۰۰ × ۲ = ۲۰۰۰ ؛ نسبت به ذخیره‌ی ۱۰۰۰۰ = ۲۰٪
+    expect(c.pctOfReserve).toBeCloseTo(20, 6);
   });
 });

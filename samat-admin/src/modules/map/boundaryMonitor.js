@@ -49,6 +49,10 @@ export async function renderBoundaryMonitor(container, state, appCtx) {
     liveSection.append(el('div', {}, `⚠️ خطا در بارگذاری معادن: ${err.message}`));
   });
 
+  container.append(el('h3', { style: 'margin:20px 0 10px' }, '📊 رتبه‌بندی کلی معادن بر اساس شدت تغییر'));
+  const rankBox = el('div', { class: 'card' });
+  container.append(rankBox);
+
   container.append(el('h3', { style: 'margin:20px 0 10px' }, '📋 موارد پایش خودکار ماهانه'));
 
   const intro = el('div', { class: 'card', style: 'font-size:var(--text-xs);color:var(--stone-600)' },
@@ -66,6 +70,40 @@ export async function renderBoundaryMonitor(container, state, appCtx) {
     const pending = (data || []).filter((r) => r.status === 'pending_review');
     const resolved = (data || []).filter((r) => r.status === 'confirmed' || r.status === 'dismissed');
     const ok = (data || []).filter((r) => r.status === 'ok');
+
+    // ── رتبه‌بندی کلی: قبلاً فقط مواردی که از آستانه‌ی هشدار (۰.۱۲) رد شده بودند دیده می‌شدند؛
+    // معدنی که مثلاً ۰.۰۹ دارد (نزدیک آستانه ولی هنوز پرچم نخورده) هیچ‌جا دیده نمی‌شد. این جدول
+    // همه‌ی معادن دارای داده را بر اساس شدت تغییر مرتب می‌کند تا روند نزدیک‌شدن به آستانه هم
+    // زودتر از رسیدن به هشدار رسمی، قابل‌مشاهده باشد.
+    const ranked = [...(data || [])].sort((a, b) => (b.delta_differential ?? -1) - (a.delta_differential ?? -1));
+    rankBox.innerHTML = '';
+    if (!ranked.length) {
+      rankBox.append(el('div', { style: 'color:var(--stone-500);font-size:var(--text-xs)' }, 'هنوز داده‌ی پایش برای هیچ معدنی ثبت نشده.'));
+    } else {
+      const table = el('table', { style: 'width:100%;border-collapse:collapse;font-size:var(--text-xs)' });
+      table.append(el('tr', { style: 'text-align:right;color:var(--stone-600);border-bottom:1px solid var(--stone-200)' }, [
+        el('th', { style: 'padding:6px 8px' }, 'معدن'),
+        el('th', { style: 'padding:6px 8px' }, 'تفاضل BSI'),
+        el('th', { style: 'padding:6px 8px' }, 'وضعیت'),
+        el('th', { style: 'padding:6px 8px' }, 'آخرین بررسی'),
+      ]));
+      ranked.slice(0, 20).forEach((r) => {
+        const d = r.delta_differential;
+        const severity = d == null ? 'var(--stone-400)' : d >= 0.12 ? 'var(--rust-600)' : d >= 0.06 ? 'var(--amber-600)' : 'var(--patina-600)';
+        const statusLabel = { pending_review: '⚠️ نیازمند بررسی', confirmed: '✅ تخلف تاییدشده', dismissed: '❌ رد شده', ok: 'عادی' }[r.status] || r.status;
+        table.append(el('tr', { style: 'border-bottom:1px solid var(--stone-100)' }, [
+          el('td', { style: 'padding:6px 8px;font-weight:600' }, r.mine_name),
+          el('td', { style: 'padding:6px 8px' }, [
+            el('span', { style: `display:inline-block;width:8px;height:8px;border-radius:50%;background:${severity};margin-left:6px;vertical-align:middle` }),
+            d != null ? `${(d * 100).toFixed(1)}٪` : '—',
+          ]),
+          el('td', { style: 'padding:6px 8px;color:var(--stone-600)' }, statusLabel),
+          el('td', { style: 'padding:6px 8px;color:var(--stone-500)' }, fmtDate(r.last_run_at)),
+        ]));
+      });
+      rankBox.append(table);
+      if (ranked.length > 20) rankBox.append(el('div', { style: 'font-size:var(--text-xs);color:var(--stone-500);margin-top:6px' }, `+ ${ranked.length - 20} معدن دیگر با تغییرات کمتر`));
+    }
 
     listBox.innerHTML = '';
     listBox.append(el('h3', { style: 'margin:0' }, `⚠️ نیازمند بررسی (${pending.length})`));

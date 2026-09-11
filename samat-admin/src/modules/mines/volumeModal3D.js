@@ -6,11 +6,11 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 // روی Worker دیکد نمی‌شود، و نقشه بی‌صدا کاملاً دوبعدی می‌ماند (بدون هیچ پیام خطایی). این دو فایل
 // (terrain3d.js و این فایل) باید همیشه همین fix را با هم داشته باشند.
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
-import { el, openModal, showToast } from '../../lib/dom.js';
+import { el, openModal, showToast, fmtDate } from '../../lib/dom.js';
 import { getMineCorners } from '../../lib/geo.js';
 import { getMineBBox } from '../../lib/sentinelHub.js';
 import { utmZoneForLon, utmToLatLon } from '../../lib/utm.js';
-import { buildTriIndex, interpolateZ } from '../../lib/volumeCalc.js';
+import { buildTriIndex, interpolateZ, computeLicenseComparison, computeSlopeStats } from '../../lib/volumeCalc.js';
 
 setWorkerUrl(maplibreWorkerUrl);
 
@@ -103,6 +103,9 @@ export function open3DVolumeModal(data, record, nameField) {
   const exportBtn = el('button', { class: 'btn-sm btn-ghost' }, '📷 دانلود عکس + گزارش');
   exportBtn.addEventListener('click', () => exportSnapshot());
 
+  const slopeBtn = surfaceB ? el('button', { class: 'btn-sm btn-ghost' }, '⚠️ بررسی شیب دیواره‌ها') : null;
+  if (slopeBtn) slopeBtn.addEventListener('click', () => toggleSlopeCheck());
+
   let demKey = DEFAULT_DEM_KEY;
   const demButtons = Object.keys(DEM_SOURCES).map((key) => el('button', {
     class: `btn-sm${key === demKey ? '' : ' btn-ghost'}`,
@@ -117,7 +120,7 @@ export function open3DVolumeModal(data, record, nameField) {
   body.append(el('div', { style: 'display:flex;align-items:center;gap:6px;margin-top:10px;font-size:var(--text-xs);color:var(--stone-600);flex-wrap:wrap' }, [
     'اغراق ارتفاع (۱× = واقعی):', ...exagButtons,
     el('span', { style: 'width:1px;height:16px;background:var(--stone-300);margin:0 4px' }),
-    csBtn, exportBtn,
+    csBtn, exportBtn, ...(slopeBtn ? [slopeBtn] : []),
   ]));
   body.append(el('div', { style: 'display:flex;align-items:center;gap:6px;margin-top:4px;font-size:var(--text-xs);color:var(--stone-600)' }, [
     'منبع داده‌ی ارتفاع:', ...demButtons,
@@ -179,6 +182,8 @@ export function open3DVolumeModal(data, record, nameField) {
 
   let disposed = false;
   let clickPopup = null;
+  let slopeVisible = false;
+  const SAFE_SLOPE_THRESHOLD_DEG = 45;
 
   map.on('load', () => {
     if (disposed) return;
@@ -322,12 +327,104 @@ export function open3DVolumeModal(data, record, nameField) {
     drawLine(profB, '#1e88e5');
   }
 
+  function fmtNum(n) {
+    return Number(n).toLocaleString('fa-IR', { maximumFractionDigits: 1 });
+  }
+
+  /**
+   * قبلاً این دکمه («📷 دانلود عکس + گزارش») فقط همان عکس PNG را دانلود می‌کرد — هیچ گزارشی
+   * ساخته نمی‌شد با اینکه در متن دکمه وعده داده شده بود. حالا یک پیش‌نمایش چاپی واقعی (همان
+   * الگوی fuelPrintModal.js/qrCheckinModal.js) باز می‌شود: عکس نمای سه‌بعدی + اطلاعات پروانه +
+   * اعداد حجم + مقایسه‌ی تناژی — آماده‌ی چاپ یا پیوست به مکاتبات اداری.
+   */
+  /**
+   * شیب هر مثلث از آخرین نقشه‌برداری (surfaceB) را حساب و مثلث‌های شیب‌دارتر از حد آستانه را
+   * با رنگ هشدار (زرد/قرمز پررنگ) روی نمای سه‌بعدی برجسته می‌کند — قبلاً هیچ ابزاری برای دیدن
+   * شیب دیواره‌های معدن در این پنل وجود نداشت، فقط حجم کات/فیل دیده می‌شد.
+   */
+  function toggleSlopeCheck() {
+    if (slopeVisible) {
+      if (map.getLayer('slope-warning')) map.removeLayer('slope-warning');
+      if (map.getSource('slope-warning')) map.removeSource('slope-warning');
+      slopeVisible = false;
+      slopeBtn.textContent = '⚠️ بررسی شیب دیواره‌ها';
+      statusLine.textContent = `✅ ${features.length.toLocaleString('fa-IR')} مثلث نمایش داده شد`;
+      return;
+    }
+    const stats = computeSlopeStats(surfaceB, SAFE_SLOPE_THRESHOLD_DEG);
+    const slopeFeatures = [];
+    stats.steepTriIndices.forEach((t) => {
+      const i0 = surfaceB.triangles[t * 3]; const i1 = surfaceB.triangles[t * 3 + 1]; const i2 = surfaceB.triangles[t * 3 + 2];
+      const p0 = toLngLat(surfaceB.coordsFlat[i0 * 2], surfaceB.coordsFlat[i0 * 2 + 1]);
+      const p1 = toLngLat(surfaceB.coordsFlat[i1 * 2], surfaceB.coordsFlat[i1 * 2 + 1]);
+      const p2 = toLngLat(surfaceB.coordsFlat[i2 * 2], surfaceB.coordsFlat[i2 * 2 + 1]);
+      if ([p0, p1, p2].some(([lo, la]) => !Number.isFinite(lo) || !Number.isFinite(la))) return;
+      slopeFeatures.push({
+        type: 'Feature', properties: { slope: stats.slopeDeg[t] }, geometry: { type: 'Polygon', coordinates: [[p0, p1, p2, p0]] },
+      });
+    });
+    map.addSource('slope-warning', { type: 'geojson', data: { type: 'FeatureCollection', features: slopeFeatures } });
+    map.addLayer({
+      id: 'slope-warning',
+      type: 'fill-extrusion',
+      source: 'slope-warning',
+      paint: {
+        'fill-extrusion-color': ['interpolate', ['linear'], ['get', 'slope'], SAFE_SLOPE_THRESHOLD_DEG, '#fbc02d', 70, '#c62828'],
+        'fill-extrusion-height': 3,
+        'fill-extrusion-base': 0,
+        'fill-extrusion-opacity': 0.95,
+      },
+    });
+    slopeVisible = true;
+    slopeBtn.textContent = '✖️ پنهان‌کردن نمای شیب';
+    if (!stats.steepCount) {
+      statusLine.textContent = `✅ هیچ‌کدام از ${stats.totalTriCount.toLocaleString('fa-IR')} بخش سطح، شیبی بیش از ${SAFE_SLOPE_THRESHOLD_DEG}° نداشت (بیشینه‌ی یافت‌شده: ${fmtNum(stats.maxSlopeDeg)}°).`;
+    } else {
+      statusLine.textContent = `⚠️ ${stats.steepCount.toLocaleString('fa-IR')} بخش (از ${stats.totalTriCount.toLocaleString('fa-IR')}) شیبی بیش از ${SAFE_SLOPE_THRESHOLD_DEG}° دارند — بیشینه: ${fmtNum(stats.maxSlopeDeg)}°. این فقط یک هشدار غربالگری اولیه است، برای تایید نیاز به بررسی مهندسی ژئوتکنیک دارید.`;
+    }
+  }
+
   function exportSnapshot() {
     const dataUrl = map.getCanvas().toDataURL('image/png');
-    const a = document.createElement('a');
-    a.href = dataUrl;
-    a.download = `حجم-کات-فیل-${mineName}.png`;
-    a.click();
+    const { cutVolume, fillVolume, netVolume, calcDate } = data;
+    const hasVolumes = cutVolume != null;
+
+    const { body: modalBody } = openModal({ title: '🖨️ پیش‌نمایش گزارش حجم', width: '640px' });
+    const printArea = el('div', { class: 'volume-print-area', style: 'border:1px solid var(--stone-200);border-radius:8px;padding:14px;background:#fff' });
+
+    const rows = [];
+    rows.push(`<div class="pf-title">گزارش محاسبه‌ی حجم برداشت/انباشت — ${mineName}</div>`);
+    rows.push(`<div class="pf-underline" style="text-align:center;margin-bottom:10px">اداره صنعت، معدن و تجارت شهرستان قروه</div>`);
+    rows.push('<div class="pf-divider"></div>');
+    if (hasVolumes) {
+      rows.push('<table class="pf-table"><tr><th>حجم کات (m³)</th><th>حجم فیل (m³)</th><th>خالص (m³)</th></tr>'
+        + `<tr><td>${fmtNum(cutVolume)}</td><td>${fmtNum(fillVolume)}</td><td>${fmtNum(netVolume)}</td></tr></table>`);
+      const cmp = computeLicenseComparison(record, cutVolume);
+      if (cmp) {
+        rows.push('<div class="pf-body" style="margin-top:12px">');
+        rows.push(`<div>⚖️ معادل تناژی (وزن مخصوص پروانه: ${cmp.sg}): <b>${fmtNum(cmp.tons)} تن</b></div>`);
+        if (cmp.pctOfReserve != null) rows.push(`<div>📊 نسبت به ذخیره‌ی قطعی (${fmtNum(cmp.reserveTons)} تن): <b>${cmp.pctOfReserve.toFixed(1)}٪</b></div>`);
+        if (cmp.expectedTons != null) rows.push(`<div>📅 برداشت مورد انتظار طبق نرخ مجاز سالیانه تا امروز: <b>${fmtNum(cmp.expectedTons)} تن</b></div>`);
+        rows.push('</div>');
+      }
+    } else {
+      rows.push('<div class="pf-body">این محاسبه از تاریخچه بازیابی شده و اعداد حجم آن در دسترس نیست.</div>');
+    }
+    rows.push(`<img src="${dataUrl}" style="width:100%;border-radius:8px;margin-top:14px;border:1px solid #ddd" />`);
+    rows.push(`<div class="pf-sign-row"><span>تاریخ محاسبه: ${calcDate || fmtDate(new Date())}</span><span>تاریخ چاپ گزارش: ${fmtDate(new Date())}</span></div>`);
+    rows.push('<div style="font-size:10px;color:#999;margin-top:10px">⚠️ این گزارش بر پایه‌ی فایل‌های نقشه‌برداری آپلودشده توسط کاربر تهیه شده و جایگزین تایید مهندسی رسمی نیست.</div>');
+    printArea.innerHTML = rows.join('');
+
+    modalBody.append(
+      printArea,
+      el('div', { style: 'display:flex;gap:10px;margin-top:16px' }, [
+        el('button', { class: 'btn btn-primary', style: 'flex:1', onclick: () => window.print() }, '🖨️ چاپ گزارش'),
+        el('button', {
+          class: 'btn btn-ghost', style: 'flex:1',
+          onclick: () => { const a = document.createElement('a'); a.href = dataUrl; a.download = `حجم-کات-فیل-${mineName}.png`; a.click(); },
+        }, '📷 دانلود فقط عکس'),
+      ]),
+    );
   }
 
   map.on('error', (e) => {

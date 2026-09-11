@@ -1,4 +1,34 @@
 import Delaunator from 'delaunator';
+import { parseJalaliDateString, getCurrentJalaliYMD } from './jalali.js';
+
+/**
+ * محاسبه‌ی خالص (بدون هیچ رندر DOM) تبدیل حجم کات به تناژ و مقایسه با فیلدهای پروانه — به‌صورت
+ * مشترک هم در پنل ویرایش نتیجه‌ی حجم (volumeModal.js) و هم در گزارش قابل‌چاپ (volumeModal3D.js)
+ * استفاده می‌شود تا این منطق در دو جا کپی‌پیست و دستخوش دوگانگی نشود.
+ * @returns {null|{sg:number, tons:number, reserveTons:number|null, pctOfReserve:number|null, annualRateTons:number|null, yearsElapsed:number|null, expectedTons:number|null}}
+ */
+export function computeLicenseComparison(record, cutVolumeM3) {
+  const sg = parseFloat(record.وزن_مخصوص);
+  if (!(sg > 0)) return null;
+  const tons = cutVolumeM3 * sg;
+  const result = {
+    sg, tons, reserveTons: null, pctOfReserve: null, annualRateTons: null, yearsElapsed: null, expectedTons: null,
+  };
+  if (record.ذخیره_قطعی) {
+    result.reserveTons = parseFloat(record.ذخیره_قطعی);
+    result.pctOfReserve = (tons / result.reserveTons) * 100;
+  }
+  if (record.استخراج_سالیانه && record.تاریخ_پروانه) {
+    const licenseDate = parseJalaliDateString(record.تاریخ_پروانه);
+    if (licenseDate) {
+      const now = getCurrentJalaliYMD();
+      result.yearsElapsed = Math.max(0.1, (now.y - licenseDate.y) + (now.mo - licenseDate.mo) / 12);
+      result.annualRateTons = parseFloat(record.استخراج_سالیانه);
+      result.expectedTons = result.annualRateTons * result.yearsElapsed;
+    }
+  }
+  return result;
+}
 
 export function buildTriIndex(coordsFlat, triangles, minX, minY, maxX, maxY) {
   const cells = 40;
@@ -56,6 +86,47 @@ export function interpolateZ(idx, coordsFlat, triangles, zvals, px, py) {
     if (l0 >= eps && l1 >= eps && l2 >= eps) return l0 * zvals[i0] + l1 * zvals[i1] + l2 * zvals[i2];
   }
   return NaN;
+}
+
+/**
+ * شیب هر مثلث از سطح (معمولاً surfaceB یعنی آخرین نقشه‌برداری) را از روی بردار عمود بر آن مثلث
+ * حساب می‌کند — چون coordsFlat/zvals در این پروژه به متر واقعی (UTM) هستند، نتیجه اعوجاج
+ * جغرافیایی ندارد و برخلاف برآورد از روی داده‌ی ارتفاعی عمومی (که در سطح کشور فقط ~۳۰ متر
+ * وضوح دارد)، از روی نقشه‌برداری واقعیِ خودِ کاربر است — قابل‌اتکاتر برای هشدار ایمنی شیب.
+ *
+ * ⚠️ همچنان یک ابزار غربالگری اولیه است، نه جایگزین ارزیابی مهندسی ژئوتکنیک رسمی. آستانه‌ی
+ * پیش‌فرض (۴۵ درجه) یک قاعده‌ی سرانگشتی محافظه‌کارانه است، نه استاندارد قانونی مشخص برای همه‌ی
+ * انواع سنگ/خاک — می‌تواند بسته به جنس ماده‌ی معدنی فرق کند.
+ * @returns {{slopeDeg: Float64Array, maxSlopeDeg:number, steepTriIndices:number[], steepCount:number, totalTriCount:number}}
+ */
+export function computeSlopeStats(surface, thresholdDeg = 45) {
+  const { coordsFlat, triangles, zvals } = surface;
+  const triCount = triangles.length / 3;
+  const slopeDeg = new Float64Array(triCount);
+  let maxSlopeDeg = 0;
+  const steepTriIndices = [];
+  for (let t = 0; t < triCount; t += 1) {
+    const i0 = triangles[t * 3]; const i1 = triangles[t * 3 + 1]; const i2 = triangles[t * 3 + 2];
+    const x0 = coordsFlat[i0 * 2]; const y0 = coordsFlat[i0 * 2 + 1]; const z0 = zvals[i0];
+    const x1 = coordsFlat[i1 * 2]; const y1 = coordsFlat[i1 * 2 + 1]; const z1 = zvals[i1];
+    const x2 = coordsFlat[i2 * 2]; const y2 = coordsFlat[i2 * 2 + 1]; const z2 = zvals[i2];
+    const ax = x1 - x0; const ay = y1 - y0; const az = z1 - z0;
+    const bx = x2 - x0; const by = y2 - y0; const bz = z2 - z0;
+    // بردار عمود بر مثلث از ضرب خارجی دو ضلع
+    const nx = ay * bz - az * by;
+    const ny = az * bx - ax * bz;
+    const nz = ax * by - ay * bx;
+    const nLen = Math.sqrt(nx * nx + ny * ny + nz * nz);
+    if (nLen < 1e-9) { slopeDeg[t] = 0; continue; }
+    // زاویه‌ی بین بردار عمود و راستای قائم = شیب سطح نسبت به افق
+    const angle = (Math.acos(Math.min(1, Math.abs(nz) / nLen)) * 180) / Math.PI;
+    slopeDeg[t] = angle;
+    if (angle > maxSlopeDeg) maxSlopeDeg = angle;
+    if (angle >= thresholdDeg) steepTriIndices.push(t);
+  }
+  return {
+    slopeDeg, maxSlopeDeg, steepTriIndices, steepCount: steepTriIndices.length, totalTriCount: triCount,
+  };
 }
 
 function triangleArea2D(x0, y0, x1, y1, x2, y2) {

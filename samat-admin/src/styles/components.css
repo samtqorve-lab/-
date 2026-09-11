@@ -149,6 +149,10 @@
   body:has(.fuel-print-area) * { visibility: hidden; }
   body:has(.fuel-print-area) .fuel-print-area, body:has(.fuel-print-area) .fuel-print-area * { visibility: visible; }
   body:has(.fuel-print-area) .fuel-print-area { position: absolute; top: 40px; right: 0; left: 0; border: none !important; padding: 0 !important; }
+
+  body:has(.volume-print-area) * { visibility: hidden; }
+  body:has(.volume-print-area) .volume-print-area, body:has(.volume-print-area) .volume-print-area * { visibility: visible; }
+  body:has(.volume-print-area) .volume-print-area { position: absolute; top: 40px; right: 0; left: 0; border: none !important; padding: 0 !important; }
 }
 
 .pf-title { text-align: center; font-weight: 700; font-size: 15px; margin-bottom: 4px; }
