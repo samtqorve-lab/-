@@ -122,18 +122,12 @@ async function boot() {
     if (!ok) return; // کاربر از گیت خارج شد (ورود مجدد با رمز)
   }
 
-  // اگر این حساب قبلاً «ورود با تایید Push» را روی این دستگاه فعال کرده، هر بار اپ باز می‌شود
-  // باید شنونده‌ی دریافت اعلان دوباره سوار شود (چون handlerAttached در حافظه‌ی هر اجرای تازه صفر است)
+  // اعلان‌های سامانه (ثبت‌نام جدید، گزارش، حادثه، ...) + «ورود با تایید Push» (اگر قبلاً فعال شده)
+  // — هر دو از یک شنونده‌ی مشترک استفاده می‌کنند؛ نگاه کنید به lib/pushNative.js
   try {
-    const { Capacitor } = await import('@capacitor/core');
-    if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
-      const { data: pushRow } = await sb.from('user_roles').select('push_login_enabled').eq('email', session.user.email).maybeSingle();
-      if (pushRow?.push_login_enabled) {
-        const { attachLoginApprovalHandler } = await import('./lib/pushNative.js');
-        attachLoginApprovalHandler();
-      }
-    }
-  } catch { /* در بیلد وب/دسکتاپ بی‌اثر است */ }
+    const { initNotifications } = await import('./lib/pushNative.js');
+    await initNotifications(session.user.email);
+  } catch { /* در بیلد وب/دسکتاپ بدون پلاگین بومی، initNotifications خودش مسیر Realtime را می‌رود */ }
 
   mountShell(root, {
     userLabel: `${roleRow.full_name || session.user.email} — ${roleRow.role}`,
