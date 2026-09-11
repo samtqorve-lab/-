@@ -1,16 +1,17 @@
 import { sb } from './supabase.js';
 
 /**
- * ثبت این دستگاه به‌عنوان دستگاه تاییدکننده‌ی ورود: مجوز اعلان می‌گیرد، توکن FCM را می‌گیرد و در
- * user_roles ذخیره می‌کند، و شنونده‌ی دریافت Push را برای نمایش اعلان تایید/رد سوار می‌کند.
+ * ثبت این دستگاه برای دریافت اعلان‌های عمومی سامانه (ثبت‌نام جدید، گزارش، حادثه، ...) — بدون
+ * فعال کردن «ورود با تایید Push». آن یک ویژگی جدا و اختیاریِ ۲مرحله‌ای برای ورود است (پایین‌تر:
+ * registerForPushLogin) و نباید صرفِ باز کردن اپ فعال شود.
  */
-export async function registerForPushLogin(email) {
+export async function registerDeviceToken(email) {
   const { PushNotifications } = await import('@capacitor/push-notifications');
 
   const perm = await PushNotifications.checkPermissions();
   if (perm.receive !== 'granted') {
     const req = await PushNotifications.requestPermissions();
-    if (req.receive !== 'granted') throw new Error('مجوز اعلان داده نشد');
+    if (req.receive !== 'granted') return false;
   }
 
   const token = await new Promise((resolve, reject) => {
@@ -27,15 +28,46 @@ export async function registerForPushLogin(email) {
     PushNotifications.register();
   });
 
-  const { error } = await sb.from('user_roles').update({ push_fcm_token: token, push_login_enabled: true, push_app: 'samat-admin' }).eq('email', email);
+  const { error } = await sb.from('user_roles').update({ push_fcm_token: token, push_app: 'samat-admin' }).eq('email', email);
   if (error) throw error;
+  return true;
+}
 
+/** «ورود با تایید Push» (۲مرحله‌ای، از تنظیمات فعال می‌شود) — علاوه بر ثبت توکن، پرچم را هم روشن می‌کند. */
+export async function registerForPushLogin(email) {
+  await registerDeviceToken(email);
+  const { error } = await sb.from('user_roles').update({ push_login_enabled: true }).eq('email', email);
+  if (error) throw error;
   await attachLoginApprovalHandler();
 }
 
+async function showNativeLocal(title, body, data) {
+  try {
+    const { LocalNotifications } = await import('@capacitor/local-notifications');
+    const perm = await LocalNotifications.checkPermissions();
+    if (perm.display !== 'granted') {
+      const req = await LocalNotifications.requestPermissions();
+      if (req.display !== 'granted') return;
+    }
+    await LocalNotifications.schedule({
+      notifications: [{ id: Math.floor(Math.random() * 2147483647), title, body, extra: data || {} }],
+    });
+  } catch { /* اگر پلاگین در دسترس نبود، بی‌صدا رد می‌شود — بدتر از این نیست که اصلاً چیزی نشان داده نشود */ }
+}
+
+async function showBrowserNotification(title, body) {
+  try {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'default') await Notification.requestPermission();
+    if (Notification.permission === 'granted') new Notification(title, { body });
+  } catch { /* بی‌اثر */ }
+}
+
 let handlerAttached = false;
-/** فقط یک‌بار در طول عمر اپ لازم است سوار شود (هم موقع فعال‌سازی، هم هر بار اپ باز می‌شود اگر
- * قبلاً فعال شده باشد — نگاه کنید به main.js). */
+/**
+ * شنونده‌ی مشترک همه‌ی نوع Pushها (هم «تایید ورود» هم اعلان‌های عمومی سامانه). فقط یک‌بار در طول
+ * عمر اپ لازم است سوار شود — نگاه کنید به main.js.
+ */
 export async function attachLoginApprovalHandler() {
   if (handlerAttached) return;
   handlerAttached = true;
@@ -55,27 +87,61 @@ export async function attachLoginApprovalHandler() {
       }).catch(() => {});
     }
 
-    // دکمه‌های اکشن روی نوتیفیکیشن (نسخه‌ی قبلی این تابع) فقط وقتی کار می‌کردند که pushNotificationReceived
-    // فایر شود — که طبق مستندات Capacitor فقط وقتی اپ در پیش‌زمینه/در حافظه باز است اتفاق می‌افتد.
-    // چون دستگاه تاییدکننده معمولاً دقیقاً برعکس این حالت است (بسته یا پس‌زمینه، چون کاربر روی
-    // دستگاه دیگری وارد می‌شود)، اندروید فقط یک اعلان ساده‌ی سیستمی (بدون دکمه) نشان می‌داد و لمس
-    // آن فقط اپ را باز می‌کرد — بدون تایید/رد واقعی؛ برای همین همه‌ی درخواست‌ها در login_approvals
-    // برای همیشه pending می‌ماندند. حالا هم pushNotificationReceived (پیش‌زمینه) و هم
-    // pushNotificationActionPerformed (لمس اعلان وقتی اپ بسته/پس‌زمینه بوده) هندل می‌شوند و در هر
-    // دو حالت یک دیالوگ تایید/رد درون‌اپی نشان داده می‌شود.
-    function handleLoginApprovalData(data) {
-      if (!data || data.type !== 'login-approval' || !data.approvalId) return;
+    function confirmLogin(data) {
       const ok = window.confirm(`🔐 درخواست ورود به پنل ادمین صمت\nآیا شما (${data.email || ''}) در حال ورود هستید؟\n\nOK = تایید می‌کنم\nCancel = رد می‌کنم`);
       respond(data.approvalId, ok ? 'approved' : 'denied');
     }
 
+    // pushNotificationReceived فقط در پیش‌زمینه فایر می‌شود (طبق مستندات Capacitor)، و در این
+    // حالت اندروید خودش اعلان سیستمی نشان نمی‌دهد — برای رویدادهای عمومی سامانه (غیر از تایید
+    // ورود) این‌جا دستی با LocalNotifications همان اعلان را نشان می‌دهیم.
     PushNotifications.addListener('pushNotificationReceived', (notification) => {
-      handleLoginApprovalData(notification.data);
+      const data = notification.data || {};
+      if (data.type === 'login-approval' && data.approvalId) {
+        confirmLogin(data);
+        return;
+      }
+      showNativeLocal(notification.title || 'اعلان جدید', notification.body || '', data);
     });
+
+    // وقتی اپ بسته/پس‌زمینه بوده و کاربر روی اعلان سیستمی (که خودِ اندروید نشان داده) لمس کرده:
+    // برای «تایید ورود» باید دیالوگ تایید/رد نشان داده شود؛ برای بقیه‌ی انواع، کاربر همین الان با
+    // لمس همان اعلان وارد اپ شده — کار اضافه‌ای لازم نیست.
     PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-      handleLoginApprovalData(action.notification?.data);
+      const data = action.notification?.data || {};
+      if (data.type === 'login-approval' && data.approvalId) confirmLogin(data);
     });
   } catch {
     handlerAttached = false;
   }
+}
+
+let realtimeAttached = false;
+function attachRealtimeNotifications(email) {
+  if (realtimeAttached) return;
+  realtimeAttached = true;
+  sb.channel(`notif-${email}`)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `recipient_email=eq.${email}` }, (payload) => {
+      showBrowserNotification(payload.new.title, payload.new.body);
+    })
+    .subscribe();
+}
+
+/**
+ * نقطه‌ی ورود واحد که باید بعد از تایید نقش (داخل boot، برای هر کاربر ستادی) صدا زده شود —
+ * main.js. روی اندروید: توکن دستگاه را (اگر قبلاً ثبت نشده) ثبت می‌کند تا اعلان سامانه به این
+ * حساب برسد و شنونده را سوار می‌کند. روی وب/ویندوز (Electron، که اصلاً FCM ندارد): به‌جایش
+ * مستقیم روی جدول notifications عضو Realtime می‌شود و با رسیدن هر ردیف جدید، اعلان مرورگر
+ * نشان می‌دهد.
+ */
+export async function initNotifications(email) {
+  try {
+    const { Capacitor } = await import('@capacitor/core');
+    if (Capacitor.isNativePlatform()) {
+      await registerDeviceToken(email).catch(() => {});
+      await attachLoginApprovalHandler();
+    } else {
+      attachRealtimeNotifications(email);
+    }
+  } catch { /* بی‌اثر */ }
 }
