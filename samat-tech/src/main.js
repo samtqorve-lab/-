@@ -64,6 +64,7 @@ async function boot() {
     return;
   }
   const email = session.user.email;
+  import('./lib/pushNative.js').then(({ initNotifications }) => initNotifications(email)).catch(() => {});
 
   if (hasBiometricCred(email)) {
     const ok = await mountBiometricGate(root, email, logoutAndReload);
