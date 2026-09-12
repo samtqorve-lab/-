@@ -13,6 +13,12 @@ import { sb } from './supabase.js';
  * است، نه پیش‌احراز هویت واقعی سمت سرور — برای تهدیدهای معمول (رمز لورفته) کافی است.
  */
 
+// این کد فقط از طریق پیام‌رسان/ایمیل به کاربر می‌رسد — یعنی بین لحظه‌ی ارسال تا لحظه‌ای که کاربر
+// واقعاً برنامه‌ی پیام‌رسان را باز می‌کند، کد را می‌بیند، کپی می‌کند و برمی‌گردد به این اپ، همیشه
+// چند ده ثانیه طول می‌کشد. مهلت باید سمت سرور (push-login-fallback) و اینجا (تایمر لغو محلی)
+// دقیقاً یکسان باشد، وگرنه اپ زودتر از سرور «منقضی شد» نشان می‌دهد یا برعکس.
+const CODE_VALID_MS = 5 * 60 * 1000;
+
 export async function isPushLoginEnabled(email) {
   const { data } = await sb.from('user_roles').select('push_login_enabled').eq('email', email).maybeSingle();
   return !!data?.push_login_enabled;
@@ -48,7 +54,9 @@ async function callFn(name, body, timeoutMs = 8000) {
 /**
  * @param {string} email
  * @param {(status: 'approved'|'denied'|'timeout'|'error', detail?: any) => void} onResolve
- * @param {(approvalId: string) => void} onAwaitingCode - وقتی کد تلگرام ارسال شد، صدا زده می‌شود
+ * @param {(approvalId: string, resendCode: () => Promise<{ok: boolean, reason?: string}>) => void} onAwaitingCode
+ *   وقتی کد تلگرام ارسال شد، صدا زده می‌شود. آرگومان دوم یک تابع «ارسال دوباره‌ی کد» است — اگر کد
+ *   اول به هر دلیلی درست نبود، کاربر مجبور نیست کل فرآیند ورود را از نو انجام بدهد.
  * @returns {Promise<() => void>}
  */
 export async function requestPushApproval(email, onResolve, onAwaitingCode) {
@@ -72,14 +80,31 @@ export async function requestPushApproval(email, onResolve, onAwaitingCode) {
     onResolve(status, detail);
   }
 
+  function armCodeTimer() {
+    clearTimeout(timer);
+    timer = setTimeout(() => finish('timeout'), CODE_VALID_MS);
+  }
+
+  /** برای دکمه‌ی «ارسال دوباره‌ی کد» — روی همان approvalId، بدون نیاز به ورود دوباره‌ی رمز عبور */
+  async function resendCode() {
+    if (settled) return { ok: false, reason: 'already-resolved' };
+    try {
+      const data = await callFn('push-login-fallback', { action: 'send', approvalId: approval.id });
+      if (data.ok) armCodeTimer();
+      return data;
+    } catch (err) {
+      return { ok: false, reason: err.message };
+    }
+  }
+
   async function tryTelegramFallback() {
     if (fallbackTried || settled) return;
     fallbackTried = true;
     try {
       const data = await callFn('push-login-fallback', { action: 'send', approvalId: approval.id });
       if (data.ok) {
-        onAwaitingCode && onAwaitingCode(approval.id);
-        timer = setTimeout(() => finish('timeout'), 3 * 60 * 1000);
+        armCodeTimer();
+        onAwaitingCode && onAwaitingCode(approval.id, resendCode);
       } else {
         finish('error', data.reason || 'fallback-send-failed');
       }
