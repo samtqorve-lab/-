@@ -4,17 +4,33 @@
 // استفاده می‌شود. اگر گوشی/محیط این قابلیت را نداشته باشد، اصلاً نمایش داده نمی‌شود.
 //
 // طبق مستندات رسمی اندروید (passkeys.dev)، WebAuthn/navigator.credentials داخل WebView
-// جاسازی‌شده‌ی اپ‌های Capacitor پشتیبانی نمی‌شود — به همین دلیل به‌جای WebAuthn، از پلاگین بومی
-// @capgo/capacitor-native-biometric استفاده می‌شود که مستقیم BiometricPrompt واقعی
-// اندروید/iOS را صدا می‌زند — چون این‌جا فقط یک قفل محلی لازم داریم، نه گواهی رمزنگاری‌شده‌ی
-// سمت سرور، نیازی به پیچیدگی WebAuthn نبود (این فایل عیناً هم‌ساختار با نسخه‌ی اپ مسئول فنی است).
+// جاسازی‌شده‌ی اپ‌های Capacitor پشتیبانی نمی‌شود — به همین دلیل به‌جای WebAuthn، از یک پلاگین
+// بومی استفاده می‌شود که مستقیم BiometricPrompt واقعی اندروید/iOS را صدا می‌زند.
+//
+// تعویض شد از @capgo/capacitor-native-biometric به @aparajita/capacitor-biometric-auth: پلاگین
+// قبلی برای هر بار تایید هویت یک کلید رمزنگاری در Keystore گوشی می‌ساخت (چون اصلش برای ذخیره‌ی
+// امن نام‌کاربری/رمز طراحی شده بود) — روی گوشی‌های شیائومی/اوپو همین ساخت کلید با خطای تراشه‌ی
+// امنیتی (Keymaster/TEE) گیر می‌کرد و برای همیشه معلق می‌ماند. چون این‌جا فقط یک قفل محلی ساده
+// لازم داریم (نه ذخیره‌ی رمزنگاری‌شده)، پلاگین جدید هیچ کلیدی در Keystore نمی‌سازد و فقط از
+// BiometricPrompt.authenticate() استاندارد استفاده می‌کند (این فایل عیناً هم‌ساختار با نسخه‌ی
+// اپ مسئول فنی است، از جمله محافظ timeout در برابر گیرکردن‌های نادر ارتباط جاوااسکریپت↔نیتیو).
 
 import { Capacitor } from '@capacitor/core';
 
 async function getPlugin() {
   if (!Capacitor.isNativePlatform()) return null; // روی وب/PWA این پلاگین اصلاً کار نمی‌کند
-  const { NativeBiometric } = await import('@capgo/capacitor-native-biometric');
-  return NativeBiometric;
+  const { BiometricAuth } = await import('@aparajita/capacitor-biometric-auth');
+  return BiometricAuth;
+}
+
+function withTimeout(promise, ms, timeoutMessage) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(timeoutMessage)), ms);
+    promise.then(
+      (v) => { clearTimeout(timer); resolve(v); },
+      (e) => { clearTimeout(timer); reject(e); },
+    );
+  });
 }
 
 export function bioSupported() {
@@ -25,7 +41,7 @@ export async function biometricHardwareAvailable() {
   const plugin = await getPlugin();
   if (!plugin) return false;
   try {
-    const result = await plugin.isAvailable({ useFallback: false });
+    const result = await withTimeout(plugin.checkBiometry(), 6000, 'بررسی سخت‌افزار اثر انگشت پاسخ نداد (timeout)');
     return !!result.isAvailable;
   } catch {
     return false;
@@ -76,11 +92,16 @@ export async function enableBiometric(email) {
   if (!plugin || !(await biometricHardwareAvailable())) {
     throw new Error('روی این دستگاه سنسور اثر انگشت/Face ID فعال یافت نشد');
   }
-  await plugin.verifyIdentity({
-    reason: 'برای فعال‌سازی ورود سریع با اثر انگشت/Face ID',
-    title: 'تایید هویت',
-    subtitle: 'پنل ادمین صمت',
-  });
+  await withTimeout(
+    plugin.authenticate({
+      reason: 'برای فعال‌سازی ورود سریع با اثر انگشت/Face ID',
+      androidTitle: 'تایید هویت',
+      androidSubtitle: 'پنل ادمین سامت',
+      allowDeviceCredential: true,
+    }),
+    15000,
+    'دیالوگ اثر انگشت پاسخ نداد — لطفاً دوباره امتحان کنید',
+  );
   localStorage.setItem(storageKey(email), '1');
 }
 
@@ -90,11 +111,16 @@ export async function verifyBiometricGate(email) {
   const plugin = await getPlugin();
   if (!plugin) return true; // پلتفرم عوض شده (مثلاً نسخه‌ی وب) — به رمز عادی برنگردیم، فقط رد شویم
   try {
-    await plugin.verifyIdentity({
-      reason: 'برای ورود به پنل ادمین صمت',
-      title: 'تایید هویت',
-      subtitle: 'اثر انگشت یا Face ID خود را نشان دهید',
-    });
+    await withTimeout(
+      plugin.authenticate({
+        reason: 'برای ورود به پنل ادمین سامت',
+        androidTitle: 'تایید هویت',
+        androidSubtitle: 'اثر انگشت یا Face ID خود را نشان دهید',
+        allowDeviceCredential: true,
+      }),
+      15000,
+      'دیالوگ اثر انگشت پاسخ نداد',
+    );
     return true;
   } catch {
     return false;
