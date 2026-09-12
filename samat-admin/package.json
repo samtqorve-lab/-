@@ -16,6 +16,7 @@
     "vitest": "^5.0.0"
   },
   "dependencies": {
+    "@aparajita/capacitor-biometric-auth": "^9.0.0",
     "@capacitor/android": "^8.5.0",
     "@capacitor/app": "^8.1.1",
     "@capacitor/browser": "^8.0.4",
@@ -24,7 +25,6 @@
     "@capacitor/geolocation": "^8.2.2",
     "@capacitor/local-notifications": "^8.3.1",
     "@capacitor/push-notifications": "^8.1.2",
-    "@capgo/capacitor-native-biometric": "^8.0.5",
     "@fontsource/vazirmatn": "^5.3.0",
     "@supabase/supabase-js": "^2.112.2",
     "delaunator": "^5.1.0",
