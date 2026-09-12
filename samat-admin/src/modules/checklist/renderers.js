@@ -81,6 +81,41 @@ export function renderProduction(rows) {
   ]);
 }
 
+/**
+ * جدول گزارش خوراک/محصول/بازیابی واحدهای فرآوری (processing_reports). فرم ثبت آن در سامت‌تک
+ * (openProcessingReportModal) از قبل وجود داشت، اما تا پیش از این هیچ‌جای پنل ادمین نمایش داده
+ * نمی‌شد — این تابع همان نقشی را برای فرآوری ایفا می‌کند که renderProduction برای معدن/اکتشاف دارد.
+ * بازیابی٪ رنگی می‌شود (سبز/کهربایی/زرشکی) تا افت بازیابی در نگاه اول دیده شود.
+ */
+export function renderProcessing(rows) {
+  if (!rows.length) return [empty()];
+  return eachMine(rows, (list) => {
+    const notesRows = list.filter((p) => p.notes);
+    return [
+      el('table', { style: 'width:100%;border-collapse:collapse;font-size:var(--text-sm)' }, [
+        el('tr', { style: 'color:var(--stone-600);text-align:right' }, [
+          el('th', { style: 'padding:4px' }, 'دوره'), el('th', {}, 'خوراک ورودی'),
+          el('th', {}, 'تناژ خوراک'), el('th', {}, 'عیار خوراک٪'),
+          el('th', {}, 'تناژ محصول'), el('th', {}, 'عیار محصول٪'),
+          el('th', {}, 'بازیابی٪'), el('th', {}, 'باطله (تن)'),
+        ]),
+        ...list.map((p) => {
+          const recovery = p.recovery_percent;
+          const recColor = recovery == null ? 'inherit' : recovery >= 80 ? 'var(--patina-700)' : recovery >= 60 ? 'var(--amber-700)' : 'var(--rust-700)';
+          return el('tr', { style: 'border-top:1px solid var(--stone-200)' }, [
+            el('td', { style: 'padding:4px' }, p.period || ''), el('td', {}, p.feed_material || '—'),
+            el('td', {}, String(p.feed_tonnage ?? '—')), el('td', {}, String(p.feed_grade_percent ?? '—')),
+            el('td', {}, String(p.product_tonnage ?? '—')), el('td', {}, String(p.product_grade_percent ?? '—')),
+            el('td', { style: `font-weight:700;color:${recColor}` }, recovery == null ? '—' : String(recovery)),
+            el('td', {}, String(p.tailings_tonnage ?? '—')),
+          ]);
+        }),
+      ]),
+      ...notesRows.map((p) => el('div', { style: 'color:var(--stone-600);font-size:var(--text-xs);margin-top:4px' }, `📝 ${p.period}: ${esc(p.notes)}`)),
+    ];
+  });
+}
+
 export function renderPersonnel(rows) {
   if (!rows.length) return [empty()];
   return eachMine(rows, (list) => list.map((p) => el('div', { style: 'padding:6px 0;border-bottom:1px solid var(--stone-200);font-size:var(--text-sm)' }, [
