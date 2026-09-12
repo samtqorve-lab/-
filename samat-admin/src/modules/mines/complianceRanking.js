@@ -1,7 +1,7 @@
 import { el } from '../../lib/dom.js';
 import { sb } from '../../lib/supabase.js';
 import { fetchDeptRecords, applyGeoScope } from '../../lib/records.js';
-import { DEPT_NAME_FIELD } from '../../lib/sections.js';
+import { DEPT_NAME_FIELD, DEPT_PLURAL_LABEL } from '../../lib/sections.js';
 import { licenseExpiryInfo } from '../../lib/jalali.js';
 import { setMineInDept } from '../../router.js';
 
@@ -38,17 +38,21 @@ function reportBadge(days) {
 }
 
 /**
- * جدول رتبه‌بندی معادن برای اولویت‌بندی بازدید: وضعیت پروانه + آخرین گزارش دوره‌ای + تعداد
- * گزارش در ۶ ماه اخیر. پیش‌فرض بر اساس فوریت مرتب می‌شود (منقضی/بی‌گزارش‌ها بالا).
+ * جدول رتبه‌بندی رکوردهای یک بخش برای اولویت‌بندی بازدید: وضعیت پروانه + آخرین گزارش دوره‌ای +
+ * تعداد گزارش در ۶ ماه اخیر. پیش‌فرض بر اساس فوریت مرتب می‌شود (منقضی/بی‌گزارش‌ها بالا).
+ * قبلاً فقط برای «معدن» صدا زده می‌شد (fetchDeptRecords/DEPT_NAME_FIELD/tech_reports hardcoded)
+ * با اینکه licenseExpiryInfo از ابتدا برای اکتشاف/فرآوری/اصناف هم منطق محاسبه‌ی انقضا داشت —
+ * حالا از state.department می‌خواند تا برای هر بخشی که این تب برایش فعال باشد کار کند.
  */
 export async function renderComplianceRanking(container, state) {
   container.innerHTML = '<div class="loading-state"><div class="spinner"></div>در حال بارگذاری...</div>';
 
-  const nameField = DEPT_NAME_FIELD.معدن;
-  let mines = await fetchDeptRecords('معدن').catch(() => []);
+  const department = state.department;
+  const nameField = DEPT_NAME_FIELD[department];
+  let mines = await fetchDeptRecords(department).catch(() => []);
   mines = applyGeoScope(mines, state.assignedProvince, state.assignedCounty);
 
-  const { data: reportRows } = await sb.from('tech_reports').select('mine_name, created_at').eq('department', 'معدن');
+  const { data: reportRows } = await sb.from('tech_reports').select('mine_name, created_at').eq('department', department);
   const byMine = new Map();
   (reportRows || []).forEach((r) => {
     const cur = byMine.get(r.mine_name) || { lastDate: null, count6mo: 0 };
@@ -60,7 +64,7 @@ export async function renderComplianceRanking(container, state) {
   let rows = mines.map((m) => {
     const name = m[nameField] || '—';
     const stats = byMine.get(name) || { lastDate: null, count6mo: 0 };
-    const license = licenseExpiryInfo(m, 'معدن');
+    const license = licenseExpiryInfo(m, department);
     const row = {
       id: m._rowId, name, license, lastReportDate: stats.lastDate, lastReportDays: daysAgo(stats.lastDate), count6mo: stats.count6mo,
     };
@@ -75,7 +79,7 @@ export async function renderComplianceRanking(container, state) {
 
   const table = el('table', { class: 'data-table', style: 'width:100%' });
   const thead = el('thead', {}, el('tr', {}, [
-    el('th', {}, 'معدن'),
+    el('th', {}, DEPT_PLURAL_LABEL[department] || 'موارد'),
     el('th', { style: 'cursor:pointer', onclick: () => { rows = [...rows].sort((a, b) => (a.license?.monthsLeft ?? 999) - (b.license?.monthsLeft ?? 999)); drawBody(); } }, 'وضعیت پروانه ↕'),
     el('th', { style: 'cursor:pointer', onclick: () => { rows = [...rows].sort((a, b) => (b.lastReportDays ?? 9999) - (a.lastReportDays ?? 9999)); drawBody(); } }, 'آخرین گزارش ↕'),
     el('th', { style: 'cursor:pointer', onclick: () => { rows = [...rows].sort((a, b) => a.count6mo - b.count6mo); drawBody(); } }, 'تعداد گزارش (۶ ماه) ↕'),
@@ -86,7 +90,7 @@ export async function renderComplianceRanking(container, state) {
   function drawBody() {
     tbody.innerHTML = '';
     rows.forEach((r) => {
-      tbody.append(el('tr', { style: 'cursor:pointer', onclick: () => setMineInDept(r.id, 'معدن') }, [
+      tbody.append(el('tr', { style: 'cursor:pointer', onclick: () => setMineInDept(r.id, department) }, [
         el('td', { style: 'font-weight:600' }, r.name),
         el('td', {}, licenseBadge(r.license)),
         el('td', {}, reportBadge(r.lastReportDays)),
