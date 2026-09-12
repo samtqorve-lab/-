@@ -9,7 +9,7 @@ import { exportXLSX } from '../../lib/exporters.js';
 import { attachJalaliDatePicker } from '../../lib/jalaliDatePicker.js';
 import { parseJalaliString, toGregorian } from '../../lib/jalaliCalendar.js';
 import {
-  renderChecklist as renderChecklistRows, renderTraining, renderProduction, renderPersonnel, renderCorrective, renderQuarterlyMaps,
+  renderChecklist as renderChecklistRows, renderTraining, renderProduction, renderProcessing, renderPersonnel, renderCorrective, renderQuarterlyMaps,
   renderIncidents, renderEquipment,
 } from './renderers.js';
 import { openChecklistItemsModal } from './checklistItemsModal.js';
@@ -21,8 +21,8 @@ let dateFromStr = '';
 let dateToStr = '';
 
 /** نام فیلد «تاریخ رویداد» هر زیرتب — برای فیلتر بازه‌ی زمانی. تب‌هایی که مفهوم تاریخ دقیق ندارند
- * (نفرات: فهرست فعلی پرسنل، تولید: فقط دوره‌ی ماهانه‌ی متنی) در این فهرست نیستند و فیلتر تاریخ
- * رویشان بی‌اثر می‌ماند. */
+ * (نفرات: فهرست فعلی پرسنل، تولید/فرآوری: فقط دوره‌ی ماهانه‌ی متنی) در این فهرست نیستند و فیلتر
+ * تاریخ رویشان بی‌اثر می‌ماند. */
 const DATE_FIELD_BY_SUB = {
   checklist: 'shift_date',
   training: 'training_date',
@@ -100,7 +100,7 @@ export async function renderChecklist(container, state) {
   const dateFilterBox = el('div', { style: 'display:flex;gap:6px;align-items:center' }, [dateFromInput, dateToInput, clearDatesBtn]);
   toolbar.append(dateFilterBox);
   if (!dateFieldForActiveSub()) {
-    dateFilterBox.style.display = 'none'; // این زیرتب مفهوم «تاریخ رویداد» ندارد (نفرات/تولید)
+    dateFilterBox.style.display = 'none'; // این زیرتب مفهوم «تاریخ رویداد» ندارد (نفرات/تولید/فرآوری)
   }
 
   const xlsxBtn = el('button', { class: 'btn btn-ghost', onclick: async () => {
@@ -203,7 +203,7 @@ export async function renderChecklist(container, state) {
       return;
     }
     const renderers = {
-      checklist: renderChecklistRows, training: renderTraining, production: renderProduction,
+      checklist: renderChecklistRows, training: renderTraining, production: renderProduction, processing: renderProcessing,
       personnel: renderPersonnel, quarterlymaps: renderQuarterlyMaps, incident: renderIncidents,
     };
     listBox.append(...renderers[activeSub](rows));
