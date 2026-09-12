@@ -41,13 +41,41 @@ export function mountLogin(root, onSuccess) {
     const codeInput = el('input', { type: 'text', dir: 'ltr', placeholder: 'کد ۶ رقمی از تلگرام', maxlength: '6' });
     const codeErrBox = el('div', { class: 'login-err' });
     const codeSubmitBtn = el('button', { type: 'button', class: 'btn btn-primary', style: 'width:100%;justify-content:center;margin-top:8px' }, 'تایید کد');
+    // اگر کد اول (رسیدن دیرهنگام پیام، تایپ اشتباه، یا صرفاً منقضی‌شدن ۵ دقیقه‌ای) کار نکرد،
+    // کاربر می‌تواند بدون واردکردن دوباره‌ی کد پرسنلی/رمز عبور، یک کد تازه روی همین approval
+    // بگیرد — قبلاً تنها راه این بود که کل فرم ورود را از نو ارسال کند.
+    const resendBtn = el('button', {
+      type: 'button',
+      class: 'btn btn-ghost',
+      style: 'width:100%;justify-content:center;margin-top:6px',
+    }, '📨 ارسال دوباره‌ی کد');
     let currentApprovalId = null;
+    let resendCodeFn = null;
+    resendBtn.addEventListener('click', async () => {
+      if (!resendCodeFn) return;
+      codeErrBox.textContent = '';
+      resendBtn.disabled = true;
+      const originalLabel = resendBtn.textContent;
+      resendBtn.textContent = '⏳ در حال ارسال...';
+      try {
+        const result = await resendCodeFn();
+        if (result.ok) {
+          codeInput.value = '';
+          showToast('✅ کد جدید از طریق تلگرام ارسال شد');
+        } else {
+          codeErrBox.textContent = 'ارسال کد جدید ناموفق بود — دوباره امتحان کنید';
+        }
+      } finally {
+        resendBtn.disabled = false;
+        resendBtn.textContent = originalLabel;
+      }
+    });
     const codeBox = el('div', {
       style: 'display:none;margin-top:14px;padding-top:14px;border-top:1px dashed var(--stone-200)',
     }, [
       el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:8px' },
-        '📲 اعلان Push پاسخی نداشت — یک کد ۶ رقمی از طریق تلگرام برایتان فرستاده شد.'),
-      codeInput, codeErrBox, codeSubmitBtn,
+        '📲 اعلان Push پاسخی نداشت — یک کد ۶ رقمی از طریق تلگرام برایتان فرستاده شد (تا ۵ دقیقه معتبر است).'),
+      codeInput, codeErrBox, codeSubmitBtn, resendBtn,
     ]);
     let currentEmail = null;
     let loginCompleted = false;
@@ -67,7 +95,9 @@ export function mountLogin(root, onSuccess) {
       try {
         const result = await verifyFallbackCode(currentApprovalId, codeInput.value.trim());
         if (!result.ok) {
-          codeErrBox.textContent = result.expired ? 'مهلت وارد کردن کد به پایان رسید — دوباره وارد شوید.' : 'کد نادرست است.';
+          codeErrBox.textContent = result.expired
+            ? 'مهلت این کد به پایان رسید — روی «ارسال دوباره‌ی کد» بزنید.'
+            : 'کد نادرست است — مطمئن شوید آخرین پیام تلگرام را وارد کرده‌اید، یا کد جدید بگیرید.';
           return;
         }
         // قبلاً از اینجا به بعد فقط منتظر می‌ماندیم تا اشتراک Realtime تغییر status به approved
@@ -99,8 +129,9 @@ export function mountLogin(root, onSuccess) {
 
           if (await isPushLoginEnabled(email)) {
             submitBtn.textContent = 'در انتظار تایید...';
-            await waitForPushApproval(email, (approvalId) => {
+            await waitForPushApproval(email, (approvalId, resendFn) => {
               currentApprovalId = approvalId;
+              resendCodeFn = resendFn;
               codeBox.style.display = 'block';
               submitBtn.textContent = 'در انتظار کد تلگرام...';
             });
