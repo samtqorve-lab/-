@@ -25,7 +25,16 @@ const NAV_ITEMS = [
   { tab: 'notices', label: 'اطلاعیه‌ها', icon: '📢' },
   { tab: 'identity', label: 'احراز هویت', icon: '🪪', hideForDept: 'صنعت' },
   { tab: 'stats', label: 'آمار و پیگیری', icon: '◈' },
-  { tab: 'compliance', label: 'رتبه‌بندی معادن', icon: '📋', hideForDept: ['صنعت', 'اکتشاف', 'فرآوری', 'اصناف'] },
+  // قبلاً فقط برای معدن فعال بود (hideForDept همه‌ی بخش‌های دیگر را می‌پوشاند)، با اینکه منطق
+  // محاسبه‌ی انقضای پروانه (jalali.js licenseExpiryInfo) از قبل اکتشاف/فرآوری را هم پشتیبانی
+  // می‌کرد — الان برای این دو هم فعال است (صنعت/اصناف چون مفهوم «آخرین گزارش دوره‌ای تکنسینی»
+  // در آن‌ها بی‌معنی است، همچنان مخفی می‌مانند).
+  {
+    tab: 'compliance',
+    label: (d) => `رتبه‌بندی ${DEPT_PLURAL_LABEL[d] || 'معادن'}`,
+    icon: '📋',
+    hideForDept: ['صنعت', 'اصناف'],
+  },
   { tab: 'boundaryMonitor', label: 'پایش مرزی', icon: '🛰️', hideForDept: 'اصناف' },
   { tab: 'users', label: 'کاربران', icon: '◐' },
   { tab: 'audit', label: 'تاریخچه تغییرات', icon: '📜' },
