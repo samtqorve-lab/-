@@ -18,6 +18,7 @@ const NAV_ITEMS = [
   { tab: 'dashboard', label: (d) => `نقشه ${DEPT_PLURAL_LABEL[d] || 'معادن'}`, icon: '🗺' },
   { tab: 'satelliteMonitor', label: 'پایش ماهواره‌ای', icon: '🛰' },
   { tab: 'terrain3d', label: 'مدل سه‌بعدی', icon: '🗻', hideForDept: ['صنعت', 'اکتشاف', 'فرآوری', 'اصناف'] },
+  { tab: 'pitDesign', label: 'طراحی پله‌بندی', icon: '⛰', hideForDept: ['صنعت', 'اکتشاف', 'فرآوری', 'اصناف'] },
   { tab: 'mines', label: (d) => `فهرست ${DEPT_PLURAL_LABEL[d] || 'معادن'}`, icon: '⛏' },
   { tab: 'legal', label: 'الزامات قانونی', icon: '⚖' },
   { tab: 'checklist', label: 'گزارش‌های تکمیلی', icon: '🛠' },

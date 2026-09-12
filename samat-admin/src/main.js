@@ -32,6 +32,7 @@ const LAZY_RENDERERS = {
   mySettings: () => import('./modules/settings/mySettings.js').then((m) => m.renderMySettings),
   satelliteMonitor: () => import('./modules/map/satelliteMonitorPage.js').then((m) => m.renderSatelliteMonitor),
   terrain3d: () => import('./modules/map/terrain3dPage.js').then((m) => m.renderTerrain3D),
+  pitDesign: () => import('./modules/design/pitDesignPage.js').then((m) => m.renderPitDesign),
 };
 
 let appCtx = null;
