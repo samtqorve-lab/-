@@ -81,6 +81,30 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
   const captureBox = el('div');
   captureApi.mountWidget(captureBox);
 
+  // ── ابزارهای اختصاصی هر تخصص — فقط برای اکتشاف/فرآوری اضافه می‌شوند، بقیه‌ی ابزارهای عمومی
+  // (چک‌لیست ایمنی، گزارش تولید/عیار عمومی، تجهیزات و...) برای هر سه تخصص فعال می‌مانند ──
+  const specialtyTools = [];
+  if (specialty === 'اکتشاف') {
+    specialtyTools.push({
+      icon: '🪨',
+      label: 'ثبت گمانه/ترانشه اکتشافی',
+      onClick: requireMine(async (mine) => {
+        const { openExplorationLogModal } = await import('./explorationLog.js');
+        openExplorationLogModal(mine, nameField, { email });
+      }),
+    });
+  }
+  if (specialty === 'فرآوری') {
+    specialtyTools.push({
+      icon: '⚗️',
+      label: 'گزارش خوراک/محصول/بازیابی',
+      onClick: requireMine(async (mine) => {
+        const { openProcessingReportModal } = await import('./processingReport.js');
+        openProcessingReportModal(mine, nameField, meta.dept);
+      }),
+    });
+  }
+
   // ── منوی کشویی: هر چیزی غیر از «انتخاب معدن / پیاده کردن نقاط پروانه / عکس سینه‌کار و ماشین‌آلات» ──
   const drawer = mountDrawerMenu([
     {
@@ -156,6 +180,7 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
         );
       },
     },
+    ...specialtyTools,
     {
       icon: '🗂️',
       label: 'گزارش‌های تکمیلی',
