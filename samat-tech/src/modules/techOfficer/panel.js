@@ -106,6 +106,8 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
   }
 
   // ── منوی کشویی: هر چیزی غیر از «انتخاب معدن / پیاده کردن نقاط پروانه / عکس سینه‌کار و ماشین‌آلات» ──
+  // خروج از سامانه هم اینجاست (آخرین آیتم) — قبلاً دکمه‌ی جدا در نوار بالا بود؛ حالا هماهنگ با
+  // پنل ادمین (که «خروج از سامانه» پایین منوی کناری است) داخل همین منوی کشویی قرار گرفت.
   const drawer = mountDrawerMenu([
     {
       icon: '👤',
@@ -219,6 +221,11 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
         mountGovLinks(body, roleRow.membership_no, roleRow.national_code);
       },
     },
+    {
+      icon: '🚪',
+      label: 'خروج از سامانه',
+      onClick: onLogout,
+    },
   ]);
 
   const shell = el('div', { class: 'app-shell' }, [
@@ -229,7 +236,6 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
         el('div', { class: 'sub' }, `${SPEC_ICONS[specialty] || '🦺'} مسئول فنی — تخصص: ${specialty}`),
         gpsChipBox,
       ]),
-      el('button', { class: 'btn-sm', style: 'background:rgba(255,255,255,.15);color:#fff', onclick: onLogout }, 'خروج'),
     ]),
     el('div', { class: 'content' }, [
       banners,
