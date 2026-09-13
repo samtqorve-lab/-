@@ -93,6 +93,14 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
         openExplorationLogModal(mine, nameField, { email });
       }),
     });
+    specialtyTools.push({
+      icon: '🗺️',
+      label: 'نقشه زمین‌شناسی',
+      onClick: requireMine(async (mine) => {
+        const { openGeologyMapModal } = await import('./geologyMap.js');
+        openGeologyMapModal(mine, nameField);
+      }),
+    });
   }
   if (specialty === 'فرآوری') {
     specialtyTools.push({
