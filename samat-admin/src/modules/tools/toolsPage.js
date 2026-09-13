@@ -5,7 +5,9 @@ import { EQUIPMENT_CATEGORIES, EQUIPMENT_LIST } from '../../lib/equipmentSpecs.j
 import {
   calcEquipmentHourlyCost, calcMatchFactor, calcBreakEvenStrippingRatio, calcCutoffGrade,
   calcSlopeFactorOfSafety, calcRoyalty, calcNPV, calcIRR, calcStockpileVolume, calcCrusherCapacity,
+  calcReserveEstimate, calcMineLife, calcHaulCost, calcDepreciationSchedule,
 } from '../../lib/miningEconomics.js';
+import { printReportHTML } from '../../lib/printReport.js';
 
 function fmtNum(n, digits = 2) {
   if (n === null || n === undefined || Number.isNaN(n)) return '—';
@@ -29,6 +31,18 @@ function kpiCard(value, labelText, accent) {
   ]);
 }
 
+/** دکمه‌ی چاپ/PDF — محتوای فعلی resultBox را (هر زمان کلیک شود) در یک پنجره‌ی چاپ باز می‌کند.
+ * قبل از اولین محاسبه، resultBox خالی است، پس فقط یک هشدار نشان می‌دهد. */
+function printButton(title, resultBox) {
+  return el('button', {
+    class: 'btn-sm', style: 'background:var(--stone-100);margin-top:10px',
+    onclick: () => {
+      if (!resultBox.innerHTML.trim()) { showToast('⚠️ اول محاسبه را انجام دهید'); return; }
+      try { printReportHTML(title, resultBox.innerHTML); } catch (err) { showToast(`⚠️ ${err.message}`); }
+    },
+  }, '🖨️ چاپ / PDF');
+}
+
 let activeToolSub = 'blast';
 
 const SUB_LABELS = {
@@ -41,6 +55,9 @@ const SUB_LABELS = {
   royalty: '🏛️ حقوق دولتی',
   npv: '📈 جریان نقدی و NPV',
   stockpile: '🗻 حجم کپه و سنگ‌شکن',
+  reserve: '📦 برآورد ذخیره و عمر معدن',
+  haul: '🚛 هزینه‌ی حمل',
+  depreciation: '📉 جدول استهلاک تجهیزات',
 };
 
 export async function renderTools(container) {
@@ -61,6 +78,7 @@ export async function renderTools(container) {
     blast: renderBlastTab, converter: renderConverterTab, equipment: renderEquipmentTab,
     fleet: renderFleetTab, stripping: renderStrippingTab, slope: renderSlopeTab,
     royalty: renderRoyaltyTab, npv: renderNpvTab, stockpile: renderStockpileTab,
+    reserve: renderReserveTab, haul: renderHaulTab, depreciation: renderDepreciationTab,
   };
   renderers[activeToolSub](body);
 }
@@ -168,7 +186,7 @@ function renderBlastTab(body) {
 
   body.append(el('div', { class: 'card' }, [
     el('h3', { style: 'margin-top:0' }, '💥 طراحی الگوی آتش‌باری و محاسبه‌ی مواد ناریه'),
-    intro, grid1, grid2, runBtn, resultBox,
+    intro, grid1, grid2, runBtn, resultBox, printButton('طراحی الگوی آتش‌باری', resultBox),
   ]));
 }
 
@@ -318,7 +336,7 @@ function renderFleetTab(body) {
   const card1 = el('div', { class: 'card' }, [
     el('h3', { style: 'margin-top:0' }, '🚚 هزینه‌ی ساعتی ماشین‌آلات (مالکیت + بهره‌برداری)'),
     el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:10px' }, 'روش رایج «نرخ ماشین» (Machine Rate) — برای برآورد هزینه‌ی واقعی هر ساعت کارکرد یک دستگاه.'),
-    grid, runBtn, resultBox,
+    grid, runBtn, resultBox, printButton('هزینه‌ی ساعتی ماشین‌آلات', resultBox),
   ]);
 
   // کارت دوم: تطبیق ناوگان بیل-کامیون
@@ -360,7 +378,7 @@ function renderFleetTab(body) {
     el('h3', { style: 'margin-top:0' }, '🔁 تطبیق ناوگان بیل - کامیون (Match Factor)'),
     el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:10px' },
       'Match Factor ≈ 1 یعنی تعادل خوب؛ بزرگ‌تر از ۱ یعنی کامیون اضافه (صف پشت بیل)، کوچک‌تر از ۱ یعنی بیل بیکار می‌ماند.'),
-    grid2, runBtn2, resultBox2,
+    grid2, runBtn2, resultBox2, printButton('تطبیق ناوگان بیل-کامیون', resultBox2),
   ]);
 
   body.append(card1, card2);
@@ -391,7 +409,7 @@ function renderStrippingTab(body) {
   });
   const card1 = el('div', { class: 'card' }, [
     el('h3', { style: 'margin-top:0' }, '⛏️ نسبت باطله‌برداری اقتصادی (Break-even Stripping Ratio)'),
-    grid, runBtn, resultBox,
+    grid, runBtn, resultBox, printButton('نسبت باطله‌برداری اقتصادی', resultBox),
   ]);
 
   const gradeUnit = selectField('واحد عیار', { gpt: { label: 'گرم بر تن (مثل طلا)' }, percent: { label: 'درصد (مثل مس/آهن)' } }, 'gpt');
@@ -422,7 +440,7 @@ function renderStrippingTab(body) {
   });
   const card2 = el('div', { class: 'card', style: 'margin-top:14px' }, [
     el('h3', { style: 'margin-top:0' }, '📊 عیار حد (Cut-off Grade)'),
-    grid2, runBtn2, resultBox2,
+    grid2, runBtn2, resultBox2, printButton('عیار حد', resultBox2),
   ]);
 
   body.append(card1, card2);
@@ -465,7 +483,7 @@ function renderSlopeTab(body) {
   });
   body.append(el('div', { class: 'card' }, [
     el('h3', { style: 'margin-top:0' }, '🏔️ پایداری شیب — روش شیب بی‌نهایت (ساده‌شده)'),
-    intro, grid, runBtn, resultBox,
+    intro, grid, runBtn, resultBox, printButton('پایداری شیب', resultBox),
   ]));
 }
 
@@ -498,7 +516,7 @@ function renderRoyaltyTab(body) {
   });
   body.append(el('div', { class: 'card' }, [
     el('h3', { style: 'margin-top:0' }, '🏛️ حقوق دولتی / بهره‌مالکانه'),
-    intro, grid, runBtn, resultBox,
+    intro, grid, runBtn, resultBox, printButton('حقوق دولتی', resultBox),
   ]));
 }
 
@@ -560,7 +578,7 @@ function renderNpvTab(body) {
     el('h3', { style: 'margin-top:0' }, '📈 جریان نقدی و NPV/IRR طرح معدنی'),
     intro,
     el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;max-width:420px' }, [years.wrap, discountRate.wrap]),
-    rowsBox, runBtn, resultBox,
+    rowsBox, runBtn, resultBox, printButton('جریان نقدی و NPV/IRR', resultBox),
   ]));
 }
 
@@ -587,7 +605,7 @@ function renderStockpileTab(body) {
       ]), el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-top:8px' }, r.shapeNote));
     } catch (err) { showToast(`⚠️ ${err.message}`); }
   });
-  const card1 = el('div', { class: 'card' }, [el('h3', { style: 'margin-top:0' }, '🗻 حجم و تناژ کپه‌ی مواد'), grid, runBtn, resultBox]);
+  const card1 = el('div', { class: 'card' }, [el('h3', { style: 'margin-top:0' }, '🗻 حجم و تناژ کپه‌ی مواد'), grid, runBtn, resultBox, printButton('حجم کپه', resultBox)]);
 
   const introCrusher = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:10px' }, [
     'برآورد بسیار تقریبی (rule-of-thumb) برای برآورد اولیه‌ی ظرفیت. ',
@@ -615,8 +633,148 @@ function renderStockpileTab(body) {
   });
   const card2 = el('div', { class: 'card', style: 'margin-top:14px' }, [
     el('h3', { style: 'margin-top:0' }, '⚙️ برآورد اولیه‌ی ظرفیت سنگ‌شکن'),
-    introCrusher, grid2, runBtn2, resultBox2,
+    introCrusher, grid2, runBtn2, resultBox2, printButton('ظرفیت سنگ‌شکن', resultBox2),
   ]);
 
   body.append(card1, card2);
+}
+
+// ————————————————————————————— برآورد ذخیره + عمر معدن —————————————————————————————
+function renderReserveTab(body) {
+  const intro = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:10px' }, [
+    'روش «منطقه‌ی تأثیر»: هر ردیف یک بلوک/گمانه است. ',
+    el('b', {}, '⚠️ برآورد دستی اولیه است، نه بلوک‌مدل زمین‌آماری — '),
+    'برای طبقه‌بندی رسمی ذخیره باید مهندس اکتشاف/زمین‌شناسی بررسی و تایید کند.',
+  ]);
+  const rowCount = numberField('تعداد بلوک/گمانه', 3, '1');
+  const rowsBox = el('div', { style: 'margin-top:12px;overflow-x:auto' });
+  let rowInputs = [];
+
+  function buildRows() {
+    const n = Math.max(1, Math.min(50, parseInt(rowCount.input.value, 10) || 1));
+    rowInputs = Array.from({ length: n }, () => ({
+      area: el('input', { type: 'number', value: '0', style: 'width:100px' }),
+      thickness: el('input', { type: 'number', value: '0', style: 'width:90px' }),
+      grade: el('input', { type: 'number', value: '0', style: 'width:90px' }),
+      density: el('input', { type: 'number', value: '2.6', style: 'width:90px' }),
+    }));
+    rowsBox.innerHTML = '';
+    const table = el('table', { class: 'data-table' });
+    table.append(el('thead', {}, el('tr', {}, ['بلوک', 'مساحت تأثیر (m²)', 'ضخامت (m)', 'عیار', 'چگالی (تن/m³)'].map((h) => el('th', {}, h)))));
+    const tbody = el('tbody');
+    rowInputs.forEach((row, i) => {
+      tbody.append(el('tr', {}, [
+        el('td', {}, String(i + 1)), el('td', {}, row.area), el('td', {}, row.thickness), el('td', {}, row.grade), el('td', {}, row.density),
+      ]));
+    });
+    table.append(tbody);
+    rowsBox.append(table);
+  }
+  rowCount.input.addEventListener('change', buildRows);
+  buildRows();
+
+  const annualProd = numberField('نرخ تولید سالانه (تن) — برای محاسبه‌ی عمر معدن', 0);
+  const runBtn = el('button', { class: 'btn btn-primary', style: 'width:100%;justify-content:center;margin-top:12px' }, '📦 محاسبه‌ی ذخیره و عمر معدن');
+  const resultBox = el('div', { style: 'margin-top:14px;display:none' });
+  runBtn.addEventListener('click', () => {
+    try {
+      const boreholes = rowInputs.map((row) => ({
+        influenceAreaM2: parseFloat(row.area.value) || 0, thicknessM: parseFloat(row.thickness.value) || 0,
+        grade: parseFloat(row.grade.value) || 0, densityTonM3: parseFloat(row.density.value) || 0,
+      }));
+      const r = calcReserveEstimate(boreholes);
+      resultBox.innerHTML = ''; resultBox.style.display = 'block';
+      const children = [el('div', { class: 'kpi-grid' }, [
+        kpiCard(fmtNum(r.totalVolumeM3, 0), 'حجم کل (m³)'),
+        kpiCard(fmtNum(r.totalTonnage, 0), 'تناژ کل ذخیره (تن)', 'var(--patina-600)'),
+        kpiCard(fmtNum(r.weightedGrade, 3), 'میانگین وزنی عیار'),
+      ])];
+      const annual = parseFloat(annualProd.input.value) || 0;
+      if (annual > 0) {
+        const life = calcMineLife(r.totalTonnage, annual);
+        children.push(el('div', { class: 'kpi-grid', style: 'margin-top:8px' }, [
+          kpiCard(`${fmtNum(life, 1)} سال`, 'عمر تخمینی معدن', 'var(--ochre-700)'),
+        ]));
+      }
+      resultBox.append(...children);
+    } catch (err) { showToast(`⚠️ ${err.message}`); }
+  });
+
+  body.append(el('div', { class: 'card' }, [
+    el('h3', { style: 'margin-top:0' }, '📦 برآورد ذخیره (منطقه‌ی تأثیر) و عمر معدن'),
+    intro,
+    el('div', { style: 'max-width:220px' }, rowCount.wrap),
+    rowsBox,
+    el('div', { style: 'max-width:420px;margin-top:10px' }, annualProd.wrap),
+    runBtn, resultBox, printButton('برآورد ذخیره و عمر معدن', resultBox),
+  ]));
+}
+
+// ————————————————————————————— هزینه‌ی حمل —————————————————————————————
+function renderHaulTab(body) {
+  const distance = numberField('فاصله‌ی یک‌طرفه (کیلومتر)', 5);
+  const speed = numberField('سرعت متوسط کامیون (کیلومتر بر ساعت)', 25);
+  const fixedTime = numberField('زمان ثابت بارگیری+تخلیه (دقیقه)', 8);
+  const truckHourly = numberField('هزینه‌ی ساعتی کامیون (تومان) — از ابزار «هزینه ماشین‌آلات» بگیرید', 0);
+  const truckCap = numberField('ظرفیت کامیون (تن)', 30);
+  const grid = el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px 14px' }, [distance.wrap, speed.wrap, fixedTime.wrap, truckHourly.wrap, truckCap.wrap]);
+  const runBtn = el('button', { class: 'btn btn-primary', style: 'width:100%;justify-content:center;margin-top:12px' }, '🚛 محاسبه‌ی هزینه‌ی حمل');
+  const resultBox = el('div', { style: 'margin-top:14px;display:none' });
+  runBtn.addEventListener('click', () => {
+    try {
+      const r = calcHaulCost({
+        oneWayDistanceKm: parseFloat(distance.input.value), avgSpeedKmH: parseFloat(speed.input.value),
+        fixedLoadDumpMinutes: parseFloat(fixedTime.input.value), truckHourlyCost: parseFloat(truckHourly.input.value),
+        truckCapacityTon: parseFloat(truckCap.input.value),
+      });
+      resultBox.innerHTML = ''; resultBox.style.display = 'block';
+      resultBox.append(el('div', { class: 'kpi-grid' }, [
+        kpiCard(`${fmtNum(r.cycleTimeSec / 60, 1)} min`, 'زمان کل سیکل'),
+        kpiCard(fmtNum(r.tripsPerHour, 2), 'تعداد سفر در ساعت'),
+        kpiCard(fmtNum(r.tonPerHour, 1), 'تناژ حمل‌شده در ساعت'),
+        kpiCard(fmtNum(r.costPerTon, 0), 'هزینه‌ی حمل هر تن (تومان)', 'var(--patina-600)'),
+        kpiCard(fmtNum(r.costPerTonKm, 0), 'هزینه‌ی حمل هر تن-کیلومتر (تومان)'),
+      ]));
+    } catch (err) { showToast(`⚠️ ${err.message}`); }
+  });
+  body.append(el('div', { class: 'card' }, [
+    el('h3', { style: 'margin-top:0' }, '🚛 هزینه‌ی حمل (Haul Cost)'),
+    grid, runBtn, resultBox, printButton('هزینه‌ی حمل', resultBox),
+  ]));
+}
+
+// ————————————————————————————— جدول استهلاک تجهیزات —————————————————————————————
+function renderDepreciationTab(body) {
+  const price = numberField('قیمت خرید (تومان)', 0);
+  const salvage = numberField('ارزش اسقاط (تومان)', 0);
+  const lifeYears = numberField('عمر مفید (سال)', 10, '1');
+  const method = selectField('روش استهلاک', { straight: { label: 'خط مستقیم' }, declining: { label: 'نزولی مضاعف (Double-declining)' } }, 'straight');
+  const grid = el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px 14px' }, [price.wrap, salvage.wrap, lifeYears.wrap, method.wrap]);
+  const runBtn = el('button', { class: 'btn btn-primary', style: 'width:100%;justify-content:center;margin-top:12px' }, '📉 محاسبه‌ی جدول استهلاک');
+  const resultBox = el('div', { style: 'margin-top:14px;display:none' });
+  runBtn.addEventListener('click', () => {
+    try {
+      const rows = calcDepreciationSchedule({
+        purchasePrice: parseFloat(price.input.value), salvageValue: parseFloat(salvage.input.value),
+        lifeYears: parseInt(lifeYears.input.value, 10), method: method.select.value,
+      });
+      resultBox.innerHTML = ''; resultBox.style.display = 'block';
+      const table = el('table', { class: 'data-table' });
+      table.append(el('thead', {}, el('tr', {}, ['سال', 'استهلاک سالانه', 'استهلاک انباشته', 'ارزش دفتری'].map((h) => el('th', {}, h)))));
+      const tbody = el('tbody');
+      rows.forEach((row) => {
+        tbody.append(el('tr', {}, [
+          el('td', {}, String(row.year)), el('td', {}, fmtNum(row.depreciation, 0)),
+          el('td', {}, fmtNum(row.accumulated, 0)), el('td', {}, fmtNum(row.bookValue, 0)),
+        ]));
+      });
+      table.append(tbody);
+      resultBox.append(table);
+    } catch (err) { showToast(`⚠️ ${err.message}`); }
+  });
+  body.append(el('div', { class: 'card' }, [
+    el('h3', { style: 'margin-top:0' }, '📉 جدول استهلاک تجهیزات'),
+    el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:10px' }, 'برای اظهارنامه‌ی مالیاتی یا حسابداری داخلی — روش و نرخ نهایی را با حسابدار/ممیز مالیاتی تطبیق دهید.'),
+    grid, runBtn, resultBox, printButton('جدول استهلاک تجهیزات', resultBox),
+  ]));
 }
