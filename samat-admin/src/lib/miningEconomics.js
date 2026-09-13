@@ -1,7 +1,8 @@
 /**
- * محاسبات فنی-اقتصادی معدنی (فاز دوم ابزارها): هزینه‌ی ساعتی ماشین‌آلات، تطبیق ناوگان بیل-کامیون،
+ * محاسبات فنی-اقتصادی معدنی (فاز دوم و سوم ابزارها): هزینه‌ی ساعتی ماشین‌آلات، تطبیق ناوگان بیل-کامیون،
  * نسبت باطله‌برداری اقتصادی، عیار حد، پایداری شیب (شیب بی‌نهایت)، حقوق دولتی/بهره‌مالکانه،
- * جریان نقدی/NPV/IRR طرح، حجم کپه، و برآورد اولیه‌ی ظرفیت سنگ‌شکن.
+ * جریان نقدی/NPV/IRR طرح، حجم کپه، برآورد اولیه‌ی ظرفیت سنگ‌شکن، برآورد ذخیره از گمانه + عمر معدن،
+ * هزینه‌ی حمل، و جدول استهلاک تجهیزات.
  * همه‌ی این‌ها برآورد مهندسی/مالی اولیه‌اند — برای تصمیم نهایی، مقادیر باید توسط مسئول فنی/کارشناس
  * مربوطه با شرایط واقعی سایت و آخرین تعرفه/آیین‌نامه تطبیق داده شوند.
  */
@@ -140,4 +141,66 @@ export function calcStockpileVolume(p) {
 export function calcCrusherCapacity(p) {
   const capacityTonPerHour = 0.6 * p.widthM * p.openSideSettingM * p.speedRpm * p.bulkDensityTonM3 * (p.efficiencyFactor ?? 0.2) * 60;
   return { capacityTonPerHour };
+}
+
+// ————————————————————————— برآورد ذخیره از بلوک‌های تأثیر گمانه + عمر معدن —————————————————————————
+/**
+ * روش «منطقه‌ی تأثیر» (Area/Polygon of Influence) — ساده‌ترین و رایج‌ترین روش دستی برآورد ذخیره از
+ * داده‌ی گمانه‌زنی: هر گمانه نماینده‌ی یک بلوک با مساحت تأثیر معین است. تناژ هر بلوک و میانگین
+ * وزنی عیار کل ذخیره از مجموع بلوک‌ها به دست می‌آید.
+ * ⚠️ این یک برآورد دستی اولیه است، نه یک بلوک‌مدل زمین‌آماری (Kriging/geostatistics) — برای طبقه‌بندی
+ * رسمی ذخیره (اندازه‌شده/احتمالی/امکان‌پذیر طبق آیین‌نامه‌ی طبقه‌بندی ذخایر) باید توسط مهندس
+ * اکتشاف/زمین‌شناسی و با نرم‌افزار تخصصی بررسی و تایید شود.
+ */
+export function calcReserveEstimate(boreholes) {
+  const blocks = boreholes.map((b) => {
+    const volumeM3 = b.influenceAreaM2 * b.thicknessM;
+    const tonnage = volumeM3 * b.densityTonM3;
+    return { ...b, volumeM3, tonnage };
+  });
+  const totalTonnage = blocks.reduce((sum, b) => sum + b.tonnage, 0);
+  const weightedGrade = totalTonnage > 0
+    ? blocks.reduce((sum, b) => sum + b.tonnage * b.grade, 0) / totalTonnage
+    : 0;
+  const totalVolumeM3 = blocks.reduce((sum, b) => sum + b.volumeM3, 0);
+  return { blocks, totalVolumeM3, totalTonnage, weightedGrade };
+}
+
+export function calcMineLife(totalReserveTon, annualProductionTon) {
+  if (!(annualProductionTon > 0)) throw new Error('نرخ تولید سالانه باید بزرگ‌تر از صفر باشد');
+  return totalReserveTon / annualProductionTon;
+}
+
+// ————————————————————————— هزینه‌ی حمل (Haul Cost) —————————————————————————
+export function calcHaulCost(p) {
+  const oneWaySeconds = (p.oneWayDistanceKm / p.avgSpeedKmH) * 3600;
+  const cycleTimeSec = oneWaySeconds * 2 + (p.fixedLoadDumpMinutes || 0) * 60;
+  const tripsPerHour = 3600 / cycleTimeSec;
+  const tonPerHour = tripsPerHour * p.truckCapacityTon;
+  if (tonPerHour <= 0) throw new Error('پارامترها باید مثبت باشند');
+  const costPerTon = p.truckHourlyCost / tonPerHour;
+  const costPerTonKm = costPerTon / p.oneWayDistanceKm;
+  return { cycleTimeSec, tripsPerHour, tonPerHour, costPerTon, costPerTonKm };
+}
+
+// ————————————————————————— جدول استهلاک تجهیزات —————————————————————————
+/** روش خط مستقیم (Straight-line) و نزولی مضاعف (Double-declining Balance)، هرکدام محدود به سقف
+ * ارزش اسقاط (استهلاک نزولی هیچ‌وقت کتاب را زیر ارزش اسقاط نمی‌برد). */
+export function calcDepreciationSchedule(p) {
+  const rows = [];
+  let bookValue = p.purchasePrice;
+  const straightAnnual = (p.purchasePrice - p.salvageValue) / p.lifeYears;
+  const decliningRate = 2 / p.lifeYears;
+  for (let year = 1; year <= p.lifeYears; year += 1) {
+    let depreciation;
+    if (p.method === 'declining') {
+      depreciation = Math.min(bookValue * decliningRate, bookValue - p.salvageValue);
+      depreciation = Math.max(depreciation, 0);
+    } else {
+      depreciation = straightAnnual;
+    }
+    bookValue -= depreciation;
+    rows.push({ year, depreciation, accumulated: p.purchasePrice - bookValue, bookValue });
+  }
+  return rows;
 }
