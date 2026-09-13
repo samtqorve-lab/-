@@ -140,7 +140,11 @@ export async function requestPushApproval(email, onResolve, onAwaitingCode) {
     if (notifyResult && notifyResult.ok === false) {
       tryTelegramFallback();
     } else {
-      timer = setTimeout(tryTelegramFallback, 20000);
+      // ارسال موفق به FCM (سرور Google) هیچ تضمینی برای رسیدن واقعی به گوشی نمی‌دهد — طبق لاگ‌های
+      // واقعی این پروژه، حتی وقتی FCM با موفقیت (200) پیام را قبول می‌کند، به‌خاطر محدودیت
+      // سرویس‌های گوگل در ایران ممکن است هیچ‌وقت به دستگاه نرسد. قبلاً ۲۰ ثانیه صبر می‌کردیم که
+      // تجربه‌ی کاربر را کند می‌کرد؛ حالا با تاخیر کوتاه‌تر (۶ ثانیه) به کد تلگرام برمی‌گردیم.
+      timer = setTimeout(tryTelegramFallback, 6000);
     }
   }).catch(() => {
     if (!settled) tryTelegramFallback();
