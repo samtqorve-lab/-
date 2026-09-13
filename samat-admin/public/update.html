@@ -338,7 +338,18 @@
       var url = urlByKey[src.key];
       var isPrimary = !primaryAssigned && (url || src.alwaysAvailable);
       if (url || src.alwaysAvailable) primaryAssigned = true;
-      actionsBox.appendChild(buildButton(src, url, isPrimary));
+      var btn = buildButton(src, url, isPrimary);
+      // نکته‌ی مهم: فایل روی Supabase Storage همیشه یک مسیر ثابت دارد (samat-tech.apk) که فقط
+      // کوئری‌استرینگ ?v= عوض می‌شود؛ یعنی نام فایلی که مرورگر ذخیره می‌کند در هر نسخه یکسان
+      // است. این دقیقاً همان چیزی است که باعث شد کاربر چندبار پشت‌سرهم گمان کند «همین الان
+      // نسخه‌ی جدید را نصب کردم» ولی در واقع فایل قدیمی/تکراری هم‌نامی که از قبل در پوشه‌ی
+      // دانلودهای گوشی مانده بود دوباره باز و نصب می‌شد. با گذاشتن نام دانلود مجزا برای هر
+      // نسخه (مثلاً samat-tech-123.apk)، هر بیلد فایل جدا و قابل‌تشخیصی می‌سازد و این تداخل
+      // دیگر رخ نمی‌دهد.
+      if (src.key === 'direct' && url) {
+        btn.setAttribute('download', 'samat-' + appKey + '-' + newVersion + '.apk');
+      }
+      actionsBox.appendChild(btn);
     });
 
     var trust = document.createElement('div');
