@@ -1,8 +1,8 @@
 /**
- * محاسبات فنی-اقتصادی معدنی (فاز دوم و سوم ابزارها): هزینه‌ی ساعتی ماشین‌آلات، تطبیق ناوگان بیل-کامیون،
+ * محاسبات فنی-اقتصادی معدنی (فاز دوم، سوم و چهارم ابزارها): هزینه‌ی ساعتی ماشین‌آلات، تطبیق ناوگان بیل-کامیون،
  * نسبت باطله‌برداری اقتصادی، عیار حد، پایداری شیب (شیب بی‌نهایت)، حقوق دولتی/بهره‌مالکانه،
  * جریان نقدی/NPV/IRR طرح، حجم کپه، برآورد اولیه‌ی ظرفیت سنگ‌شکن، برآورد ذخیره از گمانه + عمر معدن،
- * هزینه‌ی حمل، و جدول استهلاک تجهیزات.
+ * هزینه‌ی حمل، جدول استهلاک تجهیزات، و هزینه‌ی برنامه‌ی حفاری اکتشافی.
  * همه‌ی این‌ها برآورد مهندسی/مالی اولیه‌اند — برای تصمیم نهایی، مقادیر باید توسط مسئول فنی/کارشناس
  * مربوطه با شرایط واقعی سایت و آخرین تعرفه/آیین‌نامه تطبیق داده شوند.
  */
@@ -203,4 +203,19 @@ export function calcDepreciationSchedule(p) {
     rows.push({ year, depreciation, accumulated: p.purchasePrice - bookValue, bookValue });
   }
   return rows;
+}
+
+// ————————————————————————— هزینه‌ی برنامه‌ی حفاری اکتشافی —————————————————————————
+export function calcExplorationDrillingCost(p) {
+  const totalDrillLengthM = p.numHoles * p.avgDepthM;
+  const drillingCost = totalDrillLengthM * p.costPerMeterDrilling;
+  const totalSamples = p.numHoles * p.samplesPerHole;
+  const sampleCost = totalSamples * (p.sampleCostEach + p.assayCostEach);
+  const totalCost = drillingCost + sampleCost + (p.mobilizationCost || 0);
+  const result = { totalDrillLengthM, drillingCost, totalSamples, sampleCost, totalCost };
+  if (p.minCommittedBudget > 0) {
+    result.meetsCommitment = totalCost >= p.minCommittedBudget;
+    result.shortfall = Math.max(0, p.minCommittedBudget - totalCost);
+  }
+  return result;
 }
