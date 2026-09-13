@@ -82,7 +82,10 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
   captureApi.mountWidget(captureBox);
 
   // ── ابزارهای اختصاصی هر تخصص — فقط برای اکتشاف/فرآوری اضافه می‌شوند، بقیه‌ی ابزارهای عمومی
-  // (چک‌لیست ایمنی، گزارش تولید/عیار عمومی، تجهیزات و...) برای هر سه تخصص فعال می‌مانند ──
+  // (چک‌لیست ایمنی، گزارش تولید/عیار عمومی، تجهیزات و...) برای هر سه تخصص فعال می‌مانند.
+  // برخلاف قبل، این‌ها دیگر داخل منوی کشویی نیستند — به‌صورت زیرمنوی بازشو (آکاردئون) درست زیر
+  // خودِ کارت «انتخاب معدن/محدوده اکتشافی/واحد فرآوری» نمایش داده می‌شوند، چون منطقاً به همان
+  // معدن/واحدِ انتخاب‌شده وابسته‌اند ──
   const specialtyTools = [];
   if (specialty === 'اکتشاف') {
     specialtyTools.push({
@@ -113,9 +116,40 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
     });
   }
 
-  // ── منوی کشویی: هر چیزی غیر از «انتخاب معدن / پیاده کردن نقاط پروانه / عکس سینه‌کار و ماشین‌آلات» ──
-  // خروج از سامانه هم اینجاست (آخرین آیتم) — قبلاً دکمه‌ی جدا در نوار بالا بود؛ حالا هماهنگ با
-  // پنل ادمین (که «خروج از سامانه» پایین منوی کناری است) داخل همین منوی کشویی قرار گرفت.
+  // ── زیرمنوی بازشوی ابزارهای تخصصی (فقط وقتی specialtyTools چیزی دارد رندر می‌شود؛ برای
+  // تخصص «استخراج» این جعبه اصلاً ساخته نمی‌شود) ──
+  const specialtyBox = el('div', { style: 'margin-top:10px' });
+  let specialtyOpen = true;
+  function renderSpecialtyAccordion() {
+    specialtyBox.innerHTML = '';
+    if (!specialtyTools.length) return;
+    const header = el('button', {
+      style: 'width:100%;display:flex;justify-content:space-between;align-items:center;background:var(--stone-100);'
+        + 'border:1px solid var(--stone-200);border-radius:10px;padding:10px 14px;font-size:var(--text-sm);'
+        + 'font-weight:700;color:var(--ink-700);cursor:pointer',
+      onclick: () => { specialtyOpen = !specialtyOpen; renderSpecialtyAccordion(); },
+    }, [
+      el('span', {}, `${SPEC_ICONS[specialty] || '🛠️'} ابزارهای تخصصی ${specialty}`),
+      el('span', {}, specialtyOpen ? '▲' : '▼'),
+    ]);
+    specialtyBox.append(header);
+    if (specialtyOpen) {
+      const list = el('div', { style: 'display:flex;flex-direction:column;gap:6px;margin-top:8px' });
+      specialtyTools.forEach((t) => {
+        list.append(el('button', {
+          class: 'btn-sm',
+          style: 'width:100%;background:var(--stone-50);color:var(--ink-700);display:flex;align-items:center;gap:8px;justify-content:flex-start;text-align:right',
+          onclick: t.onClick,
+        }, [el('span', {}, t.icon), el('span', {}, t.label)]));
+      });
+      specialtyBox.append(list);
+    }
+  }
+  renderSpecialtyAccordion();
+
+  // ── منوی کشویی: هر چیزی غیر از «انتخاب معدن / ابزارهای تخصصی / پیاده کردن نقاط پروانه /
+  // عکس سینه‌کار و ماشین‌آلات» — یعنی همان ابزارهای عمومیِ مشترک بین هر سه تخصص. خروج از سامانه
+  // هم اینجاست (آخرین آیتم) — هماهنگ با پنل ادمین (که «خروج از سامانه» پایین منوی کناری است) ──
   const drawer = mountDrawerMenu([
     {
       icon: '👤',
@@ -190,7 +224,6 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
         );
       },
     },
-    ...specialtyTools,
     {
       icon: '🗂️',
       label: 'گزارش‌های تکمیلی',
@@ -251,6 +284,7 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
         el('h3', {}, `${meta.dept === 'معدن' ? '⛏️' : meta.dept === 'اکتشاف' ? '🔍' : '⚗️'} انتخاب ${meta.dept === 'معدن' ? 'معدن' : meta.dept === 'اکتشاف' ? 'محدوده اکتشافی' : 'واحد فرآوری'}`),
         mineSelect,
         multiMineBox,
+        specialtyBox,
         el('button', {
           class: 'btn-sm', style: 'background:var(--patina-50);color:var(--patina-700);margin-top:10px;width:100%',
           onclick: requireMine(async (mine) => {
