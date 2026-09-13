@@ -104,6 +104,24 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
         openGeologyMapModal(mine, nameField);
       }),
     });
+    specialtyTools.push({
+      icon: '📸',
+      label: 'عکس روزانه محل گمانه',
+      onClick: requireMine(async (mine) => {
+        const { openExplorationSitePhotoModal } = await import('./explorationSitePhotos.js');
+        openExplorationSitePhotoModal(mine, nameField, {
+          email, getProfile: () => ({ fullName: fullNameInput.value.trim(), membershipNo: membershipInput.value.trim() }),
+        });
+      }),
+    });
+    specialtyTools.push({
+      icon: '📈',
+      label: 'گزارش پیشرفت',
+      onClick: requireMine(async (mine) => {
+        const { openExplorationProgressModal } = await import('./explorationProgress.js');
+        openExplorationProgressModal(mine, nameField);
+      }),
+    });
   }
   if (specialty === 'فرآوری') {
     specialtyTools.push({
@@ -112,6 +130,16 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
       onClick: requireMine(async (mine) => {
         const { openProcessingReportModal } = await import('./processingReport.js');
         openProcessingReportModal(mine, nameField, meta.dept);
+      }),
+    });
+    specialtyTools.push({
+      icon: '📸',
+      label: 'عکس روزانه کارخانه/دپو',
+      onClick: requireMine(async (mine) => {
+        const { openProcessingSitePhotoModal } = await import('./processingSitePhotos.js');
+        openProcessingSitePhotoModal(mine, nameField, {
+          email, getProfile: () => ({ fullName: fullNameInput.value.trim(), membershipNo: membershipInput.value.trim() }),
+        });
       }),
     });
   }
