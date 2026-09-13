@@ -33,6 +33,7 @@ const LAZY_RENDERERS = {
   satelliteMonitor: () => import('./modules/map/satelliteMonitorPage.js').then((m) => m.renderSatelliteMonitor),
   terrain3d: () => import('./modules/map/terrain3dPage.js').then((m) => m.renderTerrain3D),
   pitDesign: () => import('./modules/design/pitDesignPage.js').then((m) => m.renderPitDesign),
+  tools: () => import('./modules/tools/toolsPage.js').then((m) => m.renderTools),
 };
 
 let appCtx = null;
