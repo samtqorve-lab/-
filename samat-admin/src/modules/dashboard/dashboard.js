@@ -1,8 +1,8 @@
 import { el, showToast } from '../../lib/dom.js';
-import { fetchDeptRecords, applyGeoScope } from '../../lib/records.js';
+import { fetchDeptRecords, applyGeoScope, DEPT_TABLES } from '../../lib/records.js';
 import { DEPT_NAME_FIELD } from '../../lib/sections.js';
 import { licenseExpiryInfo } from '../../lib/jalali.js';
-import { setTab } from '../../router.js';
+import { setTab, setDepartment } from '../../router.js';
 import { sb } from '../../lib/supabase.js';
 import { fetchAllUsers } from '../../lib/users.js';
 
@@ -34,6 +34,78 @@ function attentionCard({ icon, label, count, accent, onClick }) {
     el('div', { class: 'kpi-n' }, String(count)),
     el('div', { class: 'kpi-l' }, `${icon} ${label}`),
   ]);
+}
+
+/**
+ * برخلاف بقیه‌ی این فایل که همیشه محدود به state.department است، این تابع هر ۵ بخش را یک‌جا
+ * می‌خواند — برای دیدن وضعیت کل شهرستان (نه فقط بخشی که الان انتخاب شده) بدون سر زدن دستی به
+ * هر بخش. اقدام اصلاحی باز/ماشین‌آلات در انتظار هم بدون فیلتر دپارتمان جمع زده می‌شوند.
+ */
+async function fetchCountyWideSummary(assignedProvince, assignedCounty) {
+  const depts = Object.keys(DEPT_TABLES);
+  const perDept = await Promise.all(depts.map(async (dept) => {
+    const nameField = DEPT_NAME_FIELD[dept];
+    let list = await fetchDeptRecords(dept).catch(() => []);
+    list = applyGeoScope(list, assignedProvince, assignedCounty);
+    const withExpiry = list.map((m) => licenseExpiryInfo(m, dept)).filter(Boolean);
+    const expired = withExpiry.filter((i) => i.expired).length;
+    const soon = withExpiry.filter((i) => !i.expired && i.monthsLeft <= 3).length;
+    return { dept, nameField, total: list.length, expired, soon };
+  }));
+
+  const [correctiveRes, equipRes] = await Promise.all([
+    sb.from('corrective_actions').select('id').eq('status', 'open'),
+    sb.from('mine_equipment').select('id').eq('status', 'pending'),
+  ]);
+
+  return {
+    perDept,
+    totalRecords: perDept.reduce((s, d) => s + d.total, 0),
+    totalExpired: perDept.reduce((s, d) => s + d.expired, 0),
+    totalSoon: perDept.reduce((s, d) => s + d.soon, 0),
+    openCorrective: (correctiveRes.data || []).length,
+    pendingEquipment: (equipRes.data || []).length,
+  };
+}
+
+function renderCountyWideSection(container) {
+  const section = el('div', { class: 'card', style: 'margin-bottom:20px' });
+  const toggleBtn = el('button', {
+    class: 'btn-sm', style: 'background:var(--stone-100);color:var(--ink-700)',
+    onclick: async () => {
+      toggleBtn.disabled = true; toggleBtn.textContent = '⏳ در حال بارگذاری...';
+      try {
+        const summary = await fetchCountyWideSummary(undefined, undefined);
+        body.innerHTML = '';
+        body.append(el('div', { class: 'kpi-grid' }, [
+          el('div', { class: 'kpi-card', style: '--kpi-accent:var(--schist-600)' }, [el('div', { class: 'kpi-n' }, String(summary.totalRecords)), el('div', { class: 'kpi-l' }, 'کل پروانه‌ها (همه‌ی بخش‌ها)')]),
+          el('div', { class: 'kpi-card', style: '--kpi-accent:var(--rust-600)' }, [el('div', { class: 'kpi-n' }, String(summary.totalExpired)), el('div', { class: 'kpi-l' }, 'منقضی‌شده (کل)')]),
+          el('div', { class: 'kpi-card', style: '--kpi-accent:var(--amber-600)' }, [el('div', { class: 'kpi-n' }, String(summary.totalSoon)), el('div', { class: 'kpi-l' }, 'نزدیک به انقضا (کل)')]),
+          el('div', { class: 'kpi-card', style: '--kpi-accent:var(--ochre-600)', onclick: () => setTab('checklist') }, [el('div', { class: 'kpi-n' }, String(summary.openCorrective)), el('div', { class: 'kpi-l' }, 'اقدام اصلاحی باز (کل)')]),
+          el('div', { class: 'kpi-card', style: '--kpi-accent:var(--clay-600)', onclick: () => setTab('checklist') }, [el('div', { class: 'kpi-n' }, String(summary.pendingEquipment)), el('div', { class: 'kpi-l' }, 'ماشین‌آلات در انتظار تایید (کل)')]),
+        ]));
+        const table = el('table', { class: 'data-table', style: 'width:100%;margin-top:14px;font-size:var(--text-sm)' });
+        table.append(el('thead', {}, el('tr', {}, ['بخش', 'تعداد', 'منقضی', 'نزدیک به انقضا'].map((h) => el('th', {}, h)))));
+        const tbody = el('tbody');
+        summary.perDept.forEach((d) => {
+          tbody.append(el('tr', { style: 'cursor:pointer', onclick: () => setDepartment(d.dept) }, [
+            el('td', { style: 'font-weight:700' }, d.dept), el('td', {}, String(d.total)),
+            el('td', { style: d.expired ? 'color:var(--rust-600);font-weight:700' : '' }, String(d.expired)),
+            el('td', { style: d.soon ? 'color:var(--amber-600);font-weight:700' : '' }, String(d.soon)),
+          ]));
+        });
+        table.append(tbody);
+        body.append(table);
+        toggleBtn.remove();
+      } catch (err) {
+        showToast(`⚠️ خطا: ${err.message}`);
+        toggleBtn.disabled = false; toggleBtn.textContent = '🏛️ نمایش نمای کلی شهرستان (همه‌ی بخش‌ها)';
+      }
+    },
+  }, '🏛️ نمایش نمای کلی شهرستان (همه‌ی بخش‌ها)');
+  const body = el('div', { style: 'margin-top:10px' });
+  section.append(el('h3', { style: 'margin-top:0' }, '🏛️ نمای کلی شهرستان'), toggleBtn, body);
+  container.append(section);
 }
 
 export async function renderDashboard(container, state, appCtx, opts = {}) {
@@ -82,6 +154,8 @@ export async function renderDashboard(container, state, appCtx, opts = {}) {
   container.append(el('div', {
     style: 'font-size:var(--text-xs);color:var(--stone-500);margin-bottom:10px;clear:both',
   }, 'داده‌ها تا ۱ دقیقه کش می‌شوند — اگر همین الان جای دیگری تغییری داده‌اید، از دکمه‌ی بالا استفاده کنید.'));
+
+  renderCountyWideSection(container);
 
   const attentionBox = el('div', { class: 'card', style: 'margin-bottom:20px' }, [
     el('div', { class: 'loading-state' }, 'در حال بررسی موارد نیازمند پیگیری...'),
