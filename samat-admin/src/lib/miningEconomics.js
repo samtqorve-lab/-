@@ -1,8 +1,9 @@
 /**
- * محاسبات فنی-اقتصادی معدنی (فاز دوم، سوم و چهارم ابزارها): هزینه‌ی ساعتی ماشین‌آلات، تطبیق ناوگان بیل-کامیون،
+ * محاسبات فنی-اقتصادی معدنی (فاز دوم، سوم، چهارم و پنجم ابزارها): هزینه‌ی ساعتی ماشین‌آلات، تطبیق ناوگان بیل-کامیون،
  * نسبت باطله‌برداری اقتصادی، عیار حد، پایداری شیب (شیب بی‌نهایت)، حقوق دولتی/بهره‌مالکانه،
  * جریان نقدی/NPV/IRR طرح، حجم کپه، برآورد اولیه‌ی ظرفیت سنگ‌شکن، برآورد ذخیره از گمانه + عمر معدن،
- * هزینه‌ی حمل، جدول استهلاک تجهیزات، و هزینه‌ی برنامه‌ی حفاری اکتشافی.
+ * هزینه‌ی حمل، جدول استهلاک تجهیزات، هزینه‌ی برنامه‌ی حفاری اکتشافی، آبکشی چاه/گودال، و جدول
+ * اقساط وام خرید تجهیزات.
  * همه‌ی این‌ها برآورد مهندسی/مالی اولیه‌اند — برای تصمیم نهایی، مقادیر باید توسط مسئول فنی/کارشناس
  * مربوطه با شرایط واقعی سایت و آخرین تعرفه/آیین‌نامه تطبیق داده شوند.
  */
@@ -218,4 +219,41 @@ export function calcExplorationDrillingCost(p) {
     result.shortfall = Math.max(0, p.minCommittedBudget - totalCost);
   }
   return result;
+}
+
+// ————————————————————————— آبکشی چاه/گودال (Dewatering) —————————————————————————
+/**
+ * برآورد بسیار ساده: ظرفیت پمپ لازم = دبی ورودی آب × ضریب اطمینان. اگر حجم آب راکد فعلی داده
+ * شود، زمان لازم برای خشک‌کردن گودال هم محاسبه می‌شود.
+ * ⚠️ دبی ورودی واقعی باید از آزمایش پمپاژ/مطالعه‌ی هیدروژئولوژی به دست بیاید، نه حدس.
+ */
+export function calcDewatering(p) {
+  const requiredPumpCapacityM3PerHour = p.inflowM3PerHour * (1 + (p.safetyFactorPercent || 0) / 100);
+  let timeToDewaterHours = null;
+  if (p.standingWaterVolumeM3 > 0) {
+    const netRemovalRate = requiredPumpCapacityM3PerHour - p.inflowM3PerHour;
+    if (netRemovalRate <= 0) throw new Error('ظرفیت پمپ باید از دبی ورودی آب بیشتر باشد تا گودال خشک شود');
+    timeToDewaterHours = p.standingWaterVolumeM3 / netRemovalRate;
+  }
+  return { requiredPumpCapacityM3PerHour, timeToDewaterHours };
+}
+
+// ————————————————————————— جدول اقساط وام خرید تجهیزات —————————————————————————
+export function calcLoanAmortization(p) {
+  const monthlyRate = p.annualRatePercent / 100 / 12;
+  const n = p.months;
+  const monthlyPayment = monthlyRate === 0
+    ? p.principal / n
+    : (p.principal * monthlyRate * (1 + monthlyRate) ** n) / ((1 + monthlyRate) ** n - 1);
+  const rows = [];
+  let balance = p.principal;
+  for (let month = 1; month <= n; month += 1) {
+    const interestPortion = balance * monthlyRate;
+    const principalPortion = monthlyPayment - interestPortion;
+    balance -= principalPortion;
+    rows.push({ month, payment: monthlyPayment, interestPortion, principalPortion, balance: Math.max(0, balance) });
+  }
+  const totalPaid = monthlyPayment * n;
+  const totalInterest = totalPaid - p.principal;
+  return { monthlyPayment, rows, totalPaid, totalInterest };
 }
