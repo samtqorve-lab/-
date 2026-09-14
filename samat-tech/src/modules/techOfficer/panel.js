@@ -115,6 +115,14 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
       }),
     });
     specialtyTools.push({
+      icon: '🧪',
+      label: 'زنجیره نگهداری نمونه',
+      onClick: requireMine(async (mine) => {
+        const { openExplorationSampleCustodyModal } = await import('./explorationSampleCustody.js');
+        openExplorationSampleCustodyModal(mine, nameField);
+      }),
+    });
+    specialtyTools.push({
       icon: '📈',
       label: 'گزارش پیشرفت',
       onClick: requireMine(async (mine) => {
@@ -140,6 +148,14 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
         openProcessingSitePhotoModal(mine, nameField, {
           email, getProfile: () => ({ fullName: fullNameInput.value.trim(), membershipNo: membershipInput.value.trim() }),
         });
+      }),
+    });
+    specialtyTools.push({
+      icon: '⚡',
+      label: 'مصرف مواد شیمیایی و انرژی',
+      onClick: requireMine(async (mine) => {
+        const { openProcessingConsumptionModal } = await import('./processingConsumption.js');
+        openProcessingConsumptionModal(mine, nameField);
       }),
     });
   }
