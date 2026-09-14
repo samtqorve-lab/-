@@ -114,17 +114,19 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           set -e
-          # قبلاً app-debug.apk بود — برای هماهنگی امضا با هر نسخه‌ای که ممکن است به‌صورت دستی
-          # (release-signed) نصب شده باشد، و برای جلوگیری از توزیع نسخه‌ی دیباگ به کاربر نهایی،
-          # از این پس آپدیت خودکار هم از همان APK امضاشده‌ی release استفاده می‌کند.
+          # قبلاً همیشه روی یک مسیر ثابت (samat-admin.apk) با x-upsert بازنویسی می‌شد. مشکل: CDN
+          # ذخیره‌سازی Supabase تضمین نمی‌کند که بازنویسی یک آبجکت، کش قبلی همان مسیر را باطل
+          # کند — یعنی حتی با تغییر ?v=، ممکن بود بایت‌های نسخه‌ی قبلی هنوز از کش سرو شوند، چون
+          # کوئری‌استرینگ لزوماً بخشی از کلید کش CDN نیست. الان هر بیلد مسیر خودش را دارد (هرگز
+          # بازنویسی نمی‌شود)، پس هیچ‌وقت چیزی برای کش‌شدنِ اشتباه وجود ندارد.
           APK_PATH="samat-admin/android/app/build/outputs/apk/release/app-release.apk"
-          curl -sS --fail -X POST "$SUPABASE_URL/storage/v1/object/app-updates/samat-admin.apk" \
+          OBJECT_NAME="samat-admin-${{ github.run_number }}.apk"
+          curl -sS --fail -X POST "$SUPABASE_URL/storage/v1/object/app-updates/$OBJECT_NAME" \
             -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
             -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-            -H "x-upsert: true" \
             -H "Content-Type: application/vnd.android.package-archive" \
             --data-binary "@$APK_PATH"
-          echo "url=$SUPABASE_URL/storage/v1/object/public/app-updates/samat-admin.apk?v=${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+          echo "url=$SUPABASE_URL/storage/v1/object/public/app-updates/$OBJECT_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Update Android update-manifest (Contents API)
         env:
