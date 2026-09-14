@@ -14,6 +14,22 @@ async function sendProcessingReportPayload(payload) {
 }
 registerSender('processingReport', sendProcessingReportPayload);
 
+// هشدار افت بازیابی: بعد از هر ثبت موفق، بازیابیِ همین دوره با میانگینِ حداکثر ۳ گزارشِ قبلیِ
+// همین معدن مقایسه می‌شود؛ افت محسوس (۱۰ واحد درصد یا بیشتر) با یک توستِ جدا و غیرمسدودکننده
+// نشان داده می‌شود — چون خودِ ثبت گزارش نباید به‌خاطر این هشدار متوقف یا رد شود.
+async function checkRecoveryDrop(mineName, currentRecovery, currentPeriod) {
+  if (currentRecovery == null) return;
+  const { data, error } = await sb.from('processing_reports')
+    .select('recovery_percent,period').eq('mine_name', mineName).not('recovery_percent', 'is', null)
+    .neq('period', currentPeriod).order('created_at', { ascending: false }).limit(3);
+  if (error || !data || data.length < 2) return; // برای مقایسه‌ی معنادار حداقل ۲ دوره‌ی قبلی لازم است
+  const avgPrev = data.reduce((s, r) => s + r.recovery_percent, 0) / data.length;
+  const drop = avgPrev - currentRecovery;
+  if (drop >= 10) {
+    showToast(`⚠️ بازیابی این دوره (${currentRecovery}٪) نسبت به میانگین ${data.length} دوره‌ی قبل (${avgPrev.toFixed(1)}٪) حدود ${drop.toFixed(1)} واحد افت داشته`);
+  }
+}
+
 /**
  * گزارش دوره‌ای خوراک/محصول/بازیابی — مخصوص تخصص «فرآوری»، جایگزین فرم عمومی «تولید و عیار»
  * (که برای استخراج طراحی شده بود و برای واحد فرآوری خوراک/محصول/بازیابی/باطله را جدا نمی‌کرد).
@@ -106,6 +122,7 @@ export function openProcessingReportModal(mine, nameField, department) {
       if (!navigator.onLine) throw new Error('OFFLINE');
       await sendProcessingReportPayload(payload);
       showToast('✅ گزارش خوراک/محصول/بازیابی ثبت شد');
+      if (navigator.onLine) checkRecoveryDrop(mineName, recovery, periodSelect.value);
       feedMaterialInput.value = ''; feedTonnageInput.value = ''; feedGradeInput.value = '';
       productTonnageInput.value = ''; productGradeInput.value = ''; recoveryInput.value = '';
       tailingsInput.value = ''; notesInput.value = ''; balanceHint.textContent = '';
