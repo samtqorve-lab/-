@@ -123,6 +123,14 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
       }),
     });
     specialtyTools.push({
+      icon: '🧮',
+      label: 'محاسبه‌گر تخمینی ذخیره',
+      onClick: requireMine(async (mine) => {
+        const { openReserveCalcModal } = await import('./reserveCalc.js');
+        openReserveCalcModal(mine, nameField);
+      }),
+    });
+    specialtyTools.push({
       icon: '📈',
       label: 'گزارش پیشرفت',
       onClick: requireMine(async (mine) => {
@@ -156,6 +164,14 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
       onClick: requireMine(async (mine) => {
         const { openProcessingConsumptionModal } = await import('./processingConsumption.js');
         openProcessingConsumptionModal(mine, nameField);
+      }),
+    });
+    specialtyTools.push({
+      icon: '📈',
+      label: 'نمودار روند تولید',
+      onClick: requireMine(async (mine) => {
+        const { openProcessingTrendModal } = await import('./processingTrend.js');
+        openProcessingTrendModal(mine, nameField);
       }),
     });
   }
