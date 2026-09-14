@@ -18,6 +18,12 @@ registerSender('processingReport', sendProcessingReportPayload);
  * گزارش دوره‌ای خوراک/محصول/بازیابی — مخصوص تخصص «فرآوری»، جایگزین فرم عمومی «تولید و عیار»
  * (که برای استخراج طراحی شده بود و برای واحد فرآوری خوراک/محصول/بازیابی/باطله را جدا نمی‌کرد).
  * روی جدول جدید processing_reports می‌نویسد.
+ *
+ * موازنه جرمی: وقتی عیار خوراک و محصول هر دو وارد شده باشند، بازیابی با فرمول استاندارد
+ * دو-محصولیِ متالورژی (بر پایه‌ی عیار) محاسبه می‌شود که دقیق‌تر از نسبت وزنی خام است؛
+ * در غیر این صورت (نبود عیار) به همان نسبت ساده‌ی تناژ محصول به خوراک برمی‌گردد.
+ * علاوه‌بر آن، اگر تناژ باطله هم وارد شود، با مقدار محاسبه‌شده از افت جرمی (خوراک−محصول)
+ * مقایسه و در صورت اختلاف بیش از ۵٪ هشدار غیرمسدودکننده نمایش داده می‌شود.
  * @param {object} mine
  * @param {string} nameField
  * @param {string} department
@@ -32,11 +38,45 @@ export function openProcessingReportModal(mine, nameField, department) {
   const feedGradeInput = el('input', { type: 'number', min: '0', max: '100', step: '0.01', placeholder: '٪' });
   const productTonnageInput = el('input', { type: 'number', min: '0', step: '0.01', placeholder: 'تن' });
   const productGradeInput = el('input', { type: 'number', min: '0', max: '100', step: '0.01', placeholder: '٪' });
-  const recoveryInput = el('input', { type: 'number', min: '0', max: '100', step: '0.01', placeholder: '٪ — اختیاری، در صورت خالی‌بودن از تناژها محاسبه می‌شود' });
+  const recoveryInput = el('input', { type: 'number', min: '0', max: '100', step: '0.01', placeholder: '٪ — اختیاری، در صورت خالی‌بودن از موازنه جرمی محاسبه می‌شود' });
   const tailingsInput = el('input', { type: 'number', min: '0', step: '0.01', placeholder: 'تن — اختیاری' });
   const notesInput = el('textarea', { rows: '2' });
   const errBox = el('div', { class: 'gate-err' });
+  const balanceHint = el('div', { style: 'font-size:11px;color:var(--stone-500);margin-top:2px;min-height:14px' });
   const btn = el('button', { class: 'btn btn-primary', style: 'width:100%;margin-top:12px' }, '✅ ثبت گزارش');
+
+  function computeRecovery(feedTonnage, productTonnage) {
+    const feedGrade = parseFloat(feedGradeInput.value);
+    const productGrade = parseFloat(productGradeInput.value);
+    if (feedTonnage > 0 && feedGrade > 0 && productGrade > 0 && !Number.isNaN(feedGrade) && !Number.isNaN(productGrade)) {
+      // فرمول استاندارد موازنه جرمی دو-محصولی: R% = (تناژ محصول × عیار محصول) / (تناژ خوراک × عیار خوراک)
+      return Math.round(((productTonnage * productGrade) / (feedTonnage * feedGrade)) * 10000) / 100;
+    }
+    if (feedTonnage > 0) return Math.round((productTonnage / feedTonnage) * 10000) / 100; // بدون عیار: نسبت وزنی ساده
+    return null;
+  }
+
+  function updateBalanceHint() {
+    const feedTonnage = parseFloat(feedTonnageInput.value);
+    const productTonnage = parseFloat(productTonnageInput.value);
+    const enteredTailings = parseFloat(tailingsInput.value);
+    balanceHint.textContent = '';
+    if (Number.isNaN(feedTonnage) || Number.isNaN(productTonnage) || feedTonnage <= 0) return;
+    const calcTailings = feedTonnage - productTonnage;
+    if (!Number.isNaN(enteredTailings) && enteredTailings >= 0) {
+      const diffPercent = calcTailings > 0 ? Math.abs(enteredTailings - calcTailings) / calcTailings * 100 : 0;
+      if (diffPercent > 5) {
+        balanceHint.innerHTML = `⚠️ موازنه جرمی همخوان نیست: خوراک−محصول = ${calcTailings.toFixed(1)} تن، ولی باطله وارد‌شده ${enteredTailings.toFixed(1)} تن است (اختلاف ${diffPercent.toFixed(0)}٪)`;
+        balanceHint.style.color = 'var(--rust-700)';
+        return;
+      }
+    }
+    balanceHint.textContent = `موازنه جرمی: باطله محاسبه‌شده ≈ ${calcTailings.toFixed(1)} تن`;
+    balanceHint.style.color = 'var(--stone-500)';
+  }
+  [feedTonnageInput, productTonnageInput, tailingsInput, feedGradeInput, productGradeInput].forEach((inp) => {
+    inp.addEventListener('input', updateBalanceHint);
+  });
 
   btn.addEventListener('click', async () => {
     errBox.textContent = '';
@@ -45,8 +85,7 @@ export function openProcessingReportModal(mine, nameField, department) {
     if (Number.isNaN(feedTonnage) || feedTonnage < 0) { errBox.textContent = 'تناژ خوراک ورودی را درست وارد کنید'; return; }
     if (Number.isNaN(productTonnage) || productTonnage < 0) { errBox.textContent = 'تناژ محصول خروجی را درست وارد کنید'; return; }
 
-    let recovery = recoveryInput.value ? parseFloat(recoveryInput.value) : null;
-    if (recovery === null && feedTonnage > 0) recovery = Math.round((productTonnage / feedTonnage) * 10000) / 100;
+    const recovery = recoveryInput.value ? parseFloat(recoveryInput.value) : computeRecovery(feedTonnage, productTonnage);
 
     btn.disabled = true; btn.textContent = '⏳ در حال ثبت...';
     const payload = {
@@ -69,7 +108,7 @@ export function openProcessingReportModal(mine, nameField, department) {
       showToast('✅ گزارش خوراک/محصول/بازیابی ثبت شد');
       feedMaterialInput.value = ''; feedTonnageInput.value = ''; feedGradeInput.value = '';
       productTonnageInput.value = ''; productGradeInput.value = ''; recoveryInput.value = '';
-      tailingsInput.value = ''; notesInput.value = '';
+      tailingsInput.value = ''; notesInput.value = ''; balanceHint.textContent = '';
     } catch (err) {
       if (err.message === 'OFFLINE' || isLikelyNetworkError(err)) {
         try {
@@ -98,6 +137,7 @@ export function openProcessingReportModal(mine, nameField, department) {
     ]),
     el('label', {}, 'درصد بازیابی'), recoveryInput,
     el('label', {}, 'تناژ باطله (اختیاری)'), tailingsInput,
+    balanceHint,
     el('label', {}, 'توضیحات'), notesInput,
     errBox, btn,
   );
