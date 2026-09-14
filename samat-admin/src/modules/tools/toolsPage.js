@@ -5,8 +5,13 @@ import { EQUIPMENT_CATEGORIES, EQUIPMENT_LIST } from '../../lib/equipmentSpecs.j
 import {
   calcEquipmentHourlyCost, calcMatchFactor, calcBreakEvenStrippingRatio, calcCutoffGrade,
   calcSlopeFactorOfSafety, calcRoyalty, calcNPV, calcIRR, calcStockpileVolume, calcCrusherCapacity,
-  calcReserveEstimate, calcMineLife, calcHaulCost, calcDepreciationSchedule,
+  calcReserveEstimate, calcMineLife, calcHaulCost, calcDepreciationSchedule, calcExplorationDrillingCost,
 } from '../../lib/miningEconomics.js';
+import {
+  calcRQDFromCore, calcRMR, RMR_CONDITION_OPTIONS, RMR_WATER_OPTIONS, checkKinematics,
+} from '../../lib/geologyCalc.js';
+import { calcPPV, calcKuzRamFragmentation, KUZNETSOV_ROCK_FACTOR, RWS_BY_EXPLOSIVE } from '../../lib/blastAdvanced.js';
+import { calcBondMillPower, calcThickenerSizing, calcPulpMassBalance } from '../../lib/processingCalc.js';
 import { printReportHTML } from '../../lib/printReport.js';
 
 function fmtNum(n, digits = 2) {
@@ -58,6 +63,11 @@ const SUB_LABELS = {
   reserve: '📦 برآورد ذخیره و عمر معدن',
   haul: '🚛 هزینه‌ی حمل',
   depreciation: '📉 جدول استهلاک تجهیزات',
+  geology: '🪨 رده‌بندی توده‌سنگ و گسیختگی',
+  explorationCost: '🎯 هزینه‌ی حفاری اکتشافی',
+  ppv: '📳 لرزش انفجار (PPV)',
+  kuzram: '💨 پیش‌بینی خردایش',
+  processing2: '⚗️ آسیاب و تیکنر',
 };
 
 export async function renderTools(container) {
@@ -79,6 +89,8 @@ export async function renderTools(container) {
     fleet: renderFleetTab, stripping: renderStrippingTab, slope: renderSlopeTab,
     royalty: renderRoyaltyTab, npv: renderNpvTab, stockpile: renderStockpileTab,
     reserve: renderReserveTab, haul: renderHaulTab, depreciation: renderDepreciationTab,
+    geology: renderGeologyTab, explorationCost: renderExplorationCostTab, ppv: renderPpvTab,
+    kuzram: renderKuzRamTab, processing2: renderProcessing2Tab,
   };
   renderers[activeToolSub](body);
 }
@@ -777,4 +789,309 @@ function renderDepreciationTab(body) {
     el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:10px' }, 'برای اظهارنامه‌ی مالیاتی یا حسابداری داخلی — روش و نرخ نهایی را با حسابدار/ممیز مالیاتی تطبیق دهید.'),
     grid, runBtn, resultBox, printButton('جدول استهلاک تجهیزات', resultBox),
   ]));
+}
+
+// ————————————————————————————— رده‌بندی توده‌سنگ (RMR) + گسیختگی شیب —————————————————————————————
+function renderGeologyTab(body) {
+  // کارت اول: RQD از مغزه (کمکی)
+  const runLen = numberField('طول کل مغزه‌ی حفاری‌شده (m)', 1);
+  const intactSum = numberField('مجموع طول قطعات سالم بزرگ‌تر از ۱۰ سانتی‌متر (m)', 0.8);
+  const rqdResultBox = el('div', { style: 'margin-top:10px;display:none' });
+  const rqdInputForRmr = numberField('RQD (٪) — برای رده‌بندی RMR زیر', 75);
+  const rqdRunBtn = el('button', { class: 'btn-sm', style: 'background:var(--stone-100);margin-top:6px', onclick: () => {
+    try {
+      const { rqd } = calcRQDFromCore(parseFloat(runLen.input.value), parseFloat(intactSum.input.value));
+      rqdResultBox.innerHTML = ''; rqdResultBox.style.display = 'block';
+      rqdResultBox.append(el('div', { style: 'font-weight:800;color:var(--ochre-700)' }, `RQD = ${fmtNum(rqd, 1)}٪`));
+      rqdInputForRmr.input.value = rqd.toFixed(1);
+    } catch (err) { showToast(`⚠️ ${err.message}`); }
+  } }, '📏 محاسبه‌ی RQD از مغزه');
+  const rqdCard = el('div', { class: 'card' }, [
+    el('h3', { style: 'margin-top:0' }, '📏 RQD از روی مغزه‌ی حفاری (اختیاری)'),
+    el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px' }, [runLen.wrap, intactSum.wrap]),
+    rqdRunBtn, rqdResultBox,
+  ]);
+
+  // کارت دوم: RMR
+  const ucs = numberField('مقاومت فشاری تک‌محوره UCS (مگاپاسکال)', 80);
+  const spacing = numberField('فاصله‌ی درزه‌ها (میلی‌متر)', 400);
+  const condition = selectField('وضعیت سطح درزه‌ها', RMR_CONDITION_OPTIONS, 'fair');
+  const water = selectField('وضعیت آب زیرزمینی', RMR_WATER_OPTIONS, 'damp');
+  const grid = el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px 14px' }, [
+    ucs.wrap, rqdInputForRmr.wrap, spacing.wrap, condition.wrap, water.wrap,
+  ]);
+  const runBtn = el('button', { class: 'btn btn-primary', style: 'width:100%;justify-content:center;margin-top:12px' }, '🪨 محاسبه‌ی RMR');
+  const resultBox = el('div', { style: 'margin-top:14px;display:none' });
+  runBtn.addEventListener('click', () => {
+    try {
+      const r = calcRMR({
+        ucsMpa: parseFloat(ucs.input.value), rqdPercent: parseFloat(rqdInputForRmr.input.value),
+        spacingMm: parseFloat(spacing.input.value), conditionKey: condition.select.value, waterKey: water.select.value,
+      });
+      resultBox.innerHTML = ''; resultBox.style.display = 'block';
+      resultBox.append(
+        el('div', { class: 'kpi-grid' }, [
+          kpiCard(String(r.total), 'امتیاز کل RMR', 'var(--patina-600)'),
+          kpiCard(r.label, 'رده‌ی توده‌سنگ'),
+        ]),
+        el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-top:8px' },
+          `ریز امتیاز: UCS=${r.r1} + RQD=${r.r2} + فاصله‌ی درزه=${r.r3} + وضعیت درزه=${r.r4} + آب=${r.r5}`),
+        el('div', { style: 'font-size:var(--text-sm);margin-top:8px' },
+          `چسبندگی توده‌سنگ معمول این رده: ${r.cohesionKpa} kPa — زاویه‌ی اصطکاک: ${r.frictionDeg} درجه (می‌توانید این دو را در ابزار «پایداری شیب» استفاده کنید)`),
+      );
+    } catch (err) { showToast(`⚠️ ${err.message}`); }
+  });
+  const rmrCard = el('div', { class: 'card', style: 'margin-top:14px' }, [
+    el('h3', { style: 'margin-top:0' }, '🪨 رده‌بندی توده‌سنگ RMR (Bieniawski 1989)'),
+    grid, runBtn, resultBox, printButton('رده‌بندی توده‌سنگ RMR', resultBox),
+  ]);
+
+  // کارت سوم: تحلیل جنبشی گسیختگی شیب
+  const kIntro = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:10px' }, [
+    'غربالگری سریع نوع گسیختگی محتمل (صفحه‌ای/واژگونی/گوه‌ای) طبق معیارهای Hoek & Bray. ',
+    el('b', {}, '⚠️ جایگزین استریونت کامل و بررسی میدانی نیست.'),
+  ]);
+  const slopeDipDir = numberField('جهت شیب دیواره — Dip Direction (درجه از شمال)', 90);
+  const slopeDipAngle = numberField('زاویه‌ی شیب دیواره (درجه)', 60);
+  const frictionK = numberField('زاویه‌ی اصطکاک داخلی (درجه)', 30);
+  const j1Dir = numberField('درزه ۱ — جهت شیب (درجه)', 100);
+  const j1Dip = numberField('درزه ۱ — زاویه‌ی شیب (درجه)', 40);
+  const j2Dir = numberField('درزه ۲ — جهت شیب (درجه) — اگر ندارید صفر بگذارید', 0);
+  const j2Dip = numberField('درزه ۲ — زاویه‌ی شیب (درجه)', 0);
+  const kGrid = el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px 14px' }, [
+    slopeDipDir.wrap, slopeDipAngle.wrap, frictionK.wrap, j1Dir.wrap, j1Dip.wrap, j2Dir.wrap, j2Dip.wrap,
+  ]);
+  const kRunBtn = el('button', { class: 'btn btn-primary', style: 'width:100%;justify-content:center;margin-top:12px' }, '🧭 تحلیل جنبشی گسیختگی');
+  const kResultBox = el('div', { style: 'margin-top:14px;display:none' });
+  kRunBtn.addEventListener('click', () => {
+    try {
+      const joints = [{ dipDir: parseFloat(j1Dir.input.value), dipAngle: parseFloat(j1Dip.input.value) }];
+      if (parseFloat(j2Dip.input.value) > 0) joints.push({ dipDir: parseFloat(j2Dir.input.value), dipAngle: parseFloat(j2Dip.input.value) });
+      const r = checkKinematics({
+        slopeDipDir: parseFloat(slopeDipDir.input.value), slopeDipAngle: parseFloat(slopeDipAngle.input.value),
+        frictionDeg: parseFloat(frictionK.input.value), joints,
+      });
+      kResultBox.innerHTML = ''; kResultBox.style.display = 'block';
+      r.perJoint.forEach((j) => {
+        const risk = j.planar || j.toppling;
+        kResultBox.append(el('div', { style: `font-size:var(--text-sm);margin-bottom:4px;color:${risk ? 'var(--rust-600)' : 'var(--patina-700)'}` },
+          `درزه ${j.index}: ${j.planar ? '⚠️ احتمال گسیختگی صفحه‌ای' : ''} ${j.toppling ? '⚠️ احتمال گسیختگی واژگونی' : ''} ${!j.planar && !j.toppling ? '✅ بدون خطر صفحه‌ای/واژگونی' : ''}`));
+      });
+      r.wedges.forEach((w) => {
+        kResultBox.append(el('div', { style: `font-size:var(--text-sm);margin-bottom:4px;color:${w.wedgeFail ? 'var(--rust-600)' : 'var(--patina-700)'}` },
+          `تقاطع درزه‌های ${w.pair}: پلانژ ${fmtNum(w.plunge, 1)}° / روند ${fmtNum(w.trend, 1)}° — ${w.wedgeFail ? '⚠️ احتمال گسیختگی گوه‌ای' : '✅ بدون خطر گوه‌ای'}`));
+      });
+      if (!r.wedges.length) kResultBox.append(el('div', { style: 'font-size:var(--text-xs);color:var(--stone-500)' }, 'برای بررسی گسیختگی گوه‌ای، درزه‌ی دوم را هم وارد کنید.'));
+    } catch (err) { showToast(`⚠️ ${err.message}`); }
+  });
+  const kCard = el('div', { class: 'card', style: 'margin-top:14px' }, [
+    el('h3', { style: 'margin-top:0' }, '🧭 تحلیل جنبشی گسیختگی شیب'),
+    kIntro, kGrid, kRunBtn, kResultBox, printButton('تحلیل جنبشی گسیختگی شیب', kResultBox),
+  ]);
+
+  body.append(rqdCard, rmrCard, kCard);
+}
+
+// ————————————————————————————— هزینه‌ی برنامه‌ی حفاری اکتشافی —————————————————————————————
+function renderExplorationCostTab(body) {
+  const numHoles = numberField('تعداد گمانه', 10, '1');
+  const avgDepth = numberField('میانگین عمق هر گمانه (m)', 80);
+  const costPerMeter = numberField('هزینه‌ی هر متر حفاری (تومان)', 0);
+  const samplesPerHole = numberField('تعداد نمونه به‌ازای هر گمانه', 20);
+  const sampleCost = numberField('هزینه‌ی نمونه‌برداری هر نمونه (تومان)', 0);
+  const assayCost = numberField('هزینه‌ی آزمایش/آنالیز هر نمونه (تومان)', 0);
+  const mobilization = numberField('هزینه‌ی بسیج دستگاه/تجهیزات (تومان) — یک‌بار', 0);
+  const minBudget = numberField('حداقل تعهد هزینه‌ی اکتشاف طبق پروانه (تومان) — اختیاری', 0);
+  const grid = el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px 14px' }, [
+    numHoles.wrap, avgDepth.wrap, costPerMeter.wrap, samplesPerHole.wrap, sampleCost.wrap, assayCost.wrap, mobilization.wrap, minBudget.wrap,
+  ]);
+  const runBtn = el('button', { class: 'btn btn-primary', style: 'width:100%;justify-content:center;margin-top:12px' }, '🎯 محاسبه‌ی هزینه‌ی برنامه');
+  const resultBox = el('div', { style: 'margin-top:14px;display:none' });
+  runBtn.addEventListener('click', () => {
+    try {
+      const r = calcExplorationDrillingCost({
+        numHoles: parseInt(numHoles.input.value, 10), avgDepthM: parseFloat(avgDepth.input.value),
+        costPerMeterDrilling: parseFloat(costPerMeter.input.value), samplesPerHole: parseFloat(samplesPerHole.input.value),
+        sampleCostEach: parseFloat(sampleCost.input.value), assayCostEach: parseFloat(assayCost.input.value),
+        mobilizationCost: parseFloat(mobilization.input.value) || 0, minCommittedBudget: parseFloat(minBudget.input.value) || 0,
+      });
+      resultBox.innerHTML = ''; resultBox.style.display = 'block';
+      const cards = [
+        kpiCard(`${fmtNum(r.totalDrillLengthM, 0)} m`, 'مجموع طول حفاری'),
+        kpiCard(fmtNum(r.drillingCost, 0), 'هزینه‌ی حفاری (تومان)'),
+        kpiCard(String(r.totalSamples), 'مجموع تعداد نمونه'),
+        kpiCard(fmtNum(r.sampleCost, 0), 'هزینه‌ی نمونه‌برداری+آنالیز (تومان)'),
+        kpiCard(fmtNum(r.totalCost, 0), 'هزینه‌ی کل برنامه (تومان)', 'var(--patina-600)'),
+      ];
+      resultBox.append(el('div', { class: 'kpi-grid' }, cards));
+      if (r.meetsCommitment !== undefined) {
+        resultBox.append(el('div', {
+          style: `margin-top:8px;font-weight:700;color:${r.meetsCommitment ? 'var(--patina-700)' : 'var(--rust-600)'}`,
+        }, r.meetsCommitment ? '✅ این برنامه حداقل تعهد هزینه‌ی پروانه را پوشش می‌دهد' : `⚠️ این برنامه ${fmtNum(r.shortfall, 0)} تومان کمتر از حداقل تعهد پروانه است`));
+      }
+    } catch (err) { showToast(`⚠️ ${err.message}`); }
+  });
+  body.append(el('div', { class: 'card' }, [
+    el('h3', { style: 'margin-top:0' }, '🎯 هزینه‌ی برنامه‌ی حفاری اکتشافی'),
+    grid, runBtn, resultBox, printButton('هزینه‌ی برنامه‌ی حفاری اکتشافی', resultBox),
+  ]));
+}
+
+// ————————————————————————————— لرزش انفجار (PPV) —————————————————————————————
+function renderPpvTab(body) {
+  const intro = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:10px' }, [
+    'روش فاصله‌ی مقیاس‌شده‌ی USBM: PPV = K×(D/√W)^-B. ',
+    el('b', {}, '⚠️ ثابت‌های K و B کاملاً وابسته به سایت‌اند — '),
+    'مقادیر پیش‌فرض فقط نقطه‌ی شروع‌اند؛ برای هر معدن باید با پایش لرزش‌نگاری واقعی کالیبره شوند.',
+  ]);
+  const charge = numberField('حداکثر خرج مواد ناریه در هر تأخیر (kg) — از ابزار آتش‌باری بگیرید', 50);
+  const distance = numberField('فاصله تا نزدیک‌ترین ساختمان/روستا (m)', 300);
+  const siteK = numberField('ثابت سایت K (پیش‌فرض آموزشی)', 700);
+  const siteB = numberField('توان کاهش B (پیش‌فرض آموزشی)', 1.6);
+  const allowable = numberField('حد مجاز لرزش PPV طبق استاندارد/مصوبه (mm/s)', 12.5);
+  const grid = el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px 14px' }, [
+    charge.wrap, distance.wrap, siteK.wrap, siteB.wrap, allowable.wrap,
+  ]);
+  const runBtn = el('button', { class: 'btn btn-primary', style: 'width:100%;justify-content:center;margin-top:12px' }, '📳 محاسبه‌ی لرزش و فاصله‌ی ایمن');
+  const resultBox = el('div', { style: 'margin-top:14px;display:none' });
+  runBtn.addEventListener('click', () => {
+    try {
+      const r = calcPPV({
+        maxChargePerDelayKg: parseFloat(charge.input.value), distanceM: parseFloat(distance.input.value),
+        siteK: parseFloat(siteK.input.value), siteB: parseFloat(siteB.input.value), allowablePpvMmS: parseFloat(allowable.input.value),
+      });
+      resultBox.innerHTML = ''; resultBox.style.display = 'block';
+      resultBox.append(el('div', { class: 'kpi-grid' }, [
+        kpiCard(fmtNum(r.predictedPpvMmS, 2), 'لرزش پیش‌بینی‌شده در این فاصله (mm/s)', r.withinLimit ? 'var(--patina-600)' : 'var(--rust-600)'),
+        kpiCard(fmtNum(r.safeDistanceM, 0), 'حداقل فاصله‌ی ایمن برای حد مجاز (m)', 'var(--ochre-700)'),
+        kpiCard(fmtNum(r.scaledDistance, 2), 'فاصله‌ی مقیاس‌شده'),
+      ]), el('div', {
+        style: `margin-top:8px;font-weight:700;color:${r.withinLimit ? 'var(--patina-700)' : 'var(--rust-600)'}`,
+      }, r.withinLimit ? '✅ در فاصله‌ی فعلی، لرزش پیش‌بینی‌شده کمتر از حد مجاز است' : '🚨 لرزش پیش‌بینی‌شده بیشتر از حد مجاز است — خرج در هر تأخیر را کم کنید یا فاصله را بیشتر کنید'));
+    } catch (err) { showToast(`⚠️ ${err.message}`); }
+  });
+  body.append(el('div', { class: 'card' }, [
+    el('h3', { style: 'margin-top:0' }, '📳 لرزش انفجار (PPV) و فاصله‌ی ایمن'),
+    intro, grid, runBtn, resultBox, printButton('لرزش انفجار PPV', resultBox),
+  ]));
+}
+
+// ————————————————————————————— پیش‌بینی خردایش Kuz-Ram —————————————————————————————
+function renderKuzRamTab(body) {
+  const intro = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:10px' }, [
+    'مدل Kuznetsov برای اندازه‌ی متوسط قطعات + توزیع Rosin-Rammler (نسخه‌ی ساده‌شده‌ی ضریب یکنواختی Cunningham). ',
+    el('b', {}, '⚠️ یک پیش‌بینی تجربی است، نه اندازه‌گیری واقعی — '),
+    'برای کالیبراسیون دقیق، خردایش واقعی باید با عکس‌برداری/الک آزمایشی مقایسه شود.',
+  ]);
+  const rockFactor = selectField('ضریب سنگ (Kuznetsov)', KUZNETSOV_ROCK_FACTOR, 'soft');
+  const volumePerHole = numberField('حجم سنگ هر چال — Burden×Spacing×ارتفاع پله (m³)', 250);
+  const chargePerHole = numberField('خرج هر چال (kg) — از ابزار آتش‌باری بگیرید', 40);
+  const explosiveKey = selectField('نوع ماده‌ی ناریه (برای RWS)', EXPLOSIVE_TYPES, 'anfo');
+  const burden = numberField('برم (m)', 3);
+  const spacing = numberField('فاصله‌داری (m)', 3.5);
+  const diameter = numberField('قطر چال (mm)', 89);
+  const grid = el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px 14px' }, [
+    rockFactor.wrap, volumePerHole.wrap, chargePerHole.wrap, explosiveKey.wrap, burden.wrap, spacing.wrap, diameter.wrap,
+  ]);
+  const runBtn = el('button', { class: 'btn btn-primary', style: 'width:100%;justify-content:center;margin-top:12px' }, '💨 پیش‌بینی خردایش');
+  const resultBox = el('div', { style: 'margin-top:14px;display:none' });
+  runBtn.addEventListener('click', () => {
+    try {
+      const r = calcKuzRamFragmentation({
+        rockFactorKey: rockFactor.select.value, volumePerHoleM3: parseFloat(volumePerHole.input.value),
+        chargePerHoleKg: parseFloat(chargePerHole.input.value), rws: RWS_BY_EXPLOSIVE[explosiveKey.select.value],
+        burdenM: parseFloat(burden.input.value), spacingM: parseFloat(spacing.input.value), holeDiameterMm: parseFloat(diameter.input.value),
+      });
+      resultBox.innerHTML = ''; resultBox.style.display = 'block';
+      resultBox.append(el('div', { class: 'kpi-grid' }, [
+        kpiCard(`${fmtNum(r.x50Cm, 1)} cm`, 'اندازه‌ی متوسط قطعات (X50)', 'var(--patina-600)'),
+        kpiCard(`${fmtNum(r.x20Cm, 1)} cm`, 'اندازه‌ی X20 (۲۰٪ عبوری)'),
+        kpiCard(`${fmtNum(r.x80Cm, 1)} cm`, 'اندازه‌ی X80 (۸۰٪ عبوری)'),
+        kpiCard(fmtNum(r.n, 2), 'ضریب یکنواختی (n)'),
+      ]));
+    } catch (err) { showToast(`⚠️ ${err.message}`); }
+  });
+  body.append(el('div', { class: 'card' }, [
+    el('h3', { style: 'margin-top:0' }, '💨 پیش‌بینی خردایش (Kuz-Ram)'),
+    intro, grid, runBtn, resultBox, printButton('پیش‌بینی خردایش Kuz-Ram', resultBox),
+  ]));
+}
+
+// ————————————————————————————— آسیاب (Bond) + تیکنر —————————————————————————————
+function renderProcessing2Tab(body) {
+  const wi = numberField('اندیس کار باند — Wi (kWh/تن)', 14);
+  const f80 = numberField('اندازه‌ی ۸۰٪ عبوری خوراک — F80 (میکرون)', 10000);
+  const p80 = numberField('اندازه‌ی ۸۰٪ عبوری محصول — P80 (میکرون)', 150);
+  const throughput = numberField('ظرفیت عبوری آسیاب (تن بر ساعت)', 50);
+  const grid = el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px 14px' }, [wi.wrap, f80.wrap, p80.wrap, throughput.wrap]);
+  const runBtn = el('button', { class: 'btn btn-primary', style: 'width:100%;justify-content:center;margin-top:12px' }, '⚙️ محاسبه‌ی توان آسیاب');
+  const resultBox = el('div', { style: 'margin-top:14px;display:none' });
+  runBtn.addEventListener('click', () => {
+    try {
+      const r = calcBondMillPower({
+        workIndexKwhPerTon: parseFloat(wi.input.value), feedF80Micron: parseFloat(f80.input.value),
+        productP80Micron: parseFloat(p80.input.value), throughputTonPerHour: parseFloat(throughput.input.value),
+      });
+      resultBox.innerHTML = ''; resultBox.style.display = 'block';
+      resultBox.append(el('div', { class: 'kpi-grid' }, [
+        kpiCard(fmtNum(r.specificEnergyKwhPerTon, 2), 'انرژی ویژه (kWh/تن)'),
+        kpiCard(fmtNum(r.requiredPowerKw, 0), 'توان لازم آسیاب (kW)', 'var(--patina-600)'),
+      ]));
+    } catch (err) { showToast(`⚠️ ${err.message}`); }
+  });
+  const card1 = el('div', { class: 'card' }, [
+    el('h3', { style: 'margin-top:0' }, '⚙️ توان آسیاب — قانون باند (Bond\'s Third Theory)'),
+    grid, runBtn, resultBox, printButton('توان آسیاب Bond', resultBox),
+  ]);
+
+  const feedTon = numberField('تناژ خوراک تیکنر (تن خشک در روز)', 500);
+  const unitArea = numberField('ضریب سطح واحد — از آزمایش ته‌نشینی آزمایشگاهی (m²·روز/تن)', 0.2);
+  const grid2 = el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px 14px' }, [feedTon.wrap, unitArea.wrap]);
+  const runBtn2 = el('button', { class: 'btn btn-primary', style: 'width:100%;justify-content:center;margin-top:12px' }, '🌀 محاسبه‌ی ابعاد تیکنر');
+  const resultBox2 = el('div', { style: 'margin-top:14px;display:none' });
+  runBtn2.addEventListener('click', () => {
+    try {
+      const r = calcThickenerSizing({ solidsFeedTonPerDay: parseFloat(feedTon.input.value), unitAreaM2DayPerTon: parseFloat(unitArea.input.value) });
+      resultBox2.innerHTML = ''; resultBox2.style.display = 'block';
+      resultBox2.append(el('div', { class: 'kpi-grid' }, [
+        kpiCard(fmtNum(r.areaM2, 1), 'سطح لازم (m²)', 'var(--patina-600)'),
+        kpiCard(fmtNum(r.diameterM, 1), 'قطر تیکنر (m)'),
+      ]));
+    } catch (err) { showToast(`⚠️ ${err.message}`); }
+  });
+  const card2 = el('div', { class: 'card', style: 'margin-top:14px' }, [
+    el('h3', { style: 'margin-top:0' }, '🌀 ابعاد تیکنر/غلیظ‌ساز — روش سطح واحد'),
+    el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:10px' },
+      '⚠️ ضریب سطح واحد را نباید حدس زد — باید از آزمایش ته‌نشینی روی همان پالپ به‌دست بیاید.'),
+    grid2, runBtn2, resultBox2, printButton('ابعاد تیکنر', resultBox2),
+  ]);
+
+  // موازنه‌ی جرمی پالپ
+  const feedRate = numberField('نرخ خوراک ورودی (تن بر ساعت)', 50);
+  const feedSolids = numberField('درصد جامد خوراک (٪)', 30);
+  const underflowSolids = numberField('درصد جامد هدف زیرریز (٪)', 60);
+  const grid3 = el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px 14px' }, [feedRate.wrap, feedSolids.wrap, underflowSolids.wrap]);
+  const runBtn3 = el('button', { class: 'btn btn-primary', style: 'width:100%;justify-content:center;margin-top:12px' }, '💧 محاسبه‌ی موازنه‌ی جرمی');
+  const resultBox3 = el('div', { style: 'margin-top:14px;display:none' });
+  runBtn3.addEventListener('click', () => {
+    try {
+      const r = calcPulpMassBalance({
+        feedTonPerHour: parseFloat(feedRate.input.value), feedSolidsPercent: parseFloat(feedSolids.input.value),
+        underflowSolidsPercent: parseFloat(underflowSolids.input.value),
+      });
+      resultBox3.innerHTML = ''; resultBox3.style.display = 'block';
+      resultBox3.append(el('div', { class: 'kpi-grid' }, [
+        kpiCard(fmtNum(r.solidsTonPerHour, 1), 'جامد ورودی (تن/ساعت)'),
+        kpiCard(fmtNum(r.underflowTotalTonPerHour, 1), 'کل زیرریز (تن/ساعت)', 'var(--patina-600)'),
+        kpiCard(fmtNum(r.underflowWaterTonPerHour, 1), 'آب زیرریز (تن/ساعت)'),
+        kpiCard(fmtNum(r.overflowWaterTonPerHour, 1), 'آب سرریز (تن/ساعت)'),
+      ]));
+    } catch (err) { showToast(`⚠️ ${err.message}`); }
+  });
+  const card3 = el('div', { class: 'card', style: 'margin-top:14px' }, [
+    el('h3', { style: 'margin-top:0' }, '💧 موازنه‌ی جرمی جامد/آب پالپ'),
+    grid3, runBtn3, resultBox3, printButton('موازنه‌ی جرمی پالپ', resultBox3),
+  ]);
+
+  body.append(card1, card2, card3);
 }
