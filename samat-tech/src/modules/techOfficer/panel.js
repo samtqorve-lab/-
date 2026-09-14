@@ -123,6 +123,22 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
       }),
     });
     specialtyTools.push({
+      icon: '📐',
+      label: 'شیب و امتداد لایه',
+      onClick: requireMine(async (mine) => {
+        const { openStrikeDipModal } = await import('./strikeDip.js');
+        openStrikeDipModal(mine, nameField, { email });
+      }),
+    });
+    specialtyTools.push({
+      icon: '🚶',
+      label: 'مسیر تراورس اکتشافی',
+      onClick: requireMine(async (mine) => {
+        const { openTraverseModal } = await import('./traverse.js');
+        openTraverseModal(mine, nameField, { email });
+      }),
+    });
+    specialtyTools.push({
       icon: '🧮',
       label: 'محاسبه‌گر تخمینی ذخیره',
       onClick: requireMine(async (mine) => {
