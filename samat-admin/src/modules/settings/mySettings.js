@@ -15,16 +15,36 @@ function renderBiometricCard(email) {
   function draw() {
     card.querySelectorAll('.bio-row').forEach((n) => n.remove());
     const enabled = hasBiometricCred(email);
+    const enableBtn = el('button', { class: 'btn btn-primary' }, 'فعال‌سازی روی این دستگاه');
+    // نکته: قبلاً این دکمه هیچ نشانه‌ای از «در حال انجام» نداشت — یعنی اگر تماس بومی گیر
+    // می‌کرد یا طول می‌کشید، از دید کاربر با «هیچ اتفاقی نیفتاد» فرقی نداشت. حالا هم وضعیت
+    // در حال بررسی نشان داده می‌شود، هم اگر خطا/گیرکردن رخ بدهد پیام دقیق آن (نه فقط toast
+    // زودگذر) روی خودِ کارت باقی می‌ماند تا قابل عکس‌گرفتن و گزارش باشد.
+    const resultBox = el('div', { style: 'font-size:var(--text-xs);margin-top:8px' });
+    enableBtn.addEventListener('click', async () => {
+      resultBox.textContent = '';
+      enableBtn.disabled = true;
+      enableBtn.textContent = '⏳ در حال بررسی سنسور...';
+      try {
+        await enableBiometric(email);
+        showToast('✅ ورود با اثر انگشت فعال شد');
+      } catch (err) {
+        resultBox.textContent = `⚠️ خطا: ${err.message}`;
+        resultBox.style.color = 'var(--rust-700)';
+      } finally {
+        enableBtn.disabled = false;
+        enableBtn.textContent = 'فعال‌سازی روی این دستگاه';
+      }
+      draw();
+    });
     const row = el('div', { class: 'bio-row' }, [
       el('p', { style: 'color:var(--stone-600);font-size:var(--text-sm)' },
         enabled ? '✅ فعال — دفعات بعد قبل از ورود، اثر انگشت/Face ID این گوشی را می‌خواهد.'
           : 'وقتی فعال کنید، دفعات بعد به‌جای رمز عبور کافی است اثر انگشت/Face ID خودتان را نشان دهید (این یک قفل محلی روی همین دستگاه است).'),
       enabled
         ? el('button', { class: 'btn btn-ghost', onclick: () => { removeBiometricCred(email); showToast('🔓 غیرفعال شد'); draw(); } }, 'غیرفعال‌سازی')
-        : el('button', { class: 'btn btn-primary', onclick: async () => {
-          try { await enableBiometric(email); showToast('✅ ورود با اثر انگشت فعال شد'); } catch (err) { showToast(`⚠️ ${err.message}`); }
-          draw();
-        } }, 'فعال‌سازی روی این دستگاه'),
+        : enableBtn,
+      resultBox,
     ]);
     card.append(row);
   }
