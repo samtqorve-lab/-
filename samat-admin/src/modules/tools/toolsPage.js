@@ -1,4 +1,5 @@
 import { el, showToast } from '../../lib/dom.js';
+import { sb } from '../../lib/supabase.js';
 import { calcBlastDesign, ROCK_KB, EXPLOSIVE_TYPES } from '../../lib/blastCalc.js';
 import { CONVERT_CATEGORIES, convertUnit } from '../../lib/unitConvert.js';
 import { EQUIPMENT_CATEGORIES, EQUIPMENT_LIST } from '../../lib/equipmentSpecs.js';
@@ -6,12 +7,16 @@ import {
   calcEquipmentHourlyCost, calcMatchFactor, calcBreakEvenStrippingRatio, calcCutoffGrade,
   calcSlopeFactorOfSafety, calcRoyalty, calcNPV, calcIRR, calcStockpileVolume, calcCrusherCapacity,
   calcReserveEstimate, calcMineLife, calcHaulCost, calcDepreciationSchedule, calcExplorationDrillingCost,
+  calcDewatering, calcLoanAmortization,
 } from '../../lib/miningEconomics.js';
 import {
   calcRQDFromCore, calcRMR, RMR_CONDITION_OPTIONS, RMR_WATER_OPTIONS, checkKinematics,
 } from '../../lib/geologyCalc.js';
 import { calcPPV, calcKuzRamFragmentation, KUZNETSOV_ROCK_FACTOR, RWS_BY_EXPLOSIVE } from '../../lib/blastAdvanced.js';
-import { calcBondMillPower, calcThickenerSizing, calcPulpMassBalance } from '../../lib/processingCalc.js';
+import {
+  calcBondMillPower, calcThickenerSizing, calcPulpMassBalance, calcBlendForward, calcBlendTwoPileRatio, calcSieveAnalysis,
+} from '../../lib/processingCalc.js';
+import { calcSafetyIndices, calcReclamationGuarantee } from '../../lib/safetyEnvCalc.js';
 import { printReportHTML } from '../../lib/printReport.js';
 
 function fmtNum(n, digits = 2) {
@@ -68,16 +73,22 @@ const SUB_LABELS = {
   ppv: '📳 لرزش انفجار (PPV)',
   kuzram: '💨 پیش‌بینی خردایش',
   processing2: '⚗️ آسیاب و تیکنر',
+  safety: '🦺 شاخص‌های ایمنی',
+  reclamation: '🌱 بازسازی و تضمین زیست‌محیطی',
+  blending: '🔀 اختلاط باطله',
+  sieve: '🕸️ آنالیز دانه‌بندی الک',
+  dewatering: '💦 آبکشی چاه/گودال',
+  loan: '🏦 اقساط وام ماشین‌آلات',
 };
 
-export async function renderTools(container) {
+export async function renderTools(container, state) {
   container.innerHTML = '';
   const tabs = el('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px' });
   Object.entries(SUB_LABELS).forEach(([key, label]) => {
     tabs.append(el('button', {
       class: 'btn-sm',
       style: key === activeToolSub ? 'background:var(--ochre-600);color:#fff' : 'background:var(--stone-100);color:var(--ink-700)',
-      onclick: () => { activeToolSub = key; renderTools(container); },
+      onclick: () => { activeToolSub = key; renderTools(container, state); },
     }, label));
   });
   container.append(tabs);
@@ -91,6 +102,8 @@ export async function renderTools(container) {
     reserve: renderReserveTab, haul: renderHaulTab, depreciation: renderDepreciationTab,
     geology: renderGeologyTab, explorationCost: renderExplorationCostTab, ppv: renderPpvTab,
     kuzram: renderKuzRamTab, processing2: renderProcessing2Tab,
+    safety: (b) => renderSafetyTab(b, state), reclamation: renderReclamationTab,
+    blending: renderBlendingTab, sieve: renderSieveTab, dewatering: renderDewateringTab, loan: renderLoanTab,
   };
   renderers[activeToolSub](body);
 }
@@ -1094,4 +1107,277 @@ function renderProcessing2Tab(body) {
   ]);
 
   body.append(card1, card2, card3);
+}
+
+// ————————————————————————————— شاخص‌های ایمنی —————————————————————————————
+function renderSafetyTab(body, state) {
+  const intro = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:10px' },
+    'شاخص‌های استاندارد بین‌المللی (ILO) بر پایه‌ی هر یک‌میلیون نفر-ساعت کار.');
+  const injuries = numberField('تعداد کل حوادث قابل‌ثبت در بازه', 0);
+  const fatalities = numberField('تعداد فوتی (زیرمجموعه‌ی بالا)', 0);
+  const lostDays = numberField('مجموع روزهای از دست‌رفته‌ی کاری', 0);
+  const manHours = numberField('مجموع نفر-ساعت کارکرد در همین بازه', 0);
+
+  const fetchBtn = el('button', { class: 'btn-sm', style: 'background:var(--stone-100);margin-bottom:10px', onclick: async () => {
+    if (!state || !state.department) { showToast('⚠️ اطلاعات بخش در دسترس نیست'); return; }
+    fetchBtn.disabled = true; const orig = fetchBtn.textContent; fetchBtn.textContent = '⏳ در حال دریافت...';
+    try {
+      const { data } = await sb.from('incident_reports').select('injured_count, fatality_count').eq('department', state.department);
+      const rows = data || [];
+      const totalInjuries = rows.reduce((s, r) => s + (r.injured_count || 0) + (r.fatality_count || 0), 0);
+      const totalFatalities = rows.reduce((s, r) => s + (r.fatality_count || 0), 0);
+      injuries.input.value = String(totalInjuries);
+      fatalities.input.value = String(totalFatalities);
+      showToast(`✅ ${rows.length} حادثه ثبت‌شده برای این بخش یافت شد (همه‌ی بازه‌ها)`);
+    } catch (err) {
+      showToast(`⚠️ ${err.message}`);
+    } finally {
+      fetchBtn.disabled = false; fetchBtn.textContent = orig;
+    }
+  } }, '📥 دریافت تعداد حوادث ثبت‌شده در سامانه (این بخش)');
+
+  const grid = el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px 14px' }, [injuries.wrap, fatalities.wrap, lostDays.wrap, manHours.wrap]);
+  const runBtn = el('button', { class: 'btn btn-primary', style: 'width:100%;justify-content:center;margin-top:12px' }, '🦺 محاسبه‌ی شاخص‌ها');
+  const resultBox = el('div', { style: 'margin-top:14px;display:none' });
+  runBtn.addEventListener('click', () => {
+    try {
+      const r = calcSafetyIndices({
+        recordableInjuries: parseFloat(injuries.input.value) || 0, fatalities: parseFloat(fatalities.input.value) || 0,
+        lostDays: parseFloat(lostDays.input.value) || 0, manHours: parseFloat(manHours.input.value),
+      });
+      resultBox.innerHTML = ''; resultBox.style.display = 'block';
+      resultBox.append(el('div', { class: 'kpi-grid' }, [
+        kpiCard(fmtNum(r.ltifr, 2), 'LTIFR (به‌ازای هر ۱M نفر-ساعت)', r.ltifr === 0 ? 'var(--patina-600)' : 'var(--amber-600)'),
+        kpiCard(fmtNum(r.fatalityRate, 3), 'نرخ فوت (به‌ازای هر ۱M نفر-ساعت)', r.fatalityRate === 0 ? 'var(--patina-600)' : 'var(--rust-600)'),
+        kpiCard(fmtNum(r.severityRate, 1), 'نرخ شدت (روز از دست‌رفته به‌ازای هر ۱M نفر-ساعت)'),
+      ]));
+    } catch (err) { showToast(`⚠️ ${err.message}`); }
+  });
+  body.append(el('div', { class: 'card' }, [
+    el('h3', { style: 'margin-top:0' }, '🦺 شاخص‌های ایمنی (LTIFR / نرخ فوت / نرخ شدت)'),
+    intro, fetchBtn, grid, runBtn, resultBox, printButton('شاخص‌های ایمنی', resultBox),
+  ]));
+}
+
+// ————————————————————————————— بازسازی و تضمین زیست‌محیطی —————————————————————————————
+function renderReclamationTab(body) {
+  const area = numberField('مساحت تخریب‌شده (هکتار)', 5);
+  const costPerHa = numberField('هزینه‌ی بازسازی هر هکتار (تومان)', 0);
+  const contingency = numberField('درصد پیش‌بینی‌نشده/احتیاط (٪)', 15);
+  const grid = el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px 14px' }, [area.wrap, costPerHa.wrap, contingency.wrap]);
+  const runBtn = el('button', { class: 'btn btn-primary', style: 'width:100%;justify-content:center;margin-top:12px' }, '🌱 محاسبه‌ی تضمین زیست‌محیطی');
+  const resultBox = el('div', { style: 'margin-top:14px;display:none' });
+  runBtn.addEventListener('click', () => {
+    try {
+      const r = calcReclamationGuarantee({
+        disturbedAreaHectares: parseFloat(area.input.value), costPerHectare: parseFloat(costPerHa.input.value),
+        contingencyPercent: parseFloat(contingency.input.value) || 0,
+      });
+      resultBox.innerHTML = ''; resultBox.style.display = 'block';
+      resultBox.append(el('div', { class: 'kpi-grid' }, [
+        kpiCard(fmtNum(r.baseCost, 0), 'هزینه‌ی پایه‌ی بازسازی (تومان)'),
+        kpiCard(fmtNum(r.contingencyAmount, 0), 'مبلغ احتیاط'),
+        kpiCard(fmtNum(r.totalGuarantee, 0), 'مبلغ تضمین مالی زیست‌محیطی (تومان)', 'var(--patina-600)'),
+      ]));
+    } catch (err) { showToast(`⚠️ ${err.message}`); }
+  });
+  body.append(el('div', { class: 'card' }, [
+    el('h3', { style: 'margin-top:0' }, '🌱 هزینه‌ی بازسازی و تضمین مالی زیست‌محیطی'),
+    el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:10px' }, 'این مبلغ معمولاً همان مبنای تضمینی است که باید از بهره‌بردار برای بازسازی محیط‌زیست پس از پایان کار اخذ شود.'),
+    grid, runBtn, resultBox, printButton('تضمین زیست‌محیطی', resultBox),
+  ]));
+}
+
+// ————————————————————————————— اختلاط باطله —————————————————————————————
+function renderBlendingTab(body) {
+  // کارت اول: محاسبه‌ی رفت (چند کپه -> عیار محصول)
+  const rowCount = numberField('تعداد کپه', 2, '1');
+  const rowsBox = el('div', { style: 'margin-top:12px;overflow-x:auto' });
+  let rowInputs = [];
+  function buildRows() {
+    const n = Math.max(2, Math.min(20, parseInt(rowCount.input.value, 10) || 2));
+    rowInputs = Array.from({ length: n }, () => ({
+      tonnage: el('input', { type: 'number', value: '100', style: 'width:100px' }),
+      grade: el('input', { type: 'number', value: '0', style: 'width:100px' }),
+    }));
+    rowsBox.innerHTML = '';
+    const table = el('table', { class: 'data-table' });
+    table.append(el('thead', {}, el('tr', {}, ['کپه', 'تناژ', 'عیار'].map((h) => el('th', {}, h)))));
+    const tbody = el('tbody');
+    rowInputs.forEach((row, i) => {
+      tbody.append(el('tr', {}, [el('td', {}, String(i + 1)), el('td', {}, row.tonnage), el('td', {}, row.grade)]));
+    });
+    table.append(tbody);
+    rowsBox.append(table);
+  }
+  rowCount.input.addEventListener('change', buildRows);
+  buildRows();
+  const runBtn = el('button', { class: 'btn btn-primary', style: 'width:100%;justify-content:center;margin-top:12px' }, '🔀 محاسبه‌ی عیار محصول اختلاط');
+  const resultBox = el('div', { style: 'margin-top:14px;display:none' });
+  runBtn.addEventListener('click', () => {
+    try {
+      const piles = rowInputs.map((row) => ({ tonnage: parseFloat(row.tonnage.value) || 0, grade: parseFloat(row.grade.value) || 0 }));
+      const r = calcBlendForward(piles);
+      resultBox.innerHTML = ''; resultBox.style.display = 'block';
+      resultBox.append(el('div', { class: 'kpi-grid' }, [
+        kpiCard(fmtNum(r.totalTonnage, 0), 'تناژ کل محصول'),
+        kpiCard(fmtNum(r.blendedGrade, 3), 'عیار محصول اختلاط', 'var(--patina-600)'),
+      ]));
+    } catch (err) { showToast(`⚠️ ${err.message}`); }
+  });
+  const card1 = el('div', { class: 'card' }, [
+    el('h3', { style: 'margin-top:0' }, '🔀 محاسبه‌ی رفت — عیار حاصل از اختلاط چند کپه'),
+    el('div', { style: 'max-width:200px' }, rowCount.wrap), rowsBox, runBtn, resultBox, printButton('عیار اختلاط', resultBox),
+  ]);
+
+  // کارت دوم: محاسبه‌ی برگشت (دو کپه -> نسبت لازم برای عیار هدف)
+  const gradeA = numberField('عیار کپه‌ی A', 0.5);
+  const gradeB = numberField('عیار کپه‌ی B', 2);
+  const target = numberField('عیار هدف محصول', 1);
+  const grid2 = el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px 14px' }, [gradeA.wrap, gradeB.wrap, target.wrap]);
+  const runBtn2 = el('button', { class: 'btn btn-primary', style: 'width:100%;justify-content:center;margin-top:12px' }, '🎯 محاسبه‌ی نسبت اختلاط لازم');
+  const resultBox2 = el('div', { style: 'margin-top:14px;display:none' });
+  runBtn2.addEventListener('click', () => {
+    try {
+      const r = calcBlendTwoPileRatio({ gradeA: parseFloat(gradeA.input.value), gradeB: parseFloat(gradeB.input.value), targetGrade: parseFloat(target.input.value) });
+      resultBox2.innerHTML = ''; resultBox2.style.display = 'block';
+      resultBox2.append(el('div', { class: 'kpi-grid' }, [
+        kpiCard(`${fmtNum(r.fractionA * 100, 1)}٪`, 'سهم کپه‌ی A', 'var(--patina-600)'),
+        kpiCard(`${fmtNum(r.fractionB * 100, 1)}٪`, 'سهم کپه‌ی B'),
+      ]));
+    } catch (err) { showToast(`⚠️ ${err.message}`); }
+  });
+  const card2 = el('div', { class: 'card', style: 'margin-top:14px' }, [
+    el('h3', { style: 'margin-top:0' }, '🎯 محاسبه‌ی برگشت — نسبت اختلاط دو کپه برای عیار هدف'),
+    grid2, runBtn2, resultBox2, printButton('نسبت اختلاط دو کپه', resultBox2),
+  ]);
+
+  body.append(card1, card2);
+}
+
+// ————————————————————————————— آنالیز دانه‌بندی الک —————————————————————————————
+function renderSieveTab(body) {
+  const intro = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:10px' },
+    'الک‌ها را از درشت به ریز وارد کنید. D50/D80 با درون‌یابی لگاریتمی از منحنی عبوری محاسبه می‌شود.');
+  const rowCount = numberField('تعداد الک', 5, '1');
+  const rowsBox = el('div', { style: 'margin-top:12px;overflow-x:auto' });
+  let rowInputs = [];
+  function buildRows() {
+    const n = Math.max(2, Math.min(20, parseInt(rowCount.input.value, 10) || 2));
+    rowInputs = Array.from({ length: n }, () => ({
+      size: el('input', { type: 'number', value: '1', style: 'width:100px' }),
+      mass: el('input', { type: 'number', value: '0', style: 'width:100px' }),
+    }));
+    rowsBox.innerHTML = '';
+    const table = el('table', { class: 'data-table' });
+    table.append(el('thead', {}, el('tr', {}, ['ردیف', 'اندازه‌ی الک (mm)', 'جرم مانده (g)'].map((h) => el('th', {}, h)))));
+    const tbody = el('tbody');
+    rowInputs.forEach((row, i) => {
+      tbody.append(el('tr', {}, [el('td', {}, String(i + 1)), el('td', {}, row.size), el('td', {}, row.mass)]));
+    });
+    table.append(tbody);
+    rowsBox.append(table);
+  }
+  rowCount.input.addEventListener('change', buildRows);
+  buildRows();
+  const panMass = numberField('جرم باقی‌مانده در ته (کوچک‌تر از ریزترین الک، g)', 0);
+  const runBtn = el('button', { class: 'btn btn-primary', style: 'width:100%;justify-content:center;margin-top:12px' }, '🕸️ محاسبه‌ی دانه‌بندی');
+  const resultBox = el('div', { style: 'margin-top:14px;display:none' });
+  runBtn.addEventListener('click', () => {
+    try {
+      const rows = rowInputs.map((row) => ({ sizeMm: parseFloat(row.size.value) || 0, massRetainedG: parseFloat(row.mass.value) || 0 }));
+      const r = calcSieveAnalysis(rows, parseFloat(panMass.input.value) || 0);
+      resultBox.innerHTML = ''; resultBox.style.display = 'block';
+      resultBox.append(el('div', { class: 'kpi-grid' }, [
+        kpiCard(r.d50 === null ? '—' : `${fmtNum(r.d50, 3)} mm`, 'D50', 'var(--patina-600)'),
+        kpiCard(r.d80 === null ? '—' : `${fmtNum(r.d80, 3)} mm`, 'D80'),
+      ]));
+      const table = el('table', { class: 'data-table', style: 'margin-top:10px' });
+      table.append(el('thead', {}, el('tr', {}, ['اندازه (mm)', 'مانده (g)', '٪ مانده', '٪ تجمعی مانده', '٪ تجمعی عبوری'].map((h) => el('th', {}, h)))));
+      const tbody = el('tbody');
+      r.table.forEach((row) => {
+        tbody.append(el('tr', {}, [
+          el('td', {}, fmtNum(row.sizeMm, 3)), el('td', {}, fmtNum(row.massRetainedG, 1)),
+          el('td', {}, fmtNum(row.percentRetained, 1)), el('td', {}, fmtNum(row.cumulativePercentRetained, 1)),
+          el('td', {}, fmtNum(row.cumulativePercentPassing, 1)),
+        ]));
+      });
+      table.append(tbody);
+      resultBox.append(table);
+    } catch (err) { showToast(`⚠️ ${err.message}`); }
+  });
+  body.append(el('div', { class: 'card' }, [
+    el('h3', { style: 'margin-top:0' }, '🕸️ آنالیز دانه‌بندی الک (Sieve Analysis)'),
+    intro, el('div', { style: 'max-width:200px' }, rowCount.wrap), rowsBox,
+    el('div', { style: 'max-width:420px;margin-top:10px' }, panMass.wrap),
+    runBtn, resultBox, printButton('آنالیز دانه‌بندی الک', resultBox),
+  ]));
+}
+
+// ————————————————————————————— آبکشی چاه/گودال —————————————————————————————
+function renderDewateringTab(body) {
+  const intro = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:10px' }, [
+    el('b', {}, '⚠️ دبی ورودی واقعی باید از آزمایش پمپاژ/مطالعه‌ی هیدروژئولوژی به دست بیاید، نه حدس — '),
+    'این ابزار فقط ظرفیت پمپ لازم و زمان تخلیه را از روی همان عدد محاسبه می‌کند.',
+  ]);
+  const inflow = numberField('دبی ورودی آب برآوردی (متر مکعب بر ساعت)', 10);
+  const safety = numberField('ضریب اطمینان (٪)', 25);
+  const standing = numberField('حجم آب راکد فعلی (متر مکعب) — اختیاری', 0);
+  const grid = el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px 14px' }, [inflow.wrap, safety.wrap, standing.wrap]);
+  const runBtn = el('button', { class: 'btn btn-primary', style: 'width:100%;justify-content:center;margin-top:12px' }, '💦 محاسبه‌ی ظرفیت پمپ');
+  const resultBox = el('div', { style: 'margin-top:14px;display:none' });
+  runBtn.addEventListener('click', () => {
+    try {
+      const r = calcDewatering({
+        inflowM3PerHour: parseFloat(inflow.input.value), safetyFactorPercent: parseFloat(safety.input.value) || 0,
+        standingWaterVolumeM3: parseFloat(standing.input.value) || 0,
+      });
+      resultBox.innerHTML = ''; resultBox.style.display = 'block';
+      const cards = [kpiCard(fmtNum(r.requiredPumpCapacityM3PerHour, 1), 'ظرفیت پمپ لازم (m³/h)', 'var(--patina-600)')];
+      if (r.timeToDewaterHours !== null) cards.push(kpiCard(fmtNum(r.timeToDewaterHours, 1), 'زمان لازم برای خشک‌کردن (ساعت)'));
+      resultBox.append(el('div', { class: 'kpi-grid' }, cards));
+    } catch (err) { showToast(`⚠️ ${err.message}`); }
+  });
+  body.append(el('div', { class: 'card' }, [
+    el('h3', { style: 'margin-top:0' }, '💦 آبکشی چاه/گودال (Dewatering)'),
+    intro, grid, runBtn, resultBox, printButton('آبکشی چاه/گودال', resultBox),
+  ]));
+}
+
+// ————————————————————————————— اقساط وام ماشین‌آلات —————————————————————————————
+function renderLoanTab(body) {
+  const principal = numberField('مبلغ اصل وام (تومان)', 0);
+  const rate = numberField('نرخ سود سالانه (٪)', 18);
+  const months = numberField('تعداد ماه بازپرداخت', 36, '1');
+  const grid = el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px 14px' }, [principal.wrap, rate.wrap, months.wrap]);
+  const runBtn = el('button', { class: 'btn btn-primary', style: 'width:100%;justify-content:center;margin-top:12px' }, '🏦 محاسبه‌ی جدول اقساط');
+  const resultBox = el('div', { style: 'margin-top:14px;display:none' });
+  runBtn.addEventListener('click', () => {
+    try {
+      const r = calcLoanAmortization({
+        principal: parseFloat(principal.input.value), annualRatePercent: parseFloat(rate.input.value), months: parseInt(months.input.value, 10),
+      });
+      resultBox.innerHTML = ''; resultBox.style.display = 'block';
+      resultBox.append(el('div', { class: 'kpi-grid' }, [
+        kpiCard(fmtNum(r.monthlyPayment, 0), 'قسط ماهانه (تومان)', 'var(--patina-600)'),
+        kpiCard(fmtNum(r.totalInterest, 0), 'مجموع سود پرداختی'),
+        kpiCard(fmtNum(r.totalPaid, 0), 'مجموع بازپرداخت'),
+      ]));
+      const table = el('table', { class: 'data-table', style: 'margin-top:10px;max-height:400px;overflow-y:auto;display:block' });
+      table.append(el('thead', {}, el('tr', {}, ['ماه', 'قسط', 'سود', 'اصل', 'مانده'].map((h) => el('th', {}, h)))));
+      const tbody = el('tbody');
+      r.rows.forEach((row) => {
+        tbody.append(el('tr', {}, [
+          el('td', {}, String(row.month)), el('td', {}, fmtNum(row.payment, 0)),
+          el('td', {}, fmtNum(row.interestPortion, 0)), el('td', {}, fmtNum(row.principalPortion, 0)), el('td', {}, fmtNum(row.balance, 0)),
+        ]));
+      });
+      table.append(tbody);
+      resultBox.append(table);
+    } catch (err) { showToast(`⚠️ ${err.message}`); }
+  });
+  body.append(el('div', { class: 'card' }, [
+    el('h3', { style: 'margin-top:0' }, '🏦 جدول اقساط وام خرید ماشین‌آلات'),
+    grid, runBtn, resultBox, printButton('جدول اقساط وام', resultBox),
+  ]));
 }
