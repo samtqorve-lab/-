@@ -19,6 +19,12 @@ const BAZAAR_INSTALLER_PACKAGE = 'com.farsitel.bazaar';
  *
  * منبع اطلاعات نسخه: یک فایل JSON ثابت که روی سایت پنل ادمین (novinproduct.ir) میزبانی می‌شود
  * و هر بار که این اپ در GitHub Actions build می‌شود، خودکار بازنویسی می‌شود.
+ *
+ * نکته‌ی دیگر (رفع‌شده): خودِ فایل APK هم قبلاً روی یک مسیر ثابت در Supabase Storage با
+ * x-upsert بازنویسی می‌شد؛ این باعث می‌شد گاهی CDN ذخیره‌سازی بایت‌های نسخه‌ی قبلی را سرو کند
+ * حتی با وجود شماره‌ی نسخه‌ی جدید در همین manifest — یعنی این‌جا (سمت مقایسه‌ی عدد) کاملاً درست
+ * کار می‌کرد، ولی فایل واقعی دانلودشده گاهی قدیمی بود. الان هر بیلد مسیر مجزای خودش را در
+ * Storage دارد (هرگز بازنویسی نمی‌شود)، پس این مشکل دیگر رخ نمی‌دهد.
  */
 const MANIFEST_URL = 'https://novinproduct.ir/updates/tech.json';
 export const UPDATE_PAGE_URL = 'https://novinproduct.ir/update.html';
