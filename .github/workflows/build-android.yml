@@ -120,13 +120,14 @@ jobs:
           # release برای آپدیت خودکار هم استفاده می‌شود — هم این مشکل برای همیشه حل می‌شود، هم
           # توزیع نسخه‌ی دیباگ (که debuggable=true دارد) به کاربر نهایی متوقف می‌شود.
           APK_PATH="samat-tech/android/app/build/outputs/apk/release/app-release.apk"
-          curl -sS --fail -X POST "$SUPABASE_URL/storage/v1/object/app-updates/samat-tech.apk" \
-            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-            -H "x-upsert: true" \
-            -H "Content-Type: application/vnd.android.package-archive" \
-            --data-binary "@$APK_PATH"
-          echo "url=$SUPABASE_URL/storage/v1/object/public/app-updates/samat-tech.apk?v=${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+         APK_PATH="samat-tech/android/app/build/outputs/apk/release/app-release.apk"
+OBJECT_NAME="samat-tech-${{ github.run_number }}.apk"
+curl -sS --fail -X POST "$SUPABASE_URL/storage/v1/object/app-updates/$OBJECT_NAME" \
+  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Content-Type: application/vnd.android.package-archive" \
+  --data-binary "@$APK_PATH"
+echo "url=$SUPABASE_URL/storage/v1/object/public/app-updates/$OBJECT_NAME" >> "$GITHUB_OUTPUT"
 
       # پیش‌نیاز: اپ باید حداقل یک‌بار دستی در کافه‌بازار منتشر شده باشد (توکن API فقط برای
       # اپ‌های موجود صادر می‌شود). تا وقتی secret زیر تنظیم نشده (یا اپ هنوز در صف بررسی اولیه‌ی
