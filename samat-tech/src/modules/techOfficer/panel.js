@@ -131,6 +131,14 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
       }),
     });
     specialtyTools.push({
+      icon: '📤',
+      label: 'خروجی گمانه‌ها (CSV/اکسل)',
+      onClick: requireMine(async (mine) => {
+        const { openExplorationExportModal } = await import('./explorationExport.js');
+        openExplorationExportModal(mine, nameField);
+      }),
+    });
+    specialtyTools.push({
       icon: '📈',
       label: 'گزارش پیشرفت',
       onClick: requireMine(async (mine) => {
@@ -164,6 +172,14 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
       onClick: requireMine(async (mine) => {
         const { openProcessingConsumptionModal } = await import('./processingConsumption.js');
         openProcessingConsumptionModal(mine, nameField);
+      }),
+    });
+    specialtyTools.push({
+      icon: '🏔️',
+      label: 'مدیریت باطله',
+      onClick: requireMine(async (mine) => {
+        const { openTailingsDamModal } = await import('./processingTailingsDam.js');
+        openTailingsDamModal(mine, nameField);
       }),
     });
     specialtyTools.push({
