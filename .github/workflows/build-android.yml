@@ -112,22 +112,19 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           set -e
-          # قبلاً اینجا از app-debug.apk استفاده می‌شد. چون یک‌بار به‌خاطر خرابی موقت همین مرحله
-          # (نبود secret های SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY)، نسخه‌ی امضاشده‌ی release
-          # به‌صورت دستی روی گوشی نصب شده بود، هر آپدیت خودکار بعدی (که دیباگ می‌فرستاد) با پیام
-          # «تعارض بسته‌ها» رد می‌شد چون امضای دیباگ و release یکی نیست و اندروید اجازه‌ی
-          # جایگزینی درجا را بین دو امضای متفاوت نمی‌دهد. از این پس همیشه از همان APK امضاشده‌ی
-          # release برای آپدیت خودکار هم استفاده می‌شود — هم این مشکل برای همیشه حل می‌شود، هم
-          # توزیع نسخه‌ی دیباگ (که debuggable=true دارد) به کاربر نهایی متوقف می‌شود.
+          # قبلاً همیشه روی یک مسیر ثابت (samat-tech.apk) با x-upsert بازنویسی می‌شد. مشکل: CDN
+          # ذخیره‌سازی Supabase تضمین نمی‌کند که بازنویسی یک آبجکت، کش قبلی همان مسیر را باطل
+          # کند — یعنی حتی با تغییر ?v=، ممکن بود بایت‌های نسخه‌ی قبلی هنوز از کش سرو شوند، چون
+          # کوئری‌استرینگ لزوماً بخشی از کلید کش CDN نیست. الان هر بیلد مسیر خودش را دارد (هرگز
+          # بازنویسی نمی‌شود)، پس هیچ‌وقت چیزی برای کش‌شدنِ اشتباه وجود ندارد.
           APK_PATH="samat-tech/android/app/build/outputs/apk/release/app-release.apk"
-         APK_PATH="samat-tech/android/app/build/outputs/apk/release/app-release.apk"
-OBJECT_NAME="samat-tech-${{ github.run_number }}.apk"
-curl -sS --fail -X POST "$SUPABASE_URL/storage/v1/object/app-updates/$OBJECT_NAME" \
-  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Content-Type: application/vnd.android.package-archive" \
-  --data-binary "@$APK_PATH"
-echo "url=$SUPABASE_URL/storage/v1/object/public/app-updates/$OBJECT_NAME" >> "$GITHUB_OUTPUT"
+          OBJECT_NAME="samat-tech-${{ github.run_number }}.apk"
+          curl -sS --fail -X POST "$SUPABASE_URL/storage/v1/object/app-updates/$OBJECT_NAME" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/vnd.android.package-archive" \
+            --data-binary "@$APK_PATH"
+          echo "url=$SUPABASE_URL/storage/v1/object/public/app-updates/$OBJECT_NAME" >> "$GITHUB_OUTPUT"
 
       # پیش‌نیاز: اپ باید حداقل یک‌بار دستی در کافه‌بازار منتشر شده باشد (توکن API فقط برای
       # اپ‌های موجود صادر می‌شود). تا وقتی secret زیر تنظیم نشده (یا اپ هنوز در صف بررسی اولیه‌ی
