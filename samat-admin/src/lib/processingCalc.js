@@ -1,6 +1,6 @@
 /**
- * محاسبات فرآوری مواد معدنی: توان آسیاب به روش Bond (Bond's Third Theory)، و برآورد اولیه‌ی سطح
- * تیکنر/غلیظ‌ساز به روش «سطح واحد» (Unit Area، بر پایه‌ی نتیجه‌ی آزمایش ته‌نشینی آزمایشگاهی).
+ * محاسبات فرآوری مواد معدنی: توان آسیاب به روش Bond (Bond's Third Theory)، برآورد اولیه‌ی سطح
+ * تیکنر/غلیظ‌ساز به روش «سطح واحد»، اختلاط باطله برای رسیدن به عیار هدف، و آنالیز دانه‌بندی الک.
  */
 
 /**
@@ -45,4 +45,58 @@ export function calcPulpMassBalance(p) {
     solidsTonPerHour, feedWaterTonPerHour, underflowTotalTonPerHour,
     underflowWaterTonPerHour, overflowWaterTonPerHour,
   };
+}
+
+// ————————————————————————— اختلاط باطله برای رسیدن به عیار هدف (Ore Blending) —————————————————————————
+/** محاسبه‌ی رفت: چند کپه با تناژ و عیار مشخص را مخلوط کنید، عیار و تناژ محصول نهایی چقدر می‌شود */
+export function calcBlendForward(piles) {
+  const totalTonnage = piles.reduce((s, p) => s + p.tonnage, 0);
+  if (totalTonnage <= 0) throw new Error('مجموع تناژ کپه‌ها باید بزرگ‌تر از صفر باشد');
+  const blendedGrade = piles.reduce((s, p) => s + p.tonnage * p.grade, 0) / totalTonnage;
+  return { totalTonnage, blendedGrade };
+}
+
+/** محاسبه‌ی برگشت (دو کپه): برای رسیدن به عیار هدف، چه نسبتی از هر کپه لازم است */
+export function calcBlendTwoPileRatio(p) {
+  const { gradeA, gradeB, targetGrade } = p;
+  if (gradeA === gradeB) throw new Error('عیار دو کپه یکسان است — نسبت اختلاط تعریف‌نشده است');
+  if ((targetGrade - gradeA) * (targetGrade - gradeB) > 0) {
+    throw new Error('عیار هدف باید بین عیار دو کپه باشد');
+  }
+  const fractionA = (gradeB - targetGrade) / (gradeB - gradeA);
+  const fractionB = 1 - fractionA;
+  return { fractionA, fractionB };
+}
+
+// ————————————————————————— آنالیز دانه‌بندی الک (Sieve Analysis) —————————————————————————
+/**
+ * @param rows آرایه‌ای از {sizeMm, massRetainedG} مرتب‌شده از درشت به ریز
+ * @param panMassG جرم باقی‌مانده در ته (کوچک‌تر از ریزترین الک)
+ */
+export function calcSieveAnalysis(rows, panMassG) {
+  const totalMass = rows.reduce((s, r) => s + r.massRetainedG, 0) + panMassG;
+  if (totalMass <= 0) throw new Error('مجموع جرم باید بزرگ‌تر از صفر باشد');
+  let cumulativeRetained = 0;
+  const table = rows.map((r) => {
+    cumulativeRetained += r.massRetainedG;
+    const percentRetained = (r.massRetainedG / totalMass) * 100;
+    const cumulativePercentRetained = (cumulativeRetained / totalMass) * 100;
+    const cumulativePercentPassing = 100 - cumulativePercentRetained;
+    return { ...r, percentRetained, cumulativePercentRetained, cumulativePercentPassing };
+  });
+
+  // درون‌یابی خطی-لگاریتمی برای یافتن اندازه‌ی متناظر با درصد عبوری هدف
+  function sizeAtPassing(targetPercent) {
+    for (let i = 0; i < table.length - 1; i += 1) {
+      const upper = table[i]; const lower = table[i + 1];
+      if (upper.cumulativePercentPassing >= targetPercent && lower.cumulativePercentPassing <= targetPercent) {
+        const logU = Math.log(upper.sizeMm); const logL = Math.log(lower.sizeMm);
+        const frac = (upper.cumulativePercentPassing - targetPercent) / (upper.cumulativePercentPassing - lower.cumulativePercentPassing);
+        return Math.exp(logU + frac * (logL - logU));
+      }
+    }
+    return null; // خارج از بازه‌ی الک‌های موجود
+  }
+
+  return { table, totalMass, d50: sizeAtPassing(50), d80: sizeAtPassing(80) };
 }
