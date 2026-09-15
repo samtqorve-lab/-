@@ -73,17 +73,26 @@ export async function requestPushApproval(email, onResolve, onAwaitingCode) {
   let fallbackTried = false;
   let timer = null;
   let channel = null;
+  // قبلاً این «شبکه‌ی محافظ نهایی» یک setTimeout جدا و هرگز-پاک‌نشده بود که همیشه بعد از ۳۰
+  // ثانیه finish('error') را صدا می‌زد — حتی وقتی کد تلگرام قبلاً با موفقیت ارسال شده بود و
+  // armCodeTimer داشت مهلت ۵ دقیقه‌ای درست را می‌شمرد. یعنی کاربر عملاً همیشه فقط ۳۰ ثانیه
+  // (نه ۵ دقیقه) فرصت داشت کد را وارد کند. حالا در همان متغیری نگه‌داری می‌شود که armCodeTimer
+  // پاک می‌کند، پس به‌محض رسیدن به مرحله‌ی «در انتظار کد»، این تایمر ۳۰ثانیه‌ای بی‌اثر می‌شود و
+  // فقط مهلت ۵ دقیقه‌ای واقعی حاکم است.
+  let safetyNetTimer = null;
 
   function finish(status, detail) {
     if (settled) return;
     settled = true;
     clearTimeout(timer);
+    clearTimeout(safetyNetTimer);
     if (channel) channel.unsubscribe();
     onResolve(status, detail);
   }
 
   function armCodeTimer() {
     clearTimeout(timer);
+    clearTimeout(safetyNetTimer); // از این لحظه به بعد، فقط همین تایمر ۵دقیقه‌ای تعیین‌کننده‌ی انقضاست
     timer = setTimeout(() => finish('timeout'), CODE_VALID_MS);
   }
 
@@ -154,10 +163,11 @@ export async function requestPushApproval(email, onResolve, onAwaitingCode) {
     if (!settled) tryTelegramFallback();
   });
 
-  // شبکه‌ی محافظ نهایی: حتی اگر هر بخش دیگری از این تابع هم (نه فقط دو fetch بالا) به هر دلیلی
-  // معلق بماند، بعد از ۳۰ ثانیه به‌طور قطعی خطا نشان می‌دهیم — رابط‌کاربری هرگز نباید برای همیشه
-  // روی «در انتظار تایید...» بماند.
-  setTimeout(() => { if (!settled) finish('error', 'اتصال به سرور برقرار نشد — دوباره تلاش کنید'); }, 30000);
+  // شبکه‌ی محافظ نهایی: فقط برای مرحله‌ی «قبل از رسیدن به کد» است (یعنی اگر notify/فال‌بک هردو
+  // در همان ابتدا برای همیشه گیر کنند). به‌محض این‌که armCodeTimer صدا زده شود (کد با موفقیت
+  // ارسال شد)، این تایمر پاک می‌شود و دیگر اثری ندارد — پس کاربر واقعاً ۵ دقیقه‌ی کامل CODE_VALID_MS
+  // را برای وارد کردن کد در اختیار دارد، نه فقط تا این ۳۰ ثانیه.
+  safetyNetTimer = setTimeout(() => { if (!settled) finish('error', 'اتصال به سرور برقرار نشد — دوباره تلاش کنید'); }, 30000);
 
   return () => finish('denied');
 }
