@@ -14,8 +14,8 @@ import { renderMap } from './modules/map/mapView.js';
 import { hasBiometricCred } from './lib/biometric.js';
 
 // بقیه‌ی تب‌ها به‌صورت تنبل (dynamic import) لود می‌شوند — چون هرکدام یک کتابخانه‌ی نسبتاً سنگین
-// با خودشان می‌آورند (الزامات قانونی/هویت→تقویم شمسی، مدیریت کاربران→فرم‌های حجیم) و اکثر
-// جلسات کاری فقط ۱-۲ تب را باز می‌کنند؛ فقط نقشه (تب پیش‌فرض/صفحه‌ی اصلی هنگام ورود) بلافاصله
+// با خودشان می‌آورند (الزامات قانونی/هویت‌تقویم شمسی، مدیریت کاربران→فرم‌های حجیم) و اکثر جلساتم کاری
+// فقط ۱-۲ تب را باز می‌کنند؛ فقط نقشه (تب پیش‌فرض/صفحه‌ی اصلی هنگام ورود) بلافاصله
 // لازم است، برای همین eager import شده تا اولین نمایش صفحه یک رفت‌وبرگشت شبکه‌ی اضافه نخورد.
 const LAZY_RENDERERS = {
   mines: () => import('./modules/mines/mineList.js').then((m) => m.renderMineList),
@@ -47,6 +47,14 @@ async function renderContent(container, state) {
   await fn(container, state, appCtx);
 }
 
+// وصل کردن زودهنگام شنونده‌ی تایید ورود Push — عمداً *قبل* از هر بررسی سشن (قبل از boot())،
+// نه فقط بعد از لاگین موفق. اگر این اپ (روی اندروید) از طریق لمس نوتیفیکیشن «تایید ورود»
+// به‌صورت سرد (بسته/پس‌زمینه) باز شده و این دستگاه روی آن لحظه سشن فعالی نداشته باشد (تازه نصب
+// شده یا از اپ خارج شده)، باید حتی بدون سشن فعلی هم بتواند دیالوگ تایید/رد را نشان بدهد —
+// برای همین دیگر داخل boot() فراخوانی نمی‌شود و اینجا، بیرون از هر شرطی، صدا زده می‌شود. خود تابع
+// (روی وب/دسکتاپ بدون Capacitor بومی) بی‌اثر برمی‌گردد، پس نیازی به شرط‌گذاری پلتفرم اینجا نیست.
+import('./lib/pushNative.js').then(({ attachLoginApprovalHandler }) => attachLoginApprovalHandler()).catch(() => {});
+
 async function boot() {
   const root = document.getElementById('app');
   const session = await getSession();
@@ -60,8 +68,8 @@ async function boot() {
   try {
     roleRow = await fetchMyRole(session.user.email);
   } catch {
-    // اولین ورود با گوگل: هنوز ردیفی در user_roles نیست (بر خلاف ثبت‌نام با رمز که موقع signUp
-    // ساخته می‌شود) — همین‌جا با نقش pending ساخته می‌شود تا سوپرادمین در تب «کاربران» ببیندش.
+    // اولین ورود با گوگل: هنوز ردیفی در user_roles نیست (بر خلاف ثبت‌نام با رمز که موقع
+    // signUp ساخته می‌شود) — همین‌جا با نقش pending ساخته می‌شود تا سوپرادمین در تب «کاربران» ببیندش.
     try {
       await ensureMyRoleRow(session.user);
       roleRow = await fetchMyRole(session.user.email);
@@ -124,8 +132,8 @@ async function boot() {
     if (!ok) return; // کاربر از گیت خارج شد (ورود مجدد با رمز)
   }
 
-  // اعلان‌های سامانه (ثبت‌نام جدید، گزارش، حادثه، ...) + «ورود با تایید Push» (اگر قبلاً فعال شده)
-  // — هر دو از یک شنونده‌ی مشترک استفاده می‌کنند؛ نگاه کنید به lib/pushNative.js
+  // اعلان‌های سامانه (ثبت‌نام جدید، گزارش، حادثه، ...) + ثبت توکن دستگاه برای اعلان‌های عمومی
+  // (خودِ شنونده‌ی «تایید ورود Push» دیگر اینجا وصل نمی‌شود — بالای همین فایل وصل شده).
   try {
     const { initNotifications } = await import('./lib/pushNative.js');
     await initNotifications(session.user.email);
