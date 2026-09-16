@@ -34,7 +34,8 @@
     "publish": {
       "provider": "github",
       "owner": "samtqorve-lab",
-      "repo": "-"
+      "repo": "-",
+      "releaseType": "release"
     }
   }
 }
