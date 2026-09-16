@@ -54,7 +54,10 @@ const ESRI_SATELLITE_TILES = ['https://server.arcgisonline.com/ArcGIS/rest/servi
 /**
  * اگر Copernicus (Sentinel Hub) از قبل در پنل «پایش ماهواره‌ای» تنظیم شده باشد، همان تصویر
  * رنگ‌طبیعیِ واقعیِ محدوده را (نه یک بافت عمومی) به‌عنوان یک لایه‌ی image روی همان bbox دقیق
- * می‌گذاریم — کیفیت و به‌روزی بیشتری نسبت به کاشی‌های عمومی Esri دارد.
+ * می‌گذاریم — کیفیت و به‌روزی بیشتری نسبت به کاشی‌های عمومی Esri دارد. سایز تصویر ۱۵۳۶×۱۵۳۶
+ * پیکسل (نزدیک‌ترین عدد منطقی به سقف فنی ۲۵۰۰×۲۵۰۰ پیکسل Sentinel Hub) انتخاب شده — وضوح واقعی
+ * Sentinel-2 در هر حال ۱۰ متر/پیکسل است، پس برای محدوده‌های کوچک‌تر از ۱میلی‌متر تربیعی بزرگ‌تر
+ * از این در عمل فقط interpolate می‌شود، جزئیات واقعی جدیدی اضافه نمی‌کند.
  */
 async function fetchSatelliteImageUrl(bbox) {
   const status = await checkCopernicusStatus();
@@ -64,7 +67,7 @@ async function fetchSatelliteImageUrl(bbox) {
     const today = new Date();
     const dateStr = `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, '0')}-${String(today.getUTCDate()).padStart(2, '0')}`;
     const layer = SAT_LAYERS.truecolor;
-    const blob = await fetchSentinelImage(token, bbox, dateStr, layer.script, 1024, 1024, layer.collection, 45);
+    const blob = await fetchSentinelImage(token, bbox, dateStr, layer.script, 1536, 1536, layer.collection, 45);
     return URL.createObjectURL(blob);
   } catch {
     return null;
