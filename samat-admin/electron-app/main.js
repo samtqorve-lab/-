@@ -6,7 +6,7 @@
 // است که در مرورگر واقعی هم اجرا می‌شود — یعنی هیچ رفتار متفاوتی بین نسخه‌ی وب و دسکتاپ نیست.
 
 const {
-  app, BrowserWindow, shell, dialog,
+  app, BrowserWindow, shell, ipcMain,
 } = require('electron');
 const path = require('path');
 const express = require('express');
@@ -14,23 +14,37 @@ const { autoUpdater } = require('electron-updater');
 
 const PORT = 47821; // یک پورت محلی نسبتاً غیرمعمول، برای پرهیز از تصادم با برنامه‌های دیگر کاربر
 
-// آپدیت خودکار: با هر اجرا، از GitHub Releases (تنظیم‌شده در package.json → build.publish)
-// بررسی می‌شود که نسخه‌ی جدیدتری منتشر شده یا نه؛ اگر بله، در پس‌زمینه دانلود می‌شود و کاربر
-// فقط با یک پیام «آماده‌ی نصب است» مواجه می‌شود، نه یک دانلود دستی از GitHub.
+// آپدیت خودکار: از GitHub Releases (تنظیم‌شده در package.json → build.publish) بررسی می‌شود که
+// نسخه‌ی جدیدتری منتشر شده یا نه؛ اگر بله، در پس‌زمینه دانلود می‌شود. برخلاف نسخه‌ی قبلی که فقط
+// یک‌بار موقع باز شدن برنامه چک می‌کرد و با یک پاپ‌آپ مسدودکننده (dialog) اطلاع می‌داد، این نسخه:
+//   ۱) هر چند ساعت هم در حین کار کاربر، در پس‌زمینه دوباره چک می‌کند (چون این برنامه معمولاً
+//      برای مدت طولانی باز می‌ماند، نه اینکه هر بار بسته و باز شود).
+//   ۲) به‌جای پاپ‌آپ مودال، وضعیت را از طریق IPC به صفحه می‌فرستد تا preload.js یک بنر کوچک و
+//      غیرمسدودکننده در گوشه‌ی صفحه نشان دهد — کاربر می‌تواند کارش را ادامه دهد و هر وقت خواست
+//      «نصب و راه‌اندازی مجدد» را بزند، یا بنر را ببندد (باز هم موقع بستن برنامه نصب می‌شود).
 autoUpdater.autoDownload = true;
 autoUpdater.autoInstallOnAppQuit = true;
 
+const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000; // هر ۴ ساعت، چون برنامه معمولاً کل روز باز است
+
 function setupAutoUpdate(win) {
-  autoUpdater.on('update-downloaded', async () => {
-    const { response } = await dialog.showMessageBox(win, {
-      type: 'info',
-      title: 'نسخه‌ی جدید آماده است',
-      message: 'یک نسخه‌ی جدید از پنل ادمین صمت دانلود شد. برای نصب، برنامه باید بسته و دوباره باز شود.',
-      buttons: ['نصب و راه‌اندازی مجدد', 'بعداً (موقع بستن برنامه نصب می‌شود)'],
-      defaultId: 0,
-      cancelId: 1,
+  const sendStatus = (channel, payload) => {
+    if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
+  };
+
+  autoUpdater.on('update-available', (info) => {
+    sendStatus('samat-update:available', { version: info.version });
+  });
+
+  autoUpdater.on('download-progress', (progress) => {
+    sendStatus('samat-update:downloading', { percent: Math.round(progress.percent) });
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    sendStatus('samat-update:downloaded', {
+      version: info.version,
+      notes: typeof info.releaseNotes === 'string' ? info.releaseNotes : '',
     });
-    if (response === 0) autoUpdater.quitAndInstall();
   });
 
   autoUpdater.on('error', (err) => {
@@ -38,7 +52,13 @@ function setupAutoUpdate(win) {
     console.error('[auto-update]', err == null ? 'unknown' : (err.stack || err).toString());
   });
 
+  // درخواست نصب از سمت بنر داخل‌صفحه‌ای (preload.js → ipcRenderer.send)
+  ipcMain.on('samat-update:install', () => {
+    autoUpdater.quitAndInstall();
+  });
+
   autoUpdater.checkForUpdates();
+  setInterval(() => autoUpdater.checkForUpdates(), UPDATE_CHECK_INTERVAL_MS);
 }
 
 function startLocalServer() {
@@ -75,12 +95,14 @@ function createWindow() {
     shell.openExternal(url);
     return { action: 'deny' };
   });
+
+  return win;
 }
 
 app.whenReady().then(async () => {
   await startLocalServer();
-  createWindow();
-  setupAutoUpdate(BrowserWindow.getAllWindows()[0]);
+  const win = createWindow();
+  setupAutoUpdate(win);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
