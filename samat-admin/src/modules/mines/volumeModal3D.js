@@ -19,7 +19,7 @@ const ESRI_SATELLITE_TILES = ['https://server.arcgisonline.com/ArcGIS/rest/servi
 // تست‌های واقعی کاربر، AWS خطا می‌داد).
 const DEM_SOURCES = {
   mapterhorn: {
-    label: 'Mapterhorn', tiles: ['https://tiles.mapterhorn.com/terrarium/{z}/{x}/{y}.webp'], tileSize: 512,
+    label: 'Mapterhorn', tiles: ['https://tiles.mapterhorn.com/{z}/{x}/{y}.webp'], tileSize: 512,
   },
   aws: {
     label: 'AWS (Terrarium)', tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'], tileSize: 256,

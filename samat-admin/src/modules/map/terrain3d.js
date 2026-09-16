@@ -34,7 +34,7 @@ setWorkerUrl(`${import.meta.env.BASE_URL}maplibre-vendor/maplibre-gl-worker.mjs`
 const DEM_SOURCES = {
   mapterhorn: {
     label: 'Mapterhorn',
-    tiles: ['https://tiles.mapterhorn.com/terrarium/{z}/{x}/{y}.webp'],
+    tiles: ['https://tiles.mapterhorn.com/{z}/{x}/{y}.webp'],
     tileSize: 512,
   },
   aws: {
@@ -81,7 +81,7 @@ export function open3DTerrainModal(record, nameField) {
   if (!bbox) { showToast('⚠️ این رکورد مختصات ثبت‌شده ندارد'); return; }
   const [west, south, east, north] = bbox;
 
-  const { body, overlay } = openModal({ title: `🏷 مدل سه‌بعدی توپوگرافی — ${mineName}`, width: '90vw' });
+  const { body, overlay } = openModal({ title: `🗻 مدل سه‌بعدی توپوگرافی — ${mineName}`, width: '90vw' });
   const mapHost = el('div', { style: 'width:100%;height:70vh;border-radius:var(--radius-md);overflow:hidden;background:var(--stone-200)' });
   const statusLine = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-top:8px' }, '⏳ در حال بارگذاری نقشه و مدل زمین...');
   const hint = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-500);margin-top:4px' },
