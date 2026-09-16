@@ -36,13 +36,13 @@ export function mountLogin(root, onSuccess) {
     const errBox = el('div', { class: 'login-err' });
     const submitBtn = el('button', { class: 'btn btn-primary', style: 'width:100%;justify-content:center;margin-top:14px' }, 'ورود');
 
-    // اگر Push پاسخ ندهد (مثلاً به‌خاطر تحریم/فیلترینگ)، این بخش خودکار ظاهر می‌شود و یک کد ۶ رقمی
+    // اگر Push پاسخی ندهد (مثلاً به‌خاطر تحریم/فیلترینگ)، این بخش خودکار ظاهر می‌شود و یک کد ۶ رقمی
     // که از طریق تلگرام فرستاده شده را می‌گیرد.
     const codeInput = el('input', { type: 'text', dir: 'ltr', placeholder: 'کد ۶ رقمی از تلگرام', maxlength: '6' });
     const codeErrBox = el('div', { class: 'login-err' });
     const codeSubmitBtn = el('button', { type: 'button', class: 'btn btn-primary', style: 'width:100%;justify-content:center;margin-top:8px' }, 'تایید کد');
     // اگر کد اول (رسیدن دیرهنگام پیام، تایپ اشتباه، یا صرفاً منقضی‌شدن ۵ دقیقه‌ای) کار نکرد،
-    // کاربر می‌تواند بدون واردکردن دوباره‌ی کد پرسنلی/رمز عبور، یک کد تازه روی همین approval
+    // کاربر می‌تواند بدون واردکردن دوباره‌ی کد پرسنلی/رمز عبور، یک کد تازه روی همان approval
     // بگیرد — قبلاً تنها راه این بود که کل فرم ورود را از نو ارسال کند.
     const resendBtn = el('button', {
       type: 'button',
@@ -172,7 +172,7 @@ export function mountLogin(root, onSuccess) {
       googleBtn.textContent = 'در حال اتصال به گوگل...';
       try {
         await signInWithGoogle();
-        onSuccess(); // فقط در حالت اندروید به اینجا می‌رسد؛ در وب/دسکتاپ صفحه ریدایرکت می‌شود
+        onSuccess(); // فقط در حالت اندروید به اینجا می‌رسد؛ در وب/دسکتاپ صفحه ریدایری می‌شود
       } catch (err) {
         if (!err.userCancelled) errBox.textContent = err.message || 'خطا در ورود با گوگل';
       } finally {
@@ -307,8 +307,17 @@ export function mountLogin(root, onSuccess) {
    * onAwaitingCode وقتی فال‌بک تلگرام فعال شود صدا زده می‌شود (نگاه کنید به pushLogin.js). */
   /** یک سقف مطلق ۳۵ ثانیه‌ای بیرونی — مستقل از هر منطق داخلی requestPushApproval — چون حتی خودِ
    * insert اولیه‌ی login_approvals (فراخوانی مستقیم Postgrest، نه Edge Function) هم می‌تواند
-   * تحت شرایط شبکه‌ی مشابه گیر کند؛ این آخرین خط دفاعی است تا در هر صورت رابط‌کاربری آزاد شود. */
+   * تحت شرایط شبکه‌ی مشابه گیر کند؛ این آخرین خط دفاع است تا در هر صورت رابط‌کاربری آزاد شود.
+   * نکته‌ی مهم: اگر تا قبل از رسیدن به این سقف (یعنی قبل از اینکه کد تلگرام برسد)، فرایند واقعاً موفق
+   * پیشرفته، این سقف مجبور بود همه‌چی را با خطا قطع کند — حتی اگر کاربر داشت با خیال راحت کد تلگرام
+   * را می‌خواند و وارد می‌کرد (مهلت واقعی همان ۵ دقیقه‌ای CODE_VALID_MS است که در pushLogin.js مدیریت می‌شود).
+   * به‌محض رسیدن کد تلگرام (onAwaitingCode)، این سقف را لغو می‌کنیم — از آن لحظه به بعد فقط مهلت واقعی
+   * ۵دقیقه‌ای تعیین‌کننده‌ی انقضاست. */
   async function waitForPushApproval(email, onAwaitingCode) {
+    let hardDeadlineTimer = null;
+    const hardDeadline = new Promise((_, reject) => {
+      hardDeadlineTimer = setTimeout(() => reject(new Error('اتصال به سرور برقرار نشد — دوباره تلاش کنید (ممکن است فیلترینگ/شبکه باشد)')), 35000);
+    });
     const inner = new Promise((resolve, reject) => {
       requestPushApproval(email, async (status, detail) => {
         if (status === 'approved') { resolve(); return; }
@@ -316,10 +325,10 @@ export function mountLogin(root, onSuccess) {
         if (status === 'denied') { const e = new Error('denied'); e.pushDenied = true; reject(e); return; }
         if (status === 'timeout') { const e = new Error('timeout'); e.pushTimeout = true; reject(e); return; }
         reject(new Error(detail || 'push-error'));
-      }, onAwaitingCode);
-    });
-    const hardDeadline = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('اتصال به سرور برقرار نشد — دوباره تلاش کنید (ممکن است فیلترینگ/شبکه باشد)')), 35000);
+      }, (approvalId, resendFn) => {
+        clearTimeout(hardDeadlineTimer);
+        onAwaitingCode(approvalId, resendFn);
+      });
     });
     return Promise.race([inner, hardDeadline]);
   }
