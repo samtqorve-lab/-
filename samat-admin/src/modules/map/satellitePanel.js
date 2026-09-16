@@ -13,11 +13,17 @@ import { getMineCorners } from '../../lib/geo.js';
  * قرار است دو ابزار جدا باشند، نه یک لایه‌ی روی هم.
  *
  * دو حالت دارد: «تک‌تصویر» (یک تاریخ) و «مقایسه‌ی دو تاریخ» (اسلایدر قبل/بعد روی همان محدوده).
- * توجه: حالت مقایسه فقط یک ابزار کمکیِ دیداری برای بازرس است — هشدار خودکار عددیِ درصد تغییر
+ * توجه: حالت مقایسه فقط یک ابزار کمکی‌ی دیداری برای بازرس است — هشدار خودکار عددی درصد تغییر
  * پیاده‌سازی نشده؛ چون بدون تضمین از فرمت دقیق خروجی sentinel-proxy، هر عدد ادعایی می‌توانست
  * گمراه‌کننده باشد — و در ابزار بازرسی رسمی معدن، یک عدد نادرست بدتر از نبودن آن عدد است.
  * (تشخیص خودکار تخلف، جدا و به‌صورت عددی صحیح‌تر، در Edge Function «boundary-monitor» انجام
  * می‌شود — نگاه کنید به boundaryMonitor.js برای بررسی آن نتایج.)
+ *
+ * نقشه‌ی زمینه (ماهواره-گوگل): فقط یک کمک دیداری برای جهت‌یابی محدوده روی نقشه است،
+ * هیچ ربطی به دقت علمی تصویر کوپرنیک ندارد و ممکن است تاریخ‌ش با گذر واقعی ماهواره فرق داشته باشد.
+ * پس پیش‌فرض این نقشه **خاموش است** — فقط خود تصویر کوپرنیک/سنتینل دیده می‌شود (روی پس‌زمینه‌ی
+ * تیره)، تا هیچ مختصاتی از نقشه‌ی زمینه گوگل تصویر را آلوده/تحت‌الشعاع نکند. ادمین هر وقت خواست
+ * با یک دکمه می‌تواند همان نقشه‌ی زمینه‌ی قبلی (تصویر ماهواره‌ای گوگل) را برای مقایسه/مرجع اضافه کند.
  */
 export function mountSatellitePanel(hostContainer, { records, nameField }) {
   let credConfigured = false;
@@ -25,8 +31,9 @@ export function mountSatellitePanel(hostContainer, { records, nameField }) {
   let compareLayers = null; // {before: L.ImageOverlay, after: L.ImageOverlay}
   let mode = 'single'; // 'single' | 'compare'
   let credsOpen = false; // تب کوچیک تنظیمات اتصال Copernicus — پیش‌فرض بسته
+  let showBaseLayer = false; // پیش‌فرض: فقط خود تصویر ماهواره‌ای دیده شود — ادمین هر وقت خواست از دکمه‌ی زیر روشنش می‌کند
 
-  const mapBox = el('div', { style: 'height:280px;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--stone-200);margin-bottom:10px' });
+  const mapBox = el('div', { style: 'height:280px;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--stone-200);margin-bottom:10px;background:#111' });
   const wrap = el('div', {});
   const container = el('div', { style: 'position:relative' });
   container.append(mapBox, wrap);
@@ -43,15 +50,15 @@ export function mountSatellitePanel(hostContainer, { records, nameField }) {
   function applyFullscreenLayout() {
     if (fullscreen) {
       container.style.cssText = 'position:fixed;inset:0;z-index:2000;background:#111';
-      mapBox.style.cssText = 'position:absolute;inset:0;border-radius:0;border:none';
-      // در حالت تمام‌صفحه، ابزارها (انتخاب معدن/لایه/تاریخ/دکمه‌ها) به‌جای زیرِ نقشه، به‌صورت یک
+      mapBox.style.cssText = 'position:absolute;inset:0;border-radius:0;border:none;background:#111';
+      // در حالت تمام‌صفحه، ابزارها (انتخاب معدن/لایه/تاریخ/دکمه‌ها) به‌جای زیر‌ نقشه، به‌صورت یک
       // پنل شناور نیمه‌شفاف روی خودِ تصویر منتقل می‌شوند — چون در تمام‌صفحه دیگر جایی برای اسکرول
-      // زیر نقشه نیست و کل هدف، دیدن خودِ تصویر در بزرگ‌ترین اندازه‌ی ممکن است.
+      // زیر نقشه نیست، و کل هدف، دیدن خودِ تصویر در بزرگ‌ترین اندازه‌ی ممکن است.
       wrap.style.cssText = 'position:absolute;top:8px;right:8px;bottom:8px;width:300px;max-width:80vw;overflow-y:auto;background:rgba(255,255,255,0.95);border-radius:var(--radius-md);padding:10px;z-index:1000;box-shadow:var(--shadow-lg)';
       fsBtn.textContent = '✕ خروج از تمام‌صفحه';
     } else {
       container.style.cssText = 'position:relative';
-      mapBox.style.cssText = 'height:280px;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--stone-200);margin-bottom:10px';
+      mapBox.style.cssText = 'height:280px;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--stone-200);margin-bottom:10px;background:#111';
       wrap.style.cssText = '';
       fsBtn.textContent = '⛶ تمام‌صفحه';
     }
@@ -65,7 +72,10 @@ export function mountSatellitePanel(hostContainer, { records, nameField }) {
   document.addEventListener('keydown', onEscKey);
 
   const map = L.map(mapBox, { attributionControl: false }).setView([35.16, 47.8], 12);
-  L.tileLayer('https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', { subdomains: ['0', '1', '2', '3'], maxZoom: 21 }).addTo(map);
+  // توجه: لایه‌ی زمینه عمداً addTo(map) نمی‌شود — فقط وقتی اضافه می‌شود که showBaseLayer=true باشد
+  // (یعنی ادمین از دکمه‌ی پایین روشنش کرده باشد) — پیش‌فرض فقط خود تصویر کوپرنیک دیده می‌شود.
+  const baseLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', { subdomains: ['0', '1', '2', '3'], maxZoom: 21 });
+  if (showBaseLayer) baseLayer.addTo(map);
 
   wrap.append(el('div', { class: 'loading-state' }, 'در حال بررسی تنظیمات Copernicus...'));
 
@@ -81,7 +91,7 @@ export function mountSatellitePanel(hostContainer, { records, nameField }) {
 
   // رنگ‌های این‌جا دقیقاً همان مقادیری‌اند که در اسکریپت‌های ارزیابی sentinelHub.js برای هر شاخص
   // نوشته شده (SAT_EVALSCRIPT_NDVI/BSI/S1) — اگر آن آستانه‌ها روزی عوض شوند، این‌جا هم باید هماهنگ
-  // شود، چون این‌ها کپی‌دستی رنگ‌ها هستند نه محاسبه‌شده از خود اسکریپت.
+  // شود، چون این‌ها کپی‌دستی رنگ‌هایند نه محاسبه‌شده از خود اسکریپت.
   const LEGENDS = {
     truecolor: null, // رنگ طبیعی خودِ زمین است، نیازی به توضیح رنگ ندارد
     ndvi: [
@@ -123,6 +133,21 @@ export function mountSatellitePanel(hostContainer, { records, nameField }) {
       wrap.append(el('div', { style: 'font-size:var(--text-xs);color:var(--rust-600)' },
         'تابع واسط sentinel-proxy در دسترس نیست — مطمئن شوید این Edge Function در Supabase دیپلوی شده است.'));
       return;
+    }
+
+    const baseLayerToggle = el('button', {
+      class: 'btn-sm',
+      style: `width:100%;margin-bottom:8px;background:${showBaseLayer ? 'var(--stone-100)' : 'var(--ochre-600)'};color:${showBaseLayer ? 'var(--ink-700)' : '#fff'}`,
+      onclick: () => {
+        showBaseLayer = !showBaseLayer;
+        if (showBaseLayer) baseLayer.addTo(map); else map.removeLayer(baseLayer);
+        drawPanel(status);
+      },
+    }, showBaseLayer ? '🗺️ حذف نقشه‌ی زمینه (فقط تصویر ماهواره بماند)' : '➕ افزودن نقشه‌ی زمینه (گوگل ماهواره‌ای)');
+    wrap.append(baseLayerToggle);
+    if (!showBaseLayer) {
+      wrap.append(el('div', { style: 'font-size:var(--text-xs);color:var(--stone-500);margin:-4px 0 8px' },
+        'در حالت پیش‌فرض: فقط خود تصویر دانلودشده از کوپرنیک روی زمینه‌ی مشکی نمایش داده می‌شود.'));
     }
 
     const credsToggle = el('button', {
