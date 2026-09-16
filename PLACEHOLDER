@@ -1,1 +1,0 @@
-    const blob = await fetchSentinelImage(token, bbox, dateStr, layer.script, 1536, 1536, layer.collection, 45);
