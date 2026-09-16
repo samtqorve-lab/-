@@ -1,21 +1,23 @@
 import { Map as MapLibreMap, NavigationControl, AttributionControl, setWorkerUrl } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-// خودِ maplibre-gl در زمان اجرا آدرس اسکریپت Worker خودش (maplibre-gl-worker.mjs) را با
-// import.meta.url نسبی به فایل خودش می‌سازد. این الگو برای Vite قابل تشخیص نیست (نه در dev که
-// dependency pre-bundling می‌کند و نه در build که فقط import های استاتیک را دنبال می‌کند)، پس این
-// فایل هیچ‌وقت کپی/سرو نمی‌شود و درخواستش ۴۰۴ می‌خورد — نتیجه: DEM هیچ‌وقت روی Worker دیکد
-// نمی‌شود، پس setTerrain ظاهراً موفق است ولی نتیجه‌اش یک نقشه‌ی کاملاً مسطح (۲بعدی) است، نه خطا.
-// ⚠️ این fix قبلاً یک‌بار در کامیت 22df63e اضافه شده بود ولی در یک کامیت بعدی از سشن موازی
-// (ef9de2c) به‌طور ناخواسته حذف شد — لطفاً این import و خط setWorkerUrl زیر را در ادیت‌های بعدیِ
-// این فایل حفظ کنید.
-import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
+// خودِ maplibre-gl آدرس اسکریپت Worker خودش (maplibre-gl-worker.mjs) را باید با setWorkerUrl
+// صریحاً بگیرد، وگرنه در بیلد اصلاً به کار برده نمی‌شود. راهِ قبلی (`?url` import مستقیم از
+// node_modules) دیگر کار نمی‌کند: Vite/Rolldown این فایل را به‌عنوان یک ماژول واقعی می‌بیند، آن
+// را با نام هش‌دار کپی می‌کند ولی importِ نسبیِ داخلی خودش («./maplibre-gl-shared.mjs») را
+// resolve/کپی نمی‌کند — یعنی فایلِ خروجیِ Worker به یک چانک ناموجود اشاره می‌کند، Worker با ۴۰۴
+// بی‌صدا شکست می‌خورد، DEM هیچ‌وقت دیکد نمی‌شود، و setTerrain ظاهراً موفق است ولی نتیجه‌اش یک
+// نقشه‌ی کاملاً مسطح (۲بعدی) است — بدون هیچ خطای قابل‌مشاهده‌ای. حالا هر دو فایلِ به‌هم‌وابسته
+// (worker + shared) با vite.config.js عیناً و کنار هم در public/maplibre-vendor/ کپی می‌شوند
+// (تازه در هر build، هیچ‌وقت stale نمی‌شود)، پس importِ نسبیِ داخلی‌شان سالم می‌ماند.
+// ⚠️ این fix قبلاً چندبار (کامیت 22df63e، و این نسخه‌ی جدید) به‌خاطر ادیت‌های موازی حذف/میان‌بر
+// زده شده — لطفاً این import و خط setWorkerUrl زیر را در ادیت‌های بعدیِ این فایل حفظ کنید.
 import { el, showToast, openModal } from '../../lib/dom.js';
 import { getMineCorners } from '../../lib/geo.js';
 import {
   getMineBBox, checkCopernicusStatus, getCopernicusToken, fetchSentinelImage, SAT_LAYERS,
 } from '../../lib/sentinelHub.js';
 
-setWorkerUrl(maplibreWorkerUrl);
+setWorkerUrl(`${import.meta.env.BASE_URL}maplibre-vendor/maplibre-gl-worker.mjs`);
 
 /**
  * قبلاً این ماژول با Three.js دستی یک صفحه‌ی مربع می‌ساخت و ارتفاع را با یک ضریب اغراقِ کور
@@ -79,7 +81,7 @@ export function open3DTerrainModal(record, nameField) {
   if (!bbox) { showToast('⚠️ این رکورد مختصات ثبت‌شده ندارد'); return; }
   const [west, south, east, north] = bbox;
 
-  const { body, overlay } = openModal({ title: `🗻 مدل سه‌بعدی توپوگرافی — ${mineName}`, width: '90vw' });
+  const { body, overlay } = openModal({ title: `🏷 مدل سه‌بعدی توپوگرافی — ${mineName}`, width: '90vw' });
   const mapHost = el('div', { style: 'width:100%;height:70vh;border-radius:var(--radius-md);overflow:hidden;background:var(--stone-200)' });
   const statusLine = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-top:8px' }, '⏳ در حال بارگذاری نقشه و مدل زمین...');
   const hint = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-500);margin-top:4px' },
