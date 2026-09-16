@@ -2,17 +2,16 @@ import {
   Map as MapLibreMap, NavigationControl, AttributionControl, Popup, setWorkerUrl,
 } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-// همان فیکس حیاتیِ terrain3d.js — بدون این، setWorkerUrl واقعی هیچ‌وقت اجرا نمی‌شود، DEM هیچ‌وقت
-// روی Worker دیکد نمی‌شود، و نقشه بی‌صدا کاملاً دوبعدی می‌ماند (بدون هیچ پیام خطایی). این دو فایل
-// (terrain3d.js و این فایل) باید همیشه همین fix را با هم داشته باشند.
-import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
+// همان فیکس حیاتیِ terrain3d.js (نگاه کنید به توضیح کامل آن‌جا) — بدون این، Worker با یک importِ
+// نسبیِ شکسته (۴۰۴) بی‌صدا از کار می‌افتد، DEM هیچ‌وقت دیکد نمی‌شود، و نقشه کاملاً دوبعدی می‌ماند.
+// این دو فایل (terrain3d.js و این فایل) باید همیشه همین fix را با هم داشته باشند.
 import { el, openModal, showToast, fmtDate } from '../../lib/dom.js';
 import { getMineCorners } from '../../lib/geo.js';
 import { getMineBBox } from '../../lib/sentinelHub.js';
 import { utmZoneForLon, utmToLatLon } from '../../lib/utm.js';
 import { buildTriIndex, interpolateZ, computeLicenseComparison, computeSlopeStats } from '../../lib/volumeCalc.js';
 
-setWorkerUrl(maplibreWorkerUrl);
+setWorkerUrl(`${import.meta.env.BASE_URL}maplibre-vendor/maplibre-gl-worker.mjs`);
 
 const ESRI_SATELLITE_TILES = ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'];
 // دو منبع کاشیِ ارتفاع برای مقایسه/جایگزینی — همان‌هایی که در terrain3d.js هستند (سرویس‌های
@@ -63,7 +62,7 @@ export function open3DVolumeModal(data, record, nameField) {
     return [lon, lat];
   }
 
-  const { body, overlay } = openModal({ title: `🗻 نمای سه‌بعدی حجم کات/فیل — ${mineName}`, width: '92vw' });
+  const { body, overlay } = openModal({ title: `🏷 نمای سه‌بعدی حجم کات/فیل — ${mineName}`, width: '92vw' });
   const mapHost = el('div', { style: 'width:100%;height:62vh;border-radius:var(--radius-md);overflow:hidden;background:var(--stone-200)' });
   const statusLine = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-top:8px' }, '⏳ در حال بارگذاری نقشه...');
   const legend = el('div', { style: 'display:flex;gap:14px;margin-top:6px;font-size:var(--text-xs);flex-wrap:wrap' }, [
