@@ -1,5 +1,33 @@
 import { defineConfig } from 'vite';
 import { configDefaults } from 'vitest/config';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// ── فیکس واقعیِ باگ «مدل سه‌بعدی مسطح می‌ماند» ──
+// روش قبلی (`import ... from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'` + setWorkerUrl) در
+// نسخه‌ی فعلی Vite/Rolldown دیگر کار نمی‌کند: Vite این فایل را به‌عنوان یک ماژول واقعی می‌بیند
+// (نه یک asset خام) و آن را با یک نام هش‌دار جدا کپی می‌کند، ولی importِ نسبیِ داخلی خودش
+// (`./maplibre-gl-shared.mjs`) را resolve/کپی نمی‌کند — نتیجه: خودِ فایل Worker خروجی به یک
+// چانک ناموجود اشاره می‌کند، مرورگر آن را با ۴۰۴ رد می‌کند، Worker هیچ‌وقت واقعاً اجرا نمی‌شود،
+// DEM هیچ‌وقت دیکد نمی‌شود، و setTerrain ظاهراً موفق است ولی نتیجه یک نقشه‌ی کاملاً مسطح (۲بعدی)
+// است — بدون هیچ خطای قابل‌مشاهده‌ای در UI (دقیقاً همان علامتِ قدیمی، با یک علت جدید).
+// راه‌حل: هر دو فایلِ به‌هم‌وابسته (worker + shared) را عیناً و بدون هیچ پردازشی، کنار هم و با
+// همان نام اصلی، در public/ کپی می‌کنیم تا importِ نسبیِ داخلی‌شان دقیقاً همان‌طور که خودِ
+// maplibre-gl نوشته سالم بماند. این کپی در همین‌جا (نه در git) و در هر اجرای dev/build دوباره از
+// node_modules تازه انجام می‌شود، تا با هر بار آپدیت شدن نسخه‌ی maplibre-gl خودش را به‌روز نگه دارد
+// و هیچ‌وقت stale نشود (به همین دلیل public/maplibre-vendor/ در .gitignore هم اضافه شده).
+function copyMaplibreWorkerFiles() {
+  const srcDir = path.join(__dirname, 'node_modules/maplibre-gl/dist');
+  const destDir = path.join(__dirname, 'public/maplibre-vendor');
+  fs.mkdirSync(destDir, { recursive: true });
+  ['maplibre-gl-worker.mjs', 'maplibre-gl-shared.mjs'].forEach((name) => {
+    fs.copyFileSync(path.join(srcDir, name), path.join(destDir, name));
+  });
+}
+copyMaplibreWorkerFiles();
 
 export default defineConfig({
   // شماره‌ی build (از GitHub Actions run_number) برای مقایسه با manifest آپدیت اندروید؛
