@@ -27,6 +27,15 @@ function getMineEquipmentList(mine) {
   return list;
 }
 
+/**
+ * چک‌لیست ماشین‌آلات پیش‌فرض معدن — هر عکس اجباراً به یک دستگاه مشخص از این لیست وصل است (نه یک
+ * عکس شناور و بی‌نام). برای هر دستگاه: شماره سریال تایپی + دقیقاً دو عکس اجباری (نمای دور و
+ * پلاک شماره سریال). اگر دستگاهی در لیست نبود، همین‌جا با «➕ افزودن ماشین جدید» اضافه می‌شود و
+ * از همان لحظه بخشی از لیست پیش‌فرض دائمی معدن می‌شود (نه فقط یک عکس یک‌بارمصرف) — چون «افزودن»
+ * مستقیماً یک ردیف تازه در workingList می‌سازد که با همان دکمه‌ی «💾 ذخیره لیست» در ادامه‌ی همین
+ * تابع، از طریق RPC روی رکورد دائمی معدن ذخیره می‌شود؛ منطق افزودن/ویرایش/ذخیره هیچ فرقی با یک
+ * دستگاه از قبل موجود در لیست ندارد.
+ */
 export function mountEquipmentChecklist(container, mine, nameField, department, fullNameInput, membershipInput) {
   let workingList = getMineEquipmentList(mine);
   let editingKey = null;
@@ -35,7 +44,7 @@ export function mountEquipmentChecklist(container, mine, nameField, department, 
   function draw() {
     container.innerHTML = '';
     container.append(el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:10px' },
-      'این ماشین‌آلات پیش‌فرض همین معدن‌اند (نفت‌گاز / گاز مایع / نفت سفید). برای هرکدام، شماره سریال را تایپ کنید و یک عکس نمای دور + یک عکس پلاک شماره سریال بگیرید تا برای درخواست سهمیه‌ی سوخت برای ادمین ارسال شود.'));
+      'این ماشین‌آلات پیش‌فرض همین معدن‌اند. برای هرکدام، شماره سریال را تایپ کنید و دقیقاً دو عکس بگیرید: یک عکس نمای دور و یک عکس پلاک شماره سریال. اگر دستگاهی در لیست نیست، با «➕ افزودن ماشین جدید» همین‌جا اضافه‌اش کنید — از همان لحظه بخشی از لیست پیش‌فرض دائمی این معدن می‌شود.'));
     if (!workingList.length) {
       container.append(el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);padding:6px 0' }, 'هنوز ماشین‌آلاتی برای این معدن ثبت نشده — با دکمه‌ی زیر اضافه کنید.'));
     }
@@ -153,6 +162,18 @@ export function mountEquipmentChecklist(container, mine, nameField, department, 
       });
       serialNoInput.addEventListener('input', () => { captures[eq.key].serialNo = serialNoInput.value; });
 
+      // نشانه‌ی کامل/ناقص‌بودن: کاربر باید مطمئن بشه واقعاً هر دو عکس اجباری رو گرفته، نه فقط
+      // یکی — این وضعیت رو صریح نشون می‌ده تا چیزی از چشم نیفته.
+      const overviewCount = captures[eq.key].overview.length;
+      const serialCount = captures[eq.key].serial.length;
+      const complete = overviewCount > 0 && serialCount > 0;
+      const missing = [];
+      if (!overviewCount) missing.push('نمای دور');
+      if (!serialCount) missing.push('شماره سریال');
+      const statusLine = el('div', {
+        style: `font-size:10.5px;margin-top:8px;font-weight:700;color:${complete ? 'var(--patina-700)' : 'var(--amber-700)'}`,
+      }, complete ? '✅ کامل — هر دو عکس اجباری ثبت شده' : `⚠️ ناقص — عکس ${missing.join(' و ')} هنوز لازم است`);
+
       container.append(el('div', { style: 'background:var(--stone-50);border-radius:10px;padding:10px;margin-bottom:8px' }, [
         el('div', { style: 'display:flex;justify-content:space-between;align-items:flex-start' }, [
           el('div', {}, [
@@ -161,13 +182,14 @@ export function mountEquipmentChecklist(container, mine, nameField, department, 
           ]),
           el('button', { style: 'background:none;border:none;font-size:15px;cursor:pointer', onclick: () => { editingKey = eq.key; draw(); } }, '✏️'),
         ]),
-        el('div', { style: 'font-size:10.5px;color:var(--stone-500);margin-bottom:6px' }, '🛢️ برای درخواست سهمیه‌ی سوخت: شماره سریال را تایپ کنید، سپس یک عکس نمای دور از دستگاه و یک عکس واضح از پلاک شماره سریال بگیرید.'),
+        el('div', { style: 'font-size:10.5px;color:var(--stone-500);margin-bottom:6px' }, '🛢️ شماره سریال را تایپ کنید، سپس یک عکس نمای دور از دستگاه و یک عکس واضح از پلاک شماره سریال بگیرید — هر دو اجباری است.'),
         serialNoInput,
         el('div', { style: 'display:flex;gap:6px;flex-wrap:wrap' }, [
           el('button', { class: 'btn-sm', style: 'background:var(--schist-100);color:var(--schist-600)', onclick: () => triggerCapture('overview') }, '📷 نمای دور'), overviewInput,
           el('button', { class: 'btn-sm', style: 'background:var(--amber-100);color:var(--amber-700)', onclick: () => triggerCapture('serial') }, '🔢 عکس شماره سریال'), serialInput,
         ]),
         thumbBox('overview'), thumbBox('serial'),
+        statusLine,
       ]));
     });
 
