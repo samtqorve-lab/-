@@ -7,15 +7,15 @@ import { ensureMyRoleRow } from './lib/auth.js';
 import { mountLogin } from './modules/login/login.js';
 import { mountIdentityPending, mountIdentityCapture, mountIdentityQueuedOffline } from './modules/identity/identityGate.js';
 import { mountBiometricGate } from './modules/identity/biometricGate.js';
-// نکته‌ی کارایی: mountTechOfficerPanel/mountSafetyOfficerPanel/mountOwnerPanel این‌جا import
-// نمی‌شوند — نقش هر کاربر ثابت است (یکی از این سه)، پس همیشه دو تای دیگر بی‌مصرف در باندل اولیه
+// نکته‌ی کارآیی: mountTechOfficerPanel/mountSafetyOfficerPanel/mountOwnerPanel این‌جا import
+// نمی‌شوند — نقش هر کاربر ثابت است (یکی از این سه تا)، پس همیشه دوتای دیگر بی‌مصرف در باندل اولیه
 // دانلود می‌شدند؛ حالا هرکدام درست همان لحظه‌ای که نقش واقعی کاربر مشخص شد، با import() پویا
 // بارگذاری می‌شود.
 import { fetchAssignedMines, fetchMinesByGeoScope, specialtyMeta } from './lib/records.js';
 import { mountStaffFieldPicker } from './modules/shell/staffFieldPicker.js';
 import { checkIdentityGate, loadIdentitySettings, submitIdentityVerification } from './lib/identity.js';
 import { registerSender, initOfflineQueueWatcher } from './lib/offlineQueue.js';
-import { startManagedGpsPrewarm, stopGpsPrewarm } from './lib/geo.js';
+import { startManagedGpsPrewarm, stopGpsPrewarm, getOrCreateDeviceId } from './lib/geo.js';
 import { mountOfflineBadge } from './modules/shell/offlineBadge.js';
 import { mountUpdateBadge } from './modules/shell/updateBadge.js';
 import { mountOnboarding, shouldShowOnboarding } from './modules/shell/onboarding.js';
@@ -35,14 +35,14 @@ initOfflineQueueWatcher(showToast);
 // مجوز موقعیت‌مکانی را بدهد و اولین خوانش‌ها زودتر آماده باشند.
 startManagedGpsPrewarm();
 
-// شنونده‌ی «تایید/رد ورود با Push» را همین ابتدای اجرای اپ سوار می‌کنیم — نه فقط داخل
-// registerForPushLogin (که فقط لحظه‌ی فعال‌سازی از تنظیمات صدا زده می‌شود). چون handlerAttached
+// شنونده‌ی «تایید/رد ورود با Push» را همین ابتدای اجرای اپ سوار می‌کنیم — نه فقط داخل﻿
+registerForPushLogin (که فقط لحظه‌ی فعال‌سازی از تنظیمات صدا زده می‌شود). چون handlerAttached
 // در حافظه‌ی هر اجرای تازه صفر است، بدون این خط، بعد از هر بار کامل بستن و باز کردن اپ، حتی اگر
 // «ورود با تایید Push» قبلاً روی این دستگاه فعال شده باشد، ضربه‌زدن روی دکمه‌ی تایید/رد داخل
 // اعلان هیچ اثری نداشت — دقیقاً همان چیزی که باعث می‌شد صفحه‌ی ورود برای همیشه روی «در انتظار
 // تایید...» بماند. اینجا (نه داخل boot) قرار دارد چون خودِ لحظه‌ی انتظار تاییدیه هم روی همین
-// صفحه‌ی ورود (قبل از session کامل) اتفاق می‌افتد؛ تابع خودش نیازی به لاگین‌بودن ندارد، فقط
-// شنونده‌های Push/LocalNotifications را سوار می‌کند.
+// صفحه‌ی ورود (قبل از session کامل) اتفاق می‌افتد؛ خود تابع نیازی به لاگین‌بودن ندارد، فقط شنونده‌های
+Push/LocalNotifications را سوار می‌کند.
 import('@capacitor/core').then(({ Capacitor }) => {
   if (!Capacitor.isNativePlatform()) return;
   import('./lib/pushNative.js').then(({ attachLoginApprovalHandler }) => {
@@ -71,12 +71,18 @@ async function boot() {
     if (!ok) return; // (در عمل همیشه true resolve می‌شود یا کاربر خارج شده)
   }
 
+  // اگر آخرین ورود از مسیر «ورود سریع با گوگل» بوده (پرچم یک‌بار‌مصرف در login.js)، اینجا
+  // مصرف و پاکش می‌کنیم — فقط همین یک بوت بعد از ورود بررسی می‌شود، نه بعد از reload‌هایی که
+  // ممکن است بعداً (مثلاً بعد از ارسال عکس احراز هویت) رخ بدهد.
+  const isGoogleLogin = sessionStorage.getItem('samat_google_login') === '1';
+  if (isGoogleLogin) sessionStorage.removeItem('samat_google_login');
+
   const { data } = await sb.from('user_roles')
     .select('role, assigned_mines, tech_officer_specialty, identity_status, identity_verified_at, trusted_device_id, full_name, membership_no, national_code, license_no, license_expiry_date, assigned_province, assigned_county, identity_boundary_exempt, requested_mine_name, contract_no, preferred_messenger, messenger_chat_id')
     .eq('email', email).limit(1);
   const row = (data && data[0]) || await (async () => {
-    // اولین ورود با گوگل: هنوز ردیفی در user_roles نیست (بر خلاف ثبت‌نام با رمز که موقع signUp
-    // ساخته می‌شود) — همین‌جا ساخته می‌شود تا در تب «کاربران» پنل ادمین دیده شود و سوپرادمین
+    // اولین ورود با گوگل: هنوز ردیفی در user_roles نیست (بر خلاف ثبت‌نام با رمز که موقع
+    // signUp ساخته می‌شود) — همین‌جا ساخته می‌شود تا در تب «کاربران» پنل ادمین دیده شود و سوپرادمین
     // بتواند تاییدش کند.
     await ensureMyRoleRow(session.user);
     return {
@@ -159,10 +165,26 @@ async function boot() {
   const identitySettings = await loadIdentitySettings();
 
   // از همین لحظه (بعد از تایید نقش، قبل از هر صفحه‌ای که ممکن است عکس/GPS بخواهد) GPS را
-  // پیش‌گرم می‌کنیم — چه کاربر برود سراغ صفحه‌ی احراز هویت، چه مستقیم به پنل اصلی برسد، دیگر از
-  // صفر منتظر «لود شدن» GPS نمی‌ماند.
+  // پیش‌گرم می‌کنیم — چه کاربر برود سراغ صفحه‌ی احراز هویت، چه مستقیم به پنل اصلی برسد، دیگر از صفر
+  // منتظر «لود شدن» GPS نمی‌ماند.
   startManagedGpsPrewarm();
-  const gate = await checkIdentityGate(email, row, identitySettings.monthlyMs);
+
+  // ورود سریع با گوگل فقط از «گوشی مورداعتماد» (trusted_device_id، همان گوشیی که آخرین بار عکس
+  // احراز هویتش روی آن تایید شده) باید مجاز باشد — روی هر گوشی دیگری باید از نو داخل محدوده‌ی معدن
+  // عکس بگیرد و منتظر تایید مدیر بماند. ورود با کد پرسنلی/رمز عبور از این قاعده مستثنی است و مثل قبل
+  // روی هر گوشی‌ای کار می‌کند. اگر تا امروز هیچ گوشیی تایید نشده (trusted_device_id خالی)، اینجا کاری
+  // لازم نیست — checkIdentityGate پایین‌تر چون identity_status هنوز approved نیست، طبیعی مسیر عکسگرفتن را
+  // نشان می‌دهد.
+  const deviceMismatch = isGoogleLogin && row.trusted_device_id && row.trusted_device_id !== getOrCreateDeviceId();
+
+  const gate = deviceMismatch
+    ? {
+      ok: false,
+      kind: 'capture',
+      captureKind: 'initial',
+      reason: 'ورود سریع با گوگل از یک گوشی جدید (غیر از گوشیی که قبلاً تایید شده) انجام شده — برای این گوشی هم باید داخل محدوده‌ی معدن یک عکس بگیرید تا مدیر سامانه تاییدش کند.',
+    }
+    : await checkIdentityGate(email, row, identitySettings.monthlyMs);
 
   if (!gate.ok) {
     if (gate.kind === 'pending') {
@@ -192,4 +214,3 @@ async function boot() {
 }
 
 boot();
-
