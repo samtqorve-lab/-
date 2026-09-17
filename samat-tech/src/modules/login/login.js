@@ -197,6 +197,11 @@ export function mountLogin(root, onSuccess) {
       googleBtn.textContent = 'در حال اتصال به گوگل...';
       try {
         await signInWithGoogle();
+        // این پرچم فقط یک‌بار (در همین بوت بعدی) در main.js خوانده و پاک می‌شود — با آن تشخیص
+        // داده می‌شود ورود از مسیر «سریع با گوگل» بوده، تا اگر گوشیی فعلی همان گوشیی
+        // تایید‌شده (trusted_device_id) نباشد، به‌جای ورود مستقیم، کاربر به گرفتن عکس احراز هویت هدایت
+        // شود.
+        sessionStorage.setItem('samat_google_login', '1');
         onSuccess(); // فقط در حالت اندروید به اینجا می‌رسد؛ در وب صفحه ریدایری می‌شود
       } catch (err) {
         if (!err.userCancelled) errBox.textContent = err.message || 'خطا در ورود با گوگل';
