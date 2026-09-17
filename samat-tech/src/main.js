@@ -1,3 +1,40 @@
+import './styles/tokens.css';
+import './styles/base.css';
+import './styles/components.css';
+
+import { sb } from './lib/supabase.js';
+import { ensureMyRoleRow } from './lib/auth.js';
+import { mountLogin } from './modules/login/login.js';
+import { mountIdentityPending, mountIdentityCapture, mountIdentityQueuedOffline } from './modules/identity/identityGate.js';
+import { mountBiometricGate } from './modules/identity/biometricGate.js';
+// نکته‌ی کارآیی: mountTechOfficerPanel/mountSafetyOfficerPanel/mountOwnerPanel این‌جا import
+// نمی‌شوند — نقش هر کاربر ثابت است (یکی از این سه تا)، پس همیشه دوتای دیگر بی‌مصرف در باندل اولیه
+// دانلود می‌شدند؛ حالا هرکدام درست همان لحظه‌ای که نقش واقعی کاربر مشخص شد، با import() پویا
+// بارگذاری می‌شود.
+import { fetchAssignedMines, fetchMinesByGeoScope, specialtyMeta } from './lib/records.js';
+import { mountStaffFieldPicker } from './modules/shell/staffFieldPicker.js';
+import { checkIdentityGate, loadIdentitySettings, submitIdentityVerification } from './lib/identity.js';
+import { registerSender, initOfflineQueueWatcher } from './lib/offlineQueue.js';
+import { startManagedGpsPrewarm, stopGpsPrewarm, getOrCreateDeviceId } from './lib/geo.js';
+import { mountOfflineBadge } from './modules/shell/offlineBadge.js';
+import { mountUpdateBadge } from './modules/shell/updateBadge.js';
+import { mountOnboarding, shouldShowOnboarding } from './modules/shell/onboarding.js';
+import { hasBiometricCred } from './lib/biometric.js';
+import { el, showToast } from './lib/dom.js';
+
+const OFFICER_ROLES = ['tech_officer', 'safety_officer', 'health_officer'];
+// این نقش‌ها (همان نقش‌های پنل ادمین) اجازه دارند وارد اپ مسئول فنی شوند تا خودشان سر معدن
+// یک گزارش با موقعیت مکانی زنده ثبت کنند — بدون این‌که نقش ثابتشان در جدول کاربران عوض شود.
+const STAFF_FIELD_ROLES = ['admin', 'superadmin', 'inspector'];
+
+registerSender('identityVerification', submitIdentityVerification);
+mountOfflineBadge();
+mountUpdateBadge();
+initOfflineQueueWatcher(showToast);
+// GPS از همین لحظه‌ی باز شدن اپ پیش‌گرم می‌شود (نه بعد از ورود) — تا مسئول فنی زودتر
+// مجوز موقعیت‌مکانی را بدهد و اولین خوانش‌ها زودتر آماده باشند.
+startManagedGpsPrewarm();
+
 // شنونده‌ی «تایید/رد ورود با Push» را همین ابتدای اجرای اپ سوار می‌کنیم — نه فقط داخل
 // registerForPushLogin (که فقط لحظه‌ی فعال‌سازی از تنظیمات صدا زده می‌شود). چون handlerAttached
 // در حافظه‌ی هر اجرای تازه صفر است، بدون این خط، بعد از هر بار کامل بستن و باز کردن اپ، حتی اگر
@@ -6,3 +43,174 @@
 // تایید...» بماند. اینجا (نه داخل boot) قرار دارد چون خودِ لحظه‌ی انتظار تاییدیه هم روی همین
 // صفحه‌ی ورود (قبل از session کامل) اتفاق می‌افتد؛ خود تابع نیازی به لاگین‌بودن ندارد، فقط شنونده‌های
 // Push/LocalNotifications را سوار می‌کند.
+import('@capacitor/core').then(({ Capacitor }) => {
+  if (!Capacitor.isNativePlatform()) return;
+  import('./lib/pushNative.js').then(({ attachLoginApprovalHandler }) => {
+    attachLoginApprovalHandler();
+  });
+}).catch(() => {});
+
+function logoutAndReload() {
+  stopGpsPrewarm();
+  sb.auth.signOut().then(() => window.location.reload());
+}
+
+async function boot() {
+  const root = document.getElementById('app');
+  const { data: { session } } = await sb.auth.getSession();
+
+  if (!session) {
+    mountLogin(root, boot);
+    return;
+  }
+  const email = session.user.email;
+  import('./lib/pushNative.js').then(({ initNotifications }) => initNotifications(email)).catch(() => {});
+
+  if (hasBiometricCred(email)) {
+    const ok = await mountBiometricGate(root, email, logoutAndReload);
+    if (!ok) return; // (در عمل همیشه true resolve می‌شود یا کاربر خارج شده)
+  }
+
+  // اگر آخرین ورود از مسیر «ورود سریع با گوگل» بوده (پرچم یک‌بار‌مصرف در login.js)، اینجا
+  // مصرف و پاکش می‌کنیم — فقط همین یک بوت بعد از ورود بررسی می‌شود، نه بعد از reload‌هایی که
+  // ممکن است بعداً (مثلاً بعد از ارسال عکس احراز هویت) رخ بدهد.
+  const isGoogleLogin = sessionStorage.getItem('samat_google_login') === '1';
+  if (isGoogleLogin) sessionStorage.removeItem('samat_google_login');
+
+  const { data } = await sb.from('user_roles')
+    .select('role, assigned_mines, tech_officer_specialty, identity_status, identity_verified_at, trusted_device_id, full_name, membership_no, national_code, license_no, license_expiry_date, assigned_province, assigned_county, identity_boundary_exempt, requested_mine_name, contract_no, preferred_messenger, messenger_chat_id')
+    .eq('email', email).limit(1);
+  const row = (data && data[0]) || await (async () => {
+    // اولین ورود با گوگل: هنوز ردیفی در user_roles نیست (بر خلاف ثبت‌نام با رمز که موقع
+    // signUp ساخته می‌شود) — همین‌جا ساخته می‌شود تا در تب «کاربران» پنل ادمین دیده شود و سوپرادمین
+    // بتواند تاییدش کند.
+    await ensureMyRoleRow(session.user);
+    return {
+      role: 'pending', assigned_mines: [], full_name: session.user.email, national_code: null, membership_no: null, license_no: null, requested_mine_name: null, contract_no: null, messenger_chat_id: null,
+    };
+  })();
+
+  root.innerHTML = '';
+
+  // ورود سریع با گوگل هیچ‌کدام از فیلدهای هویتی زیر را نمی‌دهد؛ اگر ردیف pending باشد و این
+  // فیلدها هنوز خالی‌اند، قبل از صفحه‌ی «در انتظار تایید» یک فرم تکمیل مشخصات نشان می‌دهیم —
+  // وگرنه سوپرادمین یک درخواست تایید با اطلاعات خالی و غیرقابل‌بررسی می‌بیند.
+  const profileIncomplete = row.role === 'pending' && (
+    !row.national_code || !row.membership_no || !row.license_no || !row.requested_mine_name || !row.contract_no || !row.messenger_chat_id
+  );
+  if (profileIncomplete) {
+    const { mountCompleteProfile } = await import('./modules/identity/completeProfile.js');
+    mountCompleteProfile(root, email, row, boot, logoutAndReload);
+    return;
+  }
+
+  if (row.role === 'pending') {
+    root.append(el('div', { class: 'gate-screen' }, el('div', { class: 'gate-card' }, [
+      el('div', { style: 'text-align:center' }, [
+        el('div', { style: 'font-size:32px' }, '⏳'),
+        el('div', { style: 'margin-top:8px;font-size:var(--text-sm)' }, 'حساب شما هنوز توسط مدیر سامانه تایید نشده.'),
+      ]),
+      el('button', { class: 'btn btn-ghost', style: 'margin-top:14px', onclick: logoutAndReload }, 'خروج'),
+    ])));
+    return;
+  }
+
+  if (!OFFICER_ROLES.includes(row.role) && !STAFF_FIELD_ROLES.includes(row.role) && row.role !== 'owner') {
+    root.append(el('div', { class: 'gate-screen' }, el('div', { class: 'gate-card' }, [
+      el('div', { style: 'text-align:center' }, [
+        el('div', { style: 'font-size:32px' }, '🚫'),
+        el('div', { style: 'margin-top:8px;font-size:var(--text-sm)' }, 'این حساب دسترسی به اپ مسئول فنی ندارد.'),
+      ]),
+      el('button', { class: 'btn btn-ghost', style: 'margin-top:14px', onclick: logoutAndReload }, 'خروج'),
+    ])));
+    return;
+  }
+
+  // حساب‌های ستادی (ادمین/بازرس): چون از قبل مجوز/عضویت نظام‌مهندسی و مسئولیت ثابت روی یک معدن
+  // خاص ندارند، گیت احراز هویت ماهانه (که مخصوص مسئولین فنی/ایمنی/بهداشت پروانه‌دار است) رد
+  // می‌شود؛ فقط سمت و تخصص گزارش را انتخاب می‌کنند و مستقیم می‌روند سراغ همان پنل با فهرست معادن
+  // بر اساس محدوده‌ی جغرافیایی حسابشان (نه یک whitelist ثابت).
+  if (STAFF_FIELD_ROLES.includes(row.role)) {
+    mountStaffFieldPicker(root, async ({ role: chosenRole, specialty }) => {
+      root.innerHTML = '';
+      const mines = await fetchMinesByGeoScope(specialty, row.assigned_province, row.assigned_county);
+      startManagedGpsPrewarm();
+      const staffRow = { ...row, role: chosenRole, tech_officer_specialty: specialty };
+      if (chosenRole === 'tech_officer') {
+        const { mountTechOfficerPanel } = await import('./modules/techOfficer/panel.js');
+        await mountTechOfficerPanel(root, {
+          email, mines, identityVerifiedAt: Date.now(), roleRow: staffRow, identitySettings: { monthlyMs: Infinity, reminderMs: Infinity }, onLogout: logoutAndReload,
+        });
+      } else {
+        const { mountSafetyOfficerPanel } = await import('./modules/safetyOfficer/panel.js');
+        await mountSafetyOfficerPanel(root, {
+          email, mines, identityVerifiedAt: Date.now(), roleRow: staffRow, identitySettings: { monthlyMs: Infinity, reminderMs: Infinity }, onLogout: logoutAndReload,
+        });
+      }
+    }, logoutAndReload);
+    return;
+  }
+
+  // بهره‌بردار: مثل مسئولین، فهرست معادن ثابتی دارد (assigned_mines) — اما چون یک نقش پروانه‌دار
+  // نیست، گیت احراز هویت ماهانه رد می‌شود و مستقیم می‌رود سراغ پنل خودش (اطلاعیه‌ها + ثبت گزارش).
+  if (row.role === 'owner') {
+    const mines = await fetchAssignedMines(row.tech_officer_specialty || 'استخراج', row.assigned_mines);
+    startManagedGpsPrewarm();
+    const { mountOwnerPanel } = await import('./modules/owner/panel.js');
+    await mountOwnerPanel(root, { email, mines, roleRow: row, department: specialtyMeta(row.tech_officer_specialty || 'استخراج').dept, onLogout: logoutAndReload });
+    return;
+  }
+
+  const mines = await fetchAssignedMines(row.tech_officer_specialty, row.assigned_mines);
+  const identitySettings = await loadIdentitySettings();
+
+  // از همین لحظه (بعد از تایید نقش، قبل از هر صفحه‌ای که ممکن است عکس/GPS بخواهد) GPS را
+  // پیش‌گرم می‌کنیم — چه کاربر برود سراغ صفحه‌ی احراز هویت، چه مستقیم به پنل اصلی برسد، دیگر از صفر
+  // منتظر «لود شدن» GPS نمی‌ماند.
+  startManagedGpsPrewarm();
+
+  // ورود سریع با گوگل فقط از «گوشی مورداعتماد» (trusted_device_id، همان گوشیی که آخرین بار عکس
+  // احراز هویتش روی آن تایید شده) باید مجاز باشد — روی هر گوشی دیگری باید از نو داخل محدوده‌ی معدن
+  // عکس بگیرد و منتظر تایید مدیر بماند. ورود با کد پرسنلی/رمز عبور از این قاعده مستثنی است و مثل قبل
+  // روی هر گوشی‌ای کار می‌کند. اگر تا امروز هیچ گوشیی تایید نشده (trusted_device_id خالی)، اینجا کاری
+  // لازم نیست — checkIdentityGate پایین‌تر چون identity_status هنوز approved نیست، طبیعی مسیر عکسگرفتن را
+  // نشان می‌دهد.
+  const deviceMismatch = isGoogleLogin && row.trusted_device_id && row.trusted_device_id !== getOrCreateDeviceId();
+
+  const gate = deviceMismatch
+    ? {
+      ok: false,
+      kind: 'capture',
+      captureKind: 'initial',
+      reason: 'ورود سریع با گوگل از یک گوشی جدید (غیر از گوشیی که قبلاً تایید شده) انجام شده — برای این گوشی هم باید داخل محدوده‌ی معدن یک عکس بگیرید تا مدیر سامانه تاییدش کند.',
+    }
+    : await checkIdentityGate(email, row, identitySettings.monthlyMs);
+
+  if (!gate.ok) {
+    if (gate.kind === 'pending') {
+      mountIdentityPending(root, 'عکس احراز هویت شما ارسال شد و در انتظار بررسی و تایید مدیر سامانه است. پس از تایید، دسترسی شما فعال می‌شود.', logoutAndReload);
+      return;
+    }
+    const meta = specialtyMeta(row.tech_officer_specialty || 'استخراج');
+    mountIdentityCapture(root, {
+      email, mines, captureKind: gate.captureKind, reason: gate.reason, nameField: meta.nameField, boundaryExempt: !!row.identity_boundary_exempt,
+    }, () => window.location.reload(), () => mountIdentityQueuedOffline(root, () => window.location.reload()));
+    return;
+  }
+
+  if (row.role === 'tech_officer') {
+    const { mountTechOfficerPanel } = await import('./modules/techOfficer/panel.js');
+    await mountTechOfficerPanel(root, {
+      email, mines, identityVerifiedAt: row.identity_verified_at, roleRow: row, identitySettings, onLogout: logoutAndReload,
+    });
+  } else {
+    const { mountSafetyOfficerPanel } = await import('./modules/safetyOfficer/panel.js');
+    await mountSafetyOfficerPanel(root, {
+      email, mines, identityVerifiedAt: row.identity_verified_at, roleRow: row, identitySettings, onLogout: logoutAndReload,
+    });
+  }
+
+  if (shouldShowOnboarding()) mountOnboarding(document.body, () => {});
+}
+
+boot();
