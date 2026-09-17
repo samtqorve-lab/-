@@ -52,8 +52,8 @@ export function mountLogin(root, onSuccess) {
     const codeErrBox = el('div', { class: 'gate-err' });
     const codeSubmitBtn = el('button', { type: 'button', class: 'btn btn-primary', style: 'margin-top:8px' }, 'تایید کد');
     // اگر کد اول (رسیدن دیرهنگام پیام، تایپ اشتباه، یا صرفاً منقضی‌شدن ۵ دقیقه‌ای) کار نکرد،
-    // کاربر می‌تواند بدون واردکردن دوباره‌ی ایمیل/رمز عبور، یک کد تازه روی همین approval بگیرد —
-    // قبلاً تنها راه این بود که کل فرم ورود را از نو ارسال کند.
+    // کاربر می‌تواند بدون واردکردن دوباره‌ی ایمیل/رمز عبور، یک کد تازه روی همان approval بگیرد —
+    // قبلاً تنها راه این بود که کل فرم ورود را از نو انجام بدهد.
     const resendBtn = el('button', {
       type: 'button',
       class: 'btn btn-ghost',
@@ -112,7 +112,7 @@ export function mountLogin(root, onSuccess) {
         // تغییر status به approved را تشخیص بدهد و از همان مسیر لاگین را کامل کند. اما Realtime
         // یک اتصال websocket پایدار است که در شبکه‌های با فیلترینگ/DPI معمولاً شکننده‌تر از یک
         // فراخوانی معمولی HTTPS عمل می‌کند — یعنی حتی وقتی سرور همین الان با موفقیت کد را تایید
-        // کرده (نتیجه‌ی result.ok که همین بالا گرفتیم، مستقیم و قطعی است)، ممکن است این پیام
+        // کرده (نتیجهِ result.ok که همین بالا گرفتیم، مستقیم و قطعی است)، ممکن است این پیام
         // هیچ‌وقت از طریق Realtime به مرورگر نرسد و کاربر با «کد را وارد کردم ولی چیزی باز نشد»
         // مواجه شود. حالا مستقیم از همینجا (بدون نیاز به Realtime) لاگین را کامل می‌کنیم.
         if (currentEmail) finishSuccessfulLogin(currentEmail);
@@ -143,8 +143,8 @@ export function mountLogin(root, onSuccess) {
         finishSuccessfulLogin(email);
       } catch (err) {
         // اگر لاگین از مسیر «تایید کد» (بالا) قبلاً با موفقیت کامل شده، این reject دیرهنگام
-        // (که می‌تواند از سقف ۳۵ ثانیه‌ای یا حتی Realtime که با تأخیر resolve شده باشد) را نادیده
-        // می‌گیریم — کاربر را با یک خطای گمراه‌کننده بعد از ورود موفق مواجه نکنیم.
+        // (که می‌تواند از سقف ۳۵ ثانیه‌ای یا حتی Realtime که با تأخیر resolve شده باشد) را نادیده می‌
+        // گیریم — کاربر را با یک خطای گمراه‌کننده بعد از ورود موفق مواجه نکنیم.
         if (loginCompleted) return;
         errBox.textContent = err.pushDenied
           ? 'ورود از طریق اعلان رد شد.'
@@ -160,8 +160,16 @@ export function mountLogin(root, onSuccess) {
      * یک سقف مطلق ۳۵ ثانیه‌ای بیرونی هم اینجا گذاشته شده — مستقل از هر منطق داخلی
      * requestPushApproval — چون حتی خودِ insert اولیه‌ی login_approvals (یک فراخوانی شبکه‌ای
      * دیگر، این‌بار نه از طریق Edge Function بلکه مستقیم Postgrest) هم می‌تواند تحت شرایط
-     * شبکه‌ی مشابه گیر کند؛ این آخرین خط دفاعی است تا در هر صورت رابط‌کاربری آزاد شود. */
+     * شبکه‌ی مشابه گیر کند؛ این آخرین خط دفاع است تا در هر صورت رابط‌کاربری آزاد شود.
+     * نکته‌ی مهم: اگر تا قبل از رسیدن به این سقف کد تلگرام برسد، فرایند واقعاً موفق پیشرفته، این
+     * سقف مجبور بود همه‌چی را با خطا قطع کند (همان چیزی که در اسکرین‌شات کاربر می‌دید) — حتی اگر کاربر
+     * داشت با خیال راحت کد تلگرام را می‌خواند و وارد می‌کرد. به‌محض رسیدن کد تلگرام (onAwaitingCode)، این
+     * سقف را لغو می‌کنیم — از آن لحظه به بعد فقط مهلت واقعی ۵دقیقه‌ای تعیین‌کننده‌ی انقضاست. */
     async function waitForPushApproval(email, onAwaitingCode) {
+      let hardDeadlineTimer = null;
+      const hardDeadline = new Promise((_, reject) => {
+        hardDeadlineTimer = setTimeout(() => reject(new Error('اتصال به سرور برقرار نشد — دوباره تلاش کنید (ممکن است فیلترینگ/شبکه باشد)')), 35000);
+      });
       const inner = new Promise((resolve, reject) => {
         requestPushApproval(email, async (status, detail) => {
           if (status === 'approved') { resolve(); return; }
@@ -169,10 +177,10 @@ export function mountLogin(root, onSuccess) {
           if (status === 'denied') { const e = new Error('denied'); e.pushDenied = true; reject(e); return; }
           if (status === 'timeout') { const e = new Error('timeout'); e.pushTimeout = true; reject(e); return; }
           reject(new Error(detail || 'push-error'));
-        }, onAwaitingCode);
-      });
-      const hardDeadline = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('اتصال به سرور برقرار نشد — دوباره تلاش کنید (ممکن است فیلترینگ/شبکه باشد)')), 35000);
+        }, (approvalId, resendFn) => {
+          clearTimeout(hardDeadlineTimer);
+          onAwaitingCode(approvalId, resendFn);
+        });
       });
       return Promise.race([inner, hardDeadline]);
     }
@@ -189,7 +197,7 @@ export function mountLogin(root, onSuccess) {
       googleBtn.textContent = 'در حال اتصال به گوگل...';
       try {
         await signInWithGoogle();
-        onSuccess(); // فقط در حالت اندروید به اینجا می‌رسد؛ در وب صفحه ریدایرکت می‌شود
+        onSuccess(); // فقط در حالت اندروید به اینجا می‌رسد؛ در وب صفحه ریدایری می‌شود
       } catch (err) {
         if (!err.userCancelled) errBox.textContent = err.message || 'خطا در ورود با گوگل';
       } finally {
@@ -261,7 +269,7 @@ export function mountLogin(root, onSuccess) {
         if (!member) { memberLookupHint.textContent = ''; return; }
         const suggestedName = `${member.first_name} ${member.last_name}`.trim();
         const suggestedPhone = member.phone || '';
-        const ok = window.confirm(`این مشخصات برای عضو شماره ${no} پیدا شد:\nنام: ${suggestedName}\nتلفن: ${suggestedPhone || '—'}\n\nاگه درسته «OK» بزنید تا خودکار پر بشه، وگرنه «Cancel» بزنید و خودتون دستی وارد کنید.`);
+        const ok = window.confirm(`این مشخصات برای عضو شماره ${no} پیدا شد:\nنام: ${suggestedName}\nتلفن: ${suggestedPhone || '—'}\n\nاگه درستو «OK» بزنید تا خودکار پر بشه، وگرنه «Cancel» بزنید و خودتون دستی وارد کنید.`);
         if (ok) {
           f.full_name.value = suggestedName;
           if (suggestedPhone) f.phone.value = suggestedPhone;
