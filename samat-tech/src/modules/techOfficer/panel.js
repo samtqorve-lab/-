@@ -97,6 +97,16 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
       }),
     });
     specialtyTools.push({
+      icon: '📦',
+      label: 'عکس جعبه‌ی کور (هر ۶ متر)',
+      onClick: requireMine(async (mine) => {
+        const { openCoreBoxLogModal } = await import('./coreBoxLog.js');
+        openCoreBoxLogModal(mine, nameField, {
+          email, fullName: fullNameInput.value.trim(), membershipNo: membershipInput.value.trim(),
+        });
+      }),
+    });
+    specialtyTools.push({
       icon: '🗺️',
       label: 'نقشه زمین‌شناسی',
       onClick: requireMine(async (mine) => {
@@ -170,6 +180,16 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
       onClick: requireMine(async (mine) => {
         const { openProcessingReportModal } = await import('./processingReport.js');
         openProcessingReportModal(mine, nameField, meta.dept);
+      }),
+    });
+    specialtyTools.push({
+      icon: '🏭',
+      label: 'عکس دپوی مواد اولیه/محصول',
+      onClick: requireMine(async (mine) => {
+        const { openStockpilePhotoModal } = await import('./stockpilePhoto.js');
+        openStockpilePhotoModal(mine, nameField, {
+          email, fullName: fullNameInput.value.trim(), membershipNo: membershipInput.value.trim(),
+        });
       }),
     });
     specialtyTools.push({
