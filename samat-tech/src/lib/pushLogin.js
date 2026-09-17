@@ -167,7 +167,7 @@ export async function requestPushApproval(email, onResolve, onAwaitingCode) {
   // در همان ابتدا برای همیشه گیر کنند). به‌محض اینکه armCodeTimer صدا زده شود (کد با موفقیت
   // ارسال شد)، این تایمر پاک می‌شود و دیگر اثری ندارد — پس کاربر واقعاً ۵ دقیقه‌ی کامل CODE_VALID_MS
   // را برای وارد کردن کد در اختیار دارد، نه فقط تا این ۳۰ ثانیه.
-  safetyNetTimer = setTimeout(() => { if (!settled) finish('error', 'اتصال به سرور برقرار نشد — دوباره تلاش کنید' }); }, 30000);
+  safetyNetTimer = setTimeout(() => { if (!settled) finish('error', 'اتصال به سرور برقرار نشد — دوباره تلاش کنید'); }, 30000);
 
   return () => finish('denied');
 }
