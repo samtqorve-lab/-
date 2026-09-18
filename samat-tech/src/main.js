@@ -71,12 +71,6 @@ async function boot() {
     if (!ok) return; // (در عمل همیشه true resolve می‌شود یا کاربر خارج شده)
   }
 
-  // اگر آخرین ورود از مسیر «ورود سریع با گوگل» بوده (پرچم یک‌بار‌مصرف در login.js)، اینجا
-  // مصرف و پاکش می‌کنیم — فقط همین یک بوت بعد از ورود بررسی می‌شود، نه بعد از reload‌هایی که
-  // ممکن است بعداً (مثلاً بعد از ارسال عکس احراز هویت) رخ بدهد.
-  const isGoogleLogin = sessionStorage.getItem('samat_google_login') === '1';
-  if (isGoogleLogin) sessionStorage.removeItem('samat_google_login');
-
   const { data } = await sb.from('user_roles')
     .select('role, assigned_mines, tech_officer_specialty, identity_status, identity_verified_at, trusted_device_id, full_name, membership_no, national_code, license_no, license_expiry_date, assigned_province, assigned_county, identity_boundary_exempt, requested_mine_name, contract_no, preferred_messenger, messenger_chat_id')
     .eq('email', email).limit(1);
@@ -169,20 +163,19 @@ async function boot() {
   // منتظر «لود شدن» GPS نمی‌ماند.
   startManagedGpsPrewarm();
 
-  // ورود سریع با گوگل فقط از «گوشی مورداعتماد» (trusted_device_id، همان گوشیی که آخرین بار عکس
-  // احراز هویتش روی آن تایید شده) باید مجاز باشد — روی هر گوشی دیگری باید از نو داخل محدوده‌ی معدن
-  // عکس بگیرد و منتظر تایید مدیر بماند. ورود با کد پرسنلی/رمز عبور از این قاعده مستثنی است و مثل قبل
-  // روی هر گوشی‌ای کار می‌کند. اگر تا امروز هیچ گوشیی تایید نشده (trusted_device_id خالی)، اینجا کاری
-  // لازم نیست — checkIdentityGate پایین‌تر چون identity_status هنوز approved نیست، طبیعی مسیر عکسگرفتن را
-  // نشان می‌دهد.
-  const deviceMismatch = isGoogleLogin && row.trusted_device_id && row.trusted_device_id !== getOrCreateDeviceId();
+  // هر روش ورود (کد پرسنلی/رمز یا گوگل) فقط از «گوشی مورداعتماد» (trusted_device_id، همان گوشیی
+  // که آخرین بار عکس احراز هویتش روی آن تایید شده) باید مجاز باشد — روی هر گوشی دیگری (با هر روش ورودی)
+  // باید از نو داخل محدوده‌ی معدن عکس بگیرد و منتظر تایید مدیر بماند (حتی اگر با کد پرسنلی/رمز
+  // وارد شده باشد). اگر تا امروز هیچ گوشیی تایید نشده (trusted_device_id خالی)، اینجا کاری لازم نیست
+  // — checkIdentityGate پایین‌تر چون identity_status هنوز approved نیست، طبیعی مسیر عکسگرفتن را نشان می‌دهد.
+  const deviceMismatch = row.trusted_device_id && row.trusted_device_id !== getOrCreateDeviceId();
 
   const gate = deviceMismatch
     ? {
       ok: false,
       kind: 'capture',
       captureKind: 'initial',
-      reason: 'ورود سریع با گوگل از یک گوشی جدید (غیر از گوشیی که قبلاً تایید شده) انجام شده — برای این گوشی هم باید داخل محدوده‌ی معدن یک عکس بگیرید تا مدیر سامانه تاییدش کند.',
+      reason: 'این ورود از یک گوشی جدید (غیر از گوشیی که قبلاً تایید شده) انجام شده — برای این گوشی هم باید داخل محدوده‌ی معدن یک عکس بگیرید تا مدیر سامانه تاییدش کند.',
     }
     : await checkIdentityGate(email, row, identitySettings.monthlyMs);
 
