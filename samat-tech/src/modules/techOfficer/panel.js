@@ -97,6 +97,18 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
       }),
     });
     specialtyTools.push({
+      icon: '🚜',
+      label: 'عکس دستگاه حفاری',
+      onClick: requireMine(async (mine) => {
+        // همون چک‌لیست ماشین‌آلات پیش‌فرض معدن (سریال اجباری + نمای دور و عکس سریال هر دو
+        // اجباری + افزودن به لیست دائمی) — فقط با یک میانبر مستقیم داخل ابزارهای اکتشاف، تا
+        // مسئول فنی اکتشاف مجبور نباشه دنبالش بگرده تو بخش عمومیِ «عکس سینه‌کار و ماشین‌آلات».
+        const { mountEquipmentChecklist } = await import('./equipmentChecklist.js');
+        const { body } = openModal({ title: '🚜 دستگاه‌های حفاری — نمای دور + شماره سریال', width: '560px' });
+        mountEquipmentChecklist(body, mine, nameField, meta.dept, fullNameInput, membershipInput);
+      }),
+    });
+    specialtyTools.push({
       icon: '📦',
       label: 'عکس جعبه‌ی کور (هر ۶ متر)',
       onClick: requireMine(async (mine) => {
