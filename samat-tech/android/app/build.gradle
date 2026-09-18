@@ -3,7 +3,7 @@ apply plugin: 'com.android.application'
 // امضای release: اطلاعاتش هیچ‌وقت داخل ریپو ذخیره نمی‌شود — فایل release-keystore.properties
 // فقط توسط CI (ورک‌فلوی build-android.yml) از GitHub Secrets ساخته می‌شود و در .gitignore است.
 // اگر این فایل نباشد (مثلاً روی سیستم شخصی بدون این secretها)، بیلد release بدون امضا انجام
-// می‌شود — یعنی برای کار روزمره‌ی توسعه هیچ مشکلی پیش نمی‌آید، فقط برای انتشار در بازار/گوگل‌پلی
+// می‌شود — یعنی برای کار روزانه‌ی توسعه هیچ مشکلی پیش نمی‌آید، فقط برای انتشار در بازار/گوگل‌پلی
 // حتماً باید از CI با این secretها بیاید.
 def releaseKeystorePropsFile = rootProject.file('release-keystore.properties')
 def releaseKeystoreProps = new Properties()
@@ -15,6 +15,9 @@ def envVersionCode = System.getenv("ANDROID_VERSION_CODE")
 android {
     namespace = "ir.novinproduct.samattech"
     compileSdk = rootProject.ext.compileSdkVersion
+    buildFeatures {
+        buildConfig true
+    }
     defaultConfig {
         applicationId "ir.novinproduct.samattech"
         minSdkVersion rootProject.ext.minSdkVersion
@@ -25,6 +28,14 @@ android {
         versionCode envVersionCode ? envVersionCode.toInteger() : 1
         versionName System.getenv("ANDROID_VERSION_NAME") ?: "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        // برای LoginApprovalActionReceiver: پاسخ دکمه‌ی نوتیفیکیشن باید بدون هیچ WebView/نشست
+        // Supabase Auth‌ای مستقیماً به push-login-respond برسد. همان env varhayی که مرحله‌ی
+        // «Create .env file» در ورک‌فلوی build-android.yml برای Vite می‌سازد، اینجا هم (چون آن
+        // ورک‌فلو آن‌ها را به‌عنوان متغیر محیطیِ کل جاب هم export می‌کند، نه فقط داخل .env)
+        // در دسترس Gradle هستند. اگر خالی باشند (مثلاً بیلد محلی بدون این secretها)، رشته‌ی خالی
+        // می‌ماند و LoginApprovalActionReceiver با یک لاگ خارج می‌شود، نه کرش.
+        buildConfigField "String", "SUPABASE_URL", "\"${System.getenv('VITE_SUPABASE_URL') ?: ''}\""
+        buildConfigField "String", "SUPABASE_ANON_KEY", "\"${System.getenv('VITE_SUPABASE_ANON_KEY') ?: ''}\""
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61

@@ -65,9 +65,17 @@ async function showBrowserNotification(title, body) {
 
 let handlerAttached = false;
 /**
- * شنونده‌ی مشترک همه‌ی نوع Pushها (هم «تایید ورود» هم اعلان‌های عمومی سامانه). فقط یک‌بار در طول
- * عمر اپ لازم است سوار شود — نگاه کنید به main.js (این‌جا در ابتدای اجرای اپ، قبل از boot، سوار
- * می‌شود؛ نه داخل registerForPushLogin تنها).
+ * شنونده‌ی Pushهای اعلان عمومی سامانه (گزارش رد شد، ...). فقط یک‌بار در طول عمر اپ لازم است سوار
+ * شود — نگاه کنید به main.js.
+ *
+ * توجه: پیام‌های «تایید ورود» (type === 'login-approval') دیگر اینجا مدیریت نمی‌شوند — از این پس
+ * کاملاً در سطح بومی توسط PushLoginMessagingService + LoginApprovalActionReceiver (اندروید،
+ * android/app/src/main/java/.../PushLoginMessagingService.java) با دو دکمه‌ی واقعی «تایید»/«رد»
+ * روی خودِ نوتیفیکیشن پاسخ داده می‌شوند — بدون باز شدن اپ. سرور هم دیگر این پیام‌ها را با فیلد
+ * notification نمی‌فرستد (فقط data)، دقیقاً برای اینکه کنترلش کامل دست همان سرویس بومی بماند.
+ * تغییر وضعیتِ درخواست (approved/denied) از طریق همان Realtime channel که pushLogin.js از قبل
+ * روی login_approvals سوار کرده به خودکار به این صفحه می‌رسد — نیازی به شنیدن جداگانه‌ی Push در
+ * جاوااسکریپت برای این مورد نیست.
  */
 export async function attachLoginApprovalHandler() {
   if (handlerAttached) return;
@@ -77,40 +85,13 @@ export async function attachLoginApprovalHandler() {
     if (!Capacitor.isNativePlatform()) return;
     const { PushNotifications } = await import('@capacitor/push-notifications');
 
-    async function respond(approvalId, decision) {
-      const { data: sessionData } = await sb.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
-      if (!accessToken) return;
-      await fetch(`${sb.supabaseUrl}/functions/v1/push-login-respond`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ approvalId, decision }),
-      }).catch(() => {});
-    }
-
-    function confirmLogin(data) {
-      const ok = window.confirm(`🔐 درخواست ورود\nآیا شما (${data.email || ''}) در حال ورود هستید؟\n\nOK = تایید می‌کنم\nCancel = رد می‌کنم`);
-      respond(data.approvalId, ok ? 'approved' : 'denied');
-    }
-
     // pushNotificationReceived فقط در پیش‌زمینه فایر می‌شود (طبق مستندات Capacitor)، و در این
     // حالت اندروید خودش اعلان سیستمی نشان نمی‌دهد — برای رویدادهای عمومی سامانه (غیر از تایید
-    // ورود) این‌جا دستی با LocalNotifications همان اعلان را نشان می‌دهیم.
+    // ورود، که دیگر بومی مدیریت می‌شود) این‌جا دستی با LocalNotifications همان اعلان را نشان می‌دهیم.
     PushNotifications.addListener('pushNotificationReceived', (notification) => {
       const data = notification.data || {};
-      if (data.type === 'login-approval' && data.approvalId) {
-        confirmLogin(data);
-        return;
-      }
+      if (data.type === 'login-approval') return;
       showNativeLocal(notification.title || 'اعلان جدید', notification.body || '', data);
-    });
-
-    // وقتی اپ بسته/پس‌زمینه بوده و کاربر روی اعلان سیستمی (که خودِ اندروید نشان داده) لمس کرده:
-    // برای «تایید ورود» باید دیالوگ تایید/رد نشان داده شود؛ برای بقیه‌ی انواع، کاربر همین الان با
-    // لمس همان اعلان وارد اپ شده — کار اضافه‌ای لازم نیست.
-    PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-      const data = action.notification?.data || {};
-      if (data.type === 'login-approval' && data.approvalId) confirmLogin(data);
     });
   } catch {
     handlerAttached = false;

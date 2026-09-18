@@ -27,6 +27,12 @@ jobs:
         run: |
           echo "VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}" >> .env
           echo "VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}" >> .env
+          # LoginApprovalActionReceiver (دکمه‌های واقعی «تایید»/«رد» روی نوتیفیکیشن) این دو مقدار
+          # را از BuildConfig می‌خواند، که در Gradle با System.getenv() ساخته می‌شود — نوشتن در
+          # .env فقط برای مرحله‌ی Vite کافی است، Gradle باید همین‌ها را به‌صورت متغیر محیطیِ
+          # واقعیِ جاب هم ببیند، پس با GITHUB_ENV هم export می‌کنیم.
+          echo "VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}" >> $GITHUB_ENV
+          echo "VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}" >> $GITHUB_ENV
 
       - name: Install dependencies
         run: npm install

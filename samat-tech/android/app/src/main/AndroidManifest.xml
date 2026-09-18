@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <application
         android:allowBackup="true"
@@ -44,6 +45,28 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
+
+        <!-- برای پیام‌های «درخواست تایید ورود» (login-approval)، سرویس پیش‌فرض خودِ پلاگین
+             کپسیتور را با نسخه‌ی خودمان (PushLoginMessagingService) جایگزین می‌کنیم تا بتوانیم
+             نوتیفیکیشن را با دو دکمه‌ی واقعی «تایید»/«رد» بسازیم — اندروید فقط اجازه می‌دهد یک
+             سرویس برای com.google.firebase.MESSAGING_EVENT ثبت شود، پس اول نسخه‌ی کتابخانه را
+             حذف می‌کنیم (tools:node="remove")، بعد نسخه‌ی خودمان را (که برای هر پیام دیگری، دقیقاً
+             همان رفتار قبلی پلاگین را با super.onMessageReceived حفظ می‌کند) ثبت می‌کنیم. -->
+        <service
+            android:name="com.capacitorjs.plugins.pushnotifications.MessagingService"
+            tools:node="remove" />
+        <service
+            android:name=".PushLoginMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- با لمس دکمه‌ی روی نوتیفیکیشن صدا زده می‌شود — بدون باز کردن هیچ Activity‌ای -->
+        <receiver
+            android:name=".LoginApprovalActionReceiver"
+            android:exported="false" />
     </application>
 
     <!-- Permissions -->
