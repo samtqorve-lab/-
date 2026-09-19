@@ -29,6 +29,20 @@ function copyMaplibreWorkerFiles() {
 }
 copyMaplibreWorkerFiles();
 
+// رمزگشای Draco برای نمایشگر مدل سه‌بعدی پهباد (lib/model3dViewer.js): فایل‌های decoder از خود
+// پکیج three در هر اجرای dev/build به public/draco/ کپی می‌شوند (همان روش maplibre بالا؛
+// public/draco/ در .gitignore است) تا نمایشگر از همان origin اپ لود کند، نه CDN — چون اپ
+// اندروید/دسکتاپ و کاربران ایران نباید به سرویس خارجی وابسته باشند.
+function copyDracoDecoderFiles() {
+  const srcDir = path.join(__dirname, 'node_modules/three/examples/jsm/libs/draco/gltf');
+  const destDir = path.join(__dirname, 'public/draco');
+  fs.mkdirSync(destDir, { recursive: true });
+  ['draco_decoder.wasm', 'draco_wasm_wrapper.js'].forEach((name) => {
+    fs.copyFileSync(path.join(srcDir, name), path.join(destDir, name));
+  });
+}
+copyDracoDecoderFiles();
+
 export default defineConfig({
   // شماره‌ی build (از GitHub Actions run_number) برای مقایسه با manifest آپدیت اندروید؛
   // در dev محلی همیشه ۰ است، یعنی هیچ‌وقت پیشنهاد آپدیت نمی‌دهد.

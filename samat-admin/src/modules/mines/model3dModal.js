@@ -67,14 +67,25 @@ export function openModel3dModal(mine, nameField) {
     const st = STATUS[j.status] || { label: j.status, color: 'var(--stone-600)' };
     const actions = [];
     if (j.status === 'done') {
-      const dl = el('button', { class: 'btn-sm', style: 'background:var(--patina-700);color:#fff' }, '⬇️ دریافت مدل');
+      const view = el('button', { class: 'btn-sm', style: 'background:var(--ink-700);color:#fff' }, '👁 مشاهده');
+      view.addEventListener('click', async () => {
+        view.disabled = true; view.textContent = '⏳ در حال دریافت...';
+        try {
+          const blob = await downloadModel(j.jobId);
+          const { openModel3dViewer } = await import('../../lib/model3dViewer.js');
+          openModel3dViewer(blob, { title: `${mineName} — ${fmtWhen(j.createdAt)}` });
+        } catch (err) { errBox.textContent = err.message; }
+        view.disabled = false; view.textContent = '👁 مشاهده';
+      });
+      actions.push(view);
+      const dl = el('button', { class: 'btn-sm', style: 'background:var(--patina-700);color:#fff' }, '⬇️ دریافت');
       dl.addEventListener('click', async () => {
         dl.disabled = true; dl.textContent = '⏳ در حال دریافت...';
         try {
           const blob = await downloadModel(j.jobId);
           await saveBlob(blob, `model3d-${j.jobId.slice(0, 8)}.glb`);
         } catch (err) { errBox.textContent = err.message; }
-        dl.disabled = false; dl.textContent = '⬇️ دریافت مدل';
+        dl.disabled = false; dl.textContent = '⬇️ دریافت';
       });
       actions.push(dl);
     }
