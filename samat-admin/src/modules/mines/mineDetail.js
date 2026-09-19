@@ -140,6 +140,7 @@ export async function renderMineDetail(container, state, ctx) {
             el('button', { class: 'btn btn-ghost', style: compactBtnStyle, onclick: () => openEquipmentDefaultsModal(record, state.department, state.mineId) }, '🛢️ ماشین‌آلات پیش‌فرض'),
             el('button', { class: 'btn btn-ghost', style: compactBtnStyle, onclick: async () => { const { openQrCheckinModal } = await import('./qrCheckinModal.js'); openQrCheckinModal(record, state.department, state.mineId); } }, '🔳 QR ورود'),
             el('button', { class: 'btn btn-ghost', style: compactBtnStyle, onclick: async () => { const { openPhotoTimelineModal } = await import('./photoTimeline.js'); openPhotoTimelineModal(record[nameField]); } }, '🖼️ گالری زمانی'),
+            el('button', { class: 'btn btn-ghost', style: compactBtnStyle, onclick: async () => { const { openModel3dModal } = await import('./model3dModal.js'); openModel3dModal(record, nameField); } }, '🚁 مدل سه‌بعدی از پهباد'),
           ]
           : []),
         ...(isAdminRole && state.department === 'اکتشاف'
