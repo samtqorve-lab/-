@@ -25,22 +25,43 @@ export async function isPushLoginEnabled(email) {
 }
 
 /**
+ * sb.auth.getSession() همیشه یک فراخوانی محلی/آنی نیست — اگر تشخیص بدهد token نزدیک
+ * انقضاست، داخلش یک درخواست شبکه‌ای واقعی (refresh token) می‌زند که هیچ timeout پیش‌فرضی
+ * ندارد — اگر همین درخواست شبکه (خصوصاً از ایران) stall کند، این await برای همیشه معلق می‌ماند.
+ * قبلاً فقط خودِ fetchِ تابع callFn محافظت‌دار بود (با AbortController)، ولی همین خطِ یک
+ * قدم قبل‌تر (گرفتن access token) هیچ‌وقت تحت پوشش نبود — و دقیقاً همین بود علت واقعی
+ * «ارسال دوباره‌ی کد» (و حتی خودِ تایید کد) که همیشه بعد از ۳۰-۴۵ ثانیه بی‌صدا با ۴۰۱
+ * شکست می‌خورد (طبق لاگ‌های واقعی سرور). اگر تا ۵ ثانیه جواب نیاید، بدون token پیش می‌رویم (سرور
+ * خودش با ۴۰۱ تمیز وسریع رد می‌کند — به‌جای اینکه دکمه تا ابد روی «۰۶...» بماند).
+ */
+async function getAccessTokenSafe(timeoutMs = 5000) {
+  try {
+    const result = await Promise.race([
+      sb.auth.getSession(),
+      new Promise((resolve) => { setTimeout(() => resolve(null), timeoutMs); }),
+    ]);
+    return result?.data?.session?.access_token || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * fetch() به‌خودی‌خود هیچ timeout پیش‌فرضی ندارد — اگر شبکه (که در همین پروژه قبلاً چندبار با
  * AWS/Firebase/Esri دیده شده، خصوصاً از ایران) درخواست را stall کند (نه رد کند، فقط بی‌پاسخ
- * بماند)، این تماس برای همیشه معلق می‌ماند. بدون AbortController، این مشکل را فقط برای اولین
- * تماس (notify) با یک race بیرونی پوشش داده بودیم، ولی خودِ تماس فال‌بک (push-login-fallback)
- * هم از همان مشکل رنج می‌برد و می‌توانست دوباره برای همیشه گیر کند. حالا timeout مستقیم روی
- * خودِ fetch است، پس هر فراخوانی این تابع (هرجا که باشد) محافظت دارد.
+ * بماند)، این تماس برای همیشه معلق می‌ماند. حالا هم خودِ fetch (با AbortController) و هم مرحله‌ی
+ * قبلش (گرفتن access token از getAccessTokenSafe) هردو محافظت دارند — قبلاً فقط خودِ fetch محافظت
+ * داشت، ولی خطِ گرفتن session یک قدم قبل‌تر بود که می‌توانست برای همیشه معلق بماند — دقیقاً
+ * همان علت یکی از دلایل اصلی «ارسال دوباره‌ی کد همچنان مشکل دارد» که گزارش‌شده بود.
  */
 async function callFn(name, body, timeoutMs = 8000) {
-  const { data: sessionData } = await sb.auth.getSession();
-  const accessToken = sessionData?.session?.access_token;
+  const accessToken = await getAccessTokenSafe();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(`${sb.supabaseUrl}/functions/v1/${name}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken || ''}` },
       body: JSON.stringify(body),
       signal: controller.signal,
     });
@@ -152,7 +173,7 @@ export async function requestPushApproval(email, onResolve, onAwaitingCode) {
       // Push از همان ابتدا در دسترس نبود (تنظیم نشده/دستگاه ثبت نشده/شبکه معلق) — مستقیم فال‌بک
       tryTelegramFallback();
     } else {
-      // Push فرستاده شد — ۲۰ ثانیه صبر می‌کنیم، بعد اگر پاسخی نیامد فال‌بک را فعال می‌کنیم
+      // Push فرستاده شد — ۶ ثانیه صبر می‌کنیم، بعد اگر پاسخی نیامد فال‌بک را فعال می‌کنیم
       // ارسال موفق به FCM (سرور Google) هیچ تضمینی برای رسیدن واقعی به گوشی نمی‌دهد — طبق لاگ‌های
       // واقعی این پروژه، حتی وقتی FCM با موفقیت (200) پیام را قبول می‌کند، به‌خاطر محدودیت
       // سرویس‌های گوگل در ایران ممکن است هیچ‌وقت به دستگاه نرسد. قبلاً ۲۰ ثانیه صبر می‌کردیم که
@@ -164,7 +185,7 @@ export async function requestPushApproval(email, onResolve, onAwaitingCode) {
   });
 
   // شبکه‌ی محافظ نهایی: فقط برای مرحله‌ی «قبل از رسیدن به کد» است (یعنی اگر notify/فال‌بک هردو
-  // در همان ابتدا برای همیشه گیر کنند). به‌محض این‌که armCodeTimer صدا زده شود (کد با موفقیت
+  // در همان ابتدا برای همیشه گیر کنند). به‌محض اینکه armCodeTimer صدا زده شود (کد با موفقیت
   // ارسال شد)، این تایمر پاک می‌شود و دیگر اثری ندارد — پس کاربر واقعاً ۵ دقیقه‌ی کامل CODE_VALID_MS
   // را برای وارد کردن کد در اختیار دارد، نه فقط تا این ۳۰ ثانیه.
   safetyNetTimer = setTimeout(() => { if (!settled) finish('error', 'اتصال به سرور برقرار نشد — دوباره تلاش کنید'); }, 30000);
