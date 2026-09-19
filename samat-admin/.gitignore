@@ -13,6 +13,8 @@ dist-ssr
 
 # در هر اجرای dev/build از node_modules تازه کپی می‌شود (vite.config.js) — نباید commit شود
 public/maplibre-vendor
+# رمزگشای Draco برای نمایشگر مدل سه‌بعدی؛ در هر اجرای dev/build از node_modules کپی می‌شود (vite.config.js)
+public/draco
 *.local
 .env
 .env.*
