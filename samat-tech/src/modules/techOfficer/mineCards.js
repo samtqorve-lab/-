@@ -1,6 +1,7 @@
 import { el, esc } from '../../lib/dom.js';
 import { fetchAppLinks, appLinkHint } from '../../lib/appLinks.js';
 import { openIncidentModal } from './incidentModal.js';
+import { openModel3dModal } from './model3dModal.js';
 
 function mineSubLine(m, nameField) {
   if (nameField === 'نام_معدن') {
@@ -26,10 +27,17 @@ export function mountMineCards(container, mines, nameField, department, profileC
     container.append(el('div', { style: 'background:var(--stone-50);border:1px solid var(--stone-200);border-radius:var(--radius-md);padding:12px 14px;margin-bottom:10px' }, [
       el('div', { style: 'display:flex;justify-content:space-between;align-items:flex-start;gap:8px' }, [
         el('div', { style: 'font-weight:800;color:var(--ink-700)' }, esc(m[nameField] || '')),
-        el('button', {
-          class: 'btn-sm', style: 'background:var(--rust-100);color:var(--rust-700);flex-shrink:0',
-          onclick: () => openIncidentModal(m, nameField, department, profileCtx),
-        }, '🚨 اعلام حادثه'),
+        el('div', { style: 'display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end' }, [
+          // مدل سه‌بعدی از عکس پهباد فقط برای «معدن» (نه اکتشاف/فرآوری) معنی دارد
+          nameField === 'نام_معدن' ? el('button', {
+            class: 'btn-sm', style: 'background:var(--stone-200);color:var(--ink-700)',
+            onclick: () => openModel3dModal(m, nameField),
+          }, '🧊 مدل سه‌بعدی') : null,
+          el('button', {
+            class: 'btn-sm', style: 'background:var(--rust-100);color:var(--rust-700)',
+            onclick: () => openIncidentModal(m, nameField, department, profileCtx),
+          }, '🚨 اعلام حادثه'),
+        ]),
       ]),
       el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-top:6px;line-height:1.9' },
         lines.map((line) => el('div', {}, esc(line)))),
