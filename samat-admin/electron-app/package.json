@@ -29,7 +29,8 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "samat-admin-desktop-setup-${version}.${ext}"
     },
     "publish": {
       "provider": "github",
