@@ -50,12 +50,35 @@ jobs:
         shell: bash
         run: npm version "1.0.${{ github.run_number }}" --no-git-tag-version
 
-      # ساخت نصاب فقط لوکال انجام می‌شود (بدون publish)؛ انتشار جداگانه با gh CLI انجام می‌شود
-      # چون آپلود موازیِ خودِ electron-builder روی ریلیزِ منتشرشده ناقص می‌ماند
-      # (از v1.0.162 هیچ ریلیزی هر سه فایل exe / blockmap / latest.yml را نداشت).
+      # ساخت نصاب فقط لوکال انجام می‌شود (بدون publish)؛ انتشار جداگانه با gh CLI انجام می‌شود.
+      # اگر ساخت شکست بخورد، ۲۵ خط آخر خروجی هم به‌صورت Annotation و هم در Summary اجرا نمایش داده می‌شود
+      # (بدون نیاز به باز شدن صفحه‌ی لاگ کامل).
       - name: Build Windows installer
         working-directory: samat-admin/electron-app
-        run: npm run build:win
+        shell: bash
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: |
+          set +e
+          npm run prepare:web > build.log 2>&1
+          rc=$?
+          if [ $rc -eq 0 ]; then
+            npx electron-builder --win --publish never >> build.log 2>&1
+            rc=$?
+          fi
+          echo "----- last 40 lines of build.log -----"
+          tail -n 40 build.log
+          if [ $rc -ne 0 ]; then
+            MSG=$(tail -n 25 build.log | tr '\r\n' '  ' | sed 's/%/%25/g' | cut -c1-3500)
+            echo "::error title=Build Windows installer failed::$MSG"
+            {
+              echo '### Build Windows installer failed'
+              echo '```'
+              tail -n 60 build.log
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit $rc
 
       - name: List build output
         working-directory: samat-admin/electron-app
