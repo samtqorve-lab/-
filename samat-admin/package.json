@@ -1,38 +1,42 @@
 {
-  "name": "samat-admin",
-  "version": "0.0.0",
+  "name": "samat-admin-desktop",
+  "version": "1.0.0",
   "private": true,
-  "type": "module",
+  "description": "پنل ادمین صمت — نسخه‌ی دسکتاپ ویندوز",
+  "main": "main.js",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "test": "vitest run",
-    "test:e2e": "playwright test"
+    "prepare:web": "node scripts/copy-web-build.js",
+    "start": "npm run prepare:web && electron .",
+    "build:win": "npm run prepare:web && electron-builder --win",
+    "build:win:publish": "npm run prepare:web && electron-builder --win --publish always"
   },
   "devDependencies": {
-    "@playwright/test": "^1.63.0",
-    "vite": "^8.2.0",
-    "vitest": "^5.0.0"
+    "electron": "^38.5.0",
+    "electron-builder": "^26.0.15"
   },
   "dependencies": {
-    "@aparajita/capacitor-biometric-auth": "^10.0.0",
-    "@capacitor/android": "^8.5.0",
-    "@capacitor/app": "^8.1.1",
-    "@capacitor/browser": "^8.0.4",
-    "@capacitor/cli": "^8.5.0",
-    "@capacitor/core": "^8.5.0",
-    "@capacitor/geolocation": "^8.2.2",
-    "@capacitor/local-notifications": "^8.3.1",
-    "@capacitor/push-notifications": "^8.1.2",
-    "@fontsource/vazirmatn": "^5.3.0",
-    "@supabase/supabase-js": "^2.112.2",
-    "delaunator": "^5.1.0",
-    "docx": "^9.5.1",
-    "leaflet": "^1.9.4",
-    "maplibre-gl": "^6.7.0",
-    "papaparse": "^5.5.4",
-    "qrcode": "^1.5.4",
-    "three": "^0.170.0"
+    "express": "^4.21.2",
+    "electron-updater": "^6.6.2"
+  },
+  "build": {
+    "appId": "ir.novinproduct.samat-admin",
+    "productName": "پنل ادمین صمت",
+    "directories": { "output": "release" },
+    "files": ["main.js", "preload.js", "app/**/*"],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "samat-admin-desktop-setup-${version}.${ext}"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "samtqorve-lab",
+      "repo": "-",
+      "releaseType": "release"
+    }
   }
 }
