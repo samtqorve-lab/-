@@ -50,11 +50,41 @@ jobs:
         shell: bash
         run: npm version "1.0.${{ github.run_number }}" --no-git-tag-version
 
-      - name: Build & publish Windows installer
+      # ساخت نصاب فقط لوکال انجام می‌شود (بدون publish)؛ انتشار جداگانه با gh CLI انجام می‌شود
+      # چون آپلود موازیِ خودِ electron-builder روی ریلیزِ منتشرشده ناقص می‌ماند
+      # (از v1.0.162 هیچ ریلیزی هر سه فایل exe / blockmap / latest.yml را نداشت).
+      - name: Build Windows installer
         working-directory: samat-admin/electron-app
+        run: npm run build:win
+
+      - name: List build output
+        working-directory: samat-admin/electron-app
+        shell: bash
+        run: ls -la release
+
+      - name: Publish GitHub Release
+        working-directory: samat-admin/electron-app
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run build:win:publish
+        run: |
+          TAG="v1.0.${{ github.run_number }}"
+          REPO="${{ github.repository }}"
+          if ! gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            gh release create "$TAG" --repo "$REPO" --target "${{ github.sha }}" \
+              --title "$TAG" --notes "SAMAT Admin Desktop (Windows) build $TAG"
+          fi
+          for attempt in 1 2 3; do
+            echo "Upload attempt $attempt"
+            if gh release upload "$TAG" --repo "$REPO" --clobber \
+                release/*.exe release/*.exe.blockmap release/latest.yml; then
+              echo "Upload OK"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "Upload failed after 3 attempts"
+          exit 1
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v7
