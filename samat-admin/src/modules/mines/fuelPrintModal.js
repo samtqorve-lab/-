@@ -12,7 +12,13 @@ import { attachJalaliDatePicker } from '../../lib/jalaliDatePicker.js';
  * افتاد و هیچ‌جای ساختار جدید بازسازی نشد. این فایل بازسازی همان فرم اصلی است، با همان متن
  * رسمی/قانونی، منطبق‌شده با الگوهای امروزی (openModal، updateDeptRecord به‌جای saveMineRow قدیمی).
  * بخش‌های «آپلود گزارش سوخت (اکسل/CSV)» و «آرشیو یک‌بارِ ماشین‌آلات» جداگانه اضافه می‌شوند.
+ *
+ * پیش‌فرض‌های درخواست (نام نماینده، مقدار دریافتی و باقیمانده‌ی هر نوع سوخت، باطله‌برداری و
+ * فهرست مواد معدنی/محصولات) داخل خود رکورد معدن (JSONB) زیر کلید FUEL_DEFAULTS_KEY ذخیره می‌شوند —
+ * نیازی به تغییر جدول/migration نیست، مثل کلیدهای «تجهیزات_...» همین فرم.
  */
+
+const FUEL_DEFAULTS_KEY = 'پیش_فرض_درخواست_سوخت';
 
 const FUEL_UNITS = { 'نفت‌گاز': 'لیتر', 'گاز مایع': 'کیلوگرم', 'نفت سفید': 'لیتر' };
 const FUEL_EQUIP_COLS = {
@@ -23,6 +29,12 @@ const FUEL_EQUIP_COLS = {
 
 function equipKeyForType(type) {
   return `تجهیزات_${type === 'نفت‌گاز' ? 'نفت_گاز' : (type === 'گاز مایع' ? 'گاز_مایع' : 'نفت_سفید')}`;
+}
+
+/** فهرست فارسی: «الف، ب و ج» */
+function joinFa(items) {
+  if (items.length <= 1) return items[0] || '';
+  return `${items.slice(0, -1).join('، ')} و ${items[items.length - 1]}`;
 }
 
 /** دقیقاً همان گروه‌بندی‌ای که صف تایید ادمین (renderers.js) روی mine_equipment انجام می‌دهد —
@@ -49,6 +61,14 @@ export function openFuelPrintModal(record, department, rowId, ctx) {
   let fuelType = 'نفت‌گاز';
   let equipRows = [];
   let approvedEquip = []; // از mine_equipment status=approved — برای importApprovedEquipment
+
+  // پیش‌فرض‌های ذخیره‌شده‌ی قبلی این معدن (اگر باشد)
+  const savedDefaults = (record[FUEL_DEFAULTS_KEY] && typeof record[FUEL_DEFAULTS_KEY] === 'object')
+    ? record[FUEL_DEFAULTS_KEY] : {};
+  const fuelDraft = JSON.parse(JSON.stringify(savedDefaults['سوخت'] || {})); // { [نوع سوخت]: { دریافتی, باقیمانده } }
+  let oreRows = (Array.isArray(savedDefaults['مواد']) && savedDefaults['مواد'].length)
+    ? JSON.parse(JSON.stringify(savedDefaults['مواد'])) : [{}]; // [{ نام, مقدار }]
+  let lastSavedJson = '';
 
   const { body, close } = openModal({ title: `🖨️ چاپ درخواست سوخت — ${mineName}`, width: '640px' });
 
@@ -131,11 +151,57 @@ function openPhotoViewer(name, overview, serial) {
   const amountReceivedInput = el('input', { placeholder: 'مقدار عددی' });
   const remainingInput = el('input', { placeholder: 'مقدار عددی' });
   const amountRequestedInput = el('input', { placeholder: 'مقدار عددی' });
-  const mainOreLbl = el('label', {}, 'ماده معدنی اصلی این دوره (تن)');
-  const mainOreInput = el('input', { placeholder: 'مقدار عددی' });
-  const wasteLbl = el('label', {}, 'باطله‌برداری این دوره (تن)');
+  const wasteLbl = el('label', {}, department === 'معدن' ? 'باطله‌برداری این دوره (تن)' : 'ضایعات/دورریز این دوره');
   const wasteInput = el('input', { placeholder: 'مقدار عددی' });
   const equipRowsBox = el('div');
+  const oreRowsBox = el('div');
+
+  // مقدار اولیه‌ی فیلدها از پیش‌فرض‌های ذخیره‌شده
+  repInput.value = savedDefaults['نماینده'] || '';
+  wasteInput.value = savedDefaults['باطله'] || '';
+
+  /** مقدار دریافتی/باقیمانده مخصوص هر نوع سوخت است (واحدشان فرق دارد) — جدا نگه داشته می‌شود */
+  function stashFuelInputs() {
+    fuelDraft[fuelType] = { 'دریافتی': amountReceivedInput.value.trim(), 'باقیمانده': remainingInput.value.trim() };
+  }
+  function loadFuelInputs() {
+    const d = fuelDraft[fuelType] || {};
+    amountReceivedInput.value = d['دریافتی'] || '';
+    remainingInput.value = d['باقیمانده'] || '';
+  }
+
+  function cleanOreRows() {
+    return oreRows
+      .map((r) => ({ 'نام': (r['نام'] || '').trim(), 'مقدار': (r['مقدار'] || '').trim() }))
+      .filter((r) => r['نام'] || r['مقدار']);
+  }
+
+  /** همه‌ی چیزی که باید به‌عنوان پیش‌فرض این معدن ذخیره شود */
+  function collectDefaults() {
+    stashFuelInputs();
+    const fuel = {};
+    Object.keys(fuelDraft).forEach((t) => {
+      const d = fuelDraft[t];
+      if (d && (d['دریافتی'] || d['باقیمانده'])) fuel[t] = { 'دریافتی': d['دریافتی'] || '', 'باقیمانده': d['باقیمانده'] || '' };
+    });
+    return {
+      'نماینده': repInput.value.trim(),
+      'باطله': wasteInput.value.trim(),
+      'مواد': cleanOreRows(),
+      'سوخت': fuel,
+    };
+  }
+
+  /** ذخیره‌ی خودکار — فقط اگر چیزی نسبت به آخرین مقدار ذخیره‌شده تغییر کرده باشد. true = واقعاً نوشت */
+  async function persistRequestDefaults() {
+    const defaults = collectDefaults();
+    const json = JSON.stringify(defaults);
+    if (json === lastSavedJson) return false;
+    await updateDeptRecord(department, rowId, { ...record, [FUEL_DEFAULTS_KEY]: defaults });
+    Object.assign(record, { [FUEL_DEFAULTS_KEY]: defaults });
+    lastSavedJson = json;
+    return true;
+  }
 
   function renderEquipRows() {
     const cols = FUEL_EQUIP_COLS[fuelType];
@@ -155,13 +221,26 @@ function openPhotoViewer(name, overview, serial) {
     });
   }
 
+  /** ردیف‌های ماده معدنی (برای معدن) / محصول (برای واحد صنعتی) — هر تعداد ردیف قابل افزودن است */
+  function renderOreRows() {
+    oreRowsBox.innerHTML = '';
+    oreRows.forEach((row, i) => {
+      const nameInput = el('input', { placeholder: department === 'معدن' ? 'نام ماده معدنی' : 'نام محصول', value: row['نام'] || '', style: 'flex:2' });
+      nameInput.addEventListener('input', () => { row['نام'] = nameInput.value; });
+      const amountInput = el('input', { placeholder: department === 'معدن' ? 'مقدار (تن)' : 'مقدار', value: row['مقدار'] || '', style: 'flex:1' });
+      amountInput.addEventListener('input', () => { row['مقدار'] = amountInput.value; });
+      const delBtn = el('button', { class: 'btn-sm', style: 'background:var(--rust-100);color:var(--rust-700)', onclick: () => { oreRows.splice(i, 1); if (!oreRows.length) oreRows.push({}); renderOreRows(); } }, '🗑');
+      oreRowsBox.append(el('div', { style: 'display:flex;gap:4px;margin-bottom:6px' }, [nameInput, amountInput, delBtn]));
+    });
+  }
+
   typeSelect.addEventListener('change', () => {
+    stashFuelInputs();
     fuelType = typeSelect.value;
+    loadFuelInputs();
     loadEquipForType();
     renderEquipRows();
     importApprovedEquipment(true);
-    mainOreLbl.textContent = department === 'معدن' ? 'ماده معدنی اصلی این دوره (تن)' : 'میزان تولید این دوره';
-    wasteLbl.textContent = department === 'معدن' ? 'باطله‌برداری این دوره (تن)' : 'ضایعات/دورریز این دوره';
   });
 
   function buildReadonlyBox() {
@@ -195,14 +274,26 @@ function openPhotoViewer(name, overview, serial) {
 
   function buildPrintHTML() {
     const cols = FUEL_EQUIP_COLS[fuelType];
-    const mainOre = mainOreInput.value.trim();
     const waste = wasteInput.value.trim();
+    const oreEntries = cleanOreRows();
     const rows = equipRows.filter((r) => Object.values(r).some((v) => v));
     const tableHead = `<tr><th>ردیف</th>${cols.map(([, l]) => `<th>${esc(l)}</th>`).join('')}</tr>`;
     const tableRows = rows.map((r, i) => `<tr><td>${i + 1}</td>${cols.map(([k]) => `<td>${esc(r[k] || '')}</td>`).join('')}</tr>`).join('');
-    const followup = department === 'معدن'
-      ? `ضمناً در ارتباط با آمار تولید/استخراج دوره قبل به اطلاع می‌رساند میزان استخراج اسمی این واحد ${esc(record['استخراج_سالیانه'] || '')} ${record['واحد'] || 'تن'} سالیانه و در این دوره ${esc(mainOre)} تن ماده معدنی اصلی و ${esc(waste)} تن باطله‌برداری می‌باشد و مورد تایید این سازمان می‌باشد. ضمناً لیست ماشین‌آلات/تجهیزات بشرح زیر می‌باشد:`
-      : `ضمناً در ارتباط با آمار تولید دوره قبل به اطلاع می‌رساند ظرفیت اسمی این واحد ${esc(record['ظرفیت'] || '')} ${record['واحد_سنجش'] || ''} ${esc(record['نام_محصول'] || '')} سالیانه و در این دوره ${esc(mainOre)} ${record['واحد_سنجش'] || ''} تولید و ${esc(waste)} ${record['واحد_سنجش'] || ''} ضایعات/دورریز داشته است و مورد تایید این سازمان می‌باشد. ضمناً لیست ماشین‌آلات/تجهیزات بشرح زیر می‌باشد:`;
+    let followup;
+    if (department === 'معدن') {
+      // چند ماده معدنی: «۱۰۰ تن سنگ آهن، ۴۰ تن مس و ۵۰ تن باطله‌برداری»
+      const oreParts = oreEntries.length
+        ? oreEntries.map((r) => `${esc(r['مقدار'])} تن ${esc(r['نام'] || (oreEntries.length === 1 ? 'ماده معدنی اصلی' : 'ماده معدنی'))}`)
+        : [' تن ماده معدنی اصلی'];
+      const productionText = joinFa([...oreParts, `${esc(waste)} تن باطله‌برداری`]);
+      followup = `ضمناً در ارتباط با آمار تولید/استخراج دوره قبل به اطلاع می‌رساند میزان استخراج اسمی این واحد ${esc(record['استخراج_سالیانه'] || '')} ${record['واحد'] || 'تن'} سالیانه و در این دوره ${productionText} می‌باشد و مورد تایید این سازمان می‌باشد. ضمناً لیست ماشین‌آلات/تجهیزات بشرح زیر می‌باشد:`;
+    } else {
+      const unitW = record['واحد_سنجش'] || '';
+      const prodParts = oreEntries.length
+        ? oreEntries.map((r) => `${esc(r['مقدار'])} ${unitW} ${esc(r['نام'])}`.replace(/\s+/g, ' ').trim())
+        : [unitW];
+      followup = `ضمناً در ارتباط با آمار تولید دوره قبل به اطلاع می‌رساند ظرفیت اسمی این واحد ${esc(record['ظرفیت'] || '')} ${unitW} ${esc(record['نام_محصول'] || '')} سالیانه و در این دوره ${joinFa(prodParts)} تولید و ${esc(waste)} ${unitW} ضایعات/دورریز داشته است و مورد تایید این سازمان می‌باشد. ضمناً لیست ماشین‌آلات/تجهیزات بشرح زیر می‌باشد:`;
+    }
     return `<div class="pf-title">بسمه تعالی</div>`
       + `<div class="pf-title pf-underline">فرم اعلام وصول سوخت و تایید میزان تولید</div>`
       + `<div class="pf-body" style="margin-top:14px"><div>رئیس محترم اداره صنعت، معدن و تجارت شهرستان ${esc(county)}</div><div>با سلام /</div>`
@@ -219,23 +310,33 @@ function openPhotoViewer(name, overview, serial) {
     body.innerHTML = '';
     buildReadonlyBox();
     renderEquipRows();
+    renderOreRows();
     const importBtn = el('button', { class: 'btn-sm', style: 'background:var(--patina-100);color:var(--patina-700)', onclick: () => importApprovedEquipment(false) }, '📥 وارد کردن ماشین‌آلات تایید‌شده مسئول فنی');
     const addRowBtn = el('button', { class: 'btn-sm', style: 'background:var(--stone-100);color:var(--ink-700)', onclick: () => { equipRows.push({}); renderEquipRows(); } }, '➕ افزودن ردیف');
+    const addOreBtn = el('button', { class: 'btn-sm', style: 'background:var(--stone-100);color:var(--ink-700)', onclick: () => { oreRows.push({}); renderOreRows(); } }, department === 'معدن' ? '➕ افزودن ماده معدنی' : '➕ افزودن محصول');
     const saveDefaultBtn = el('button', { class: 'btn-sm', style: 'background:var(--amber-100);color:var(--amber-700)', onclick: async () => {
       try {
         const key = equipKeyForType(fuelType);
         const rows = equipRows.filter((r) => Object.values(r).some((v) => v)).map((r) => ({
           نام: r['نام'] || '', مدل: r['مدل'] || '', نوع: r['نوع'] || r['توضیحات'] || '', تعداد: r['تعداد'] || '',
         }));
-        const updated = { ...record, [key]: rows };
+        const defaults = collectDefaults();
+        const updated = { ...record, [key]: rows, [FUEL_DEFAULTS_KEY]: defaults };
         await updateDeptRecord(department, rowId, updated);
-        Object.assign(record, { [key]: rows });
-        showToast('✅ تجهیزات پیش‌فرض این معدن ذخیره شد');
+        Object.assign(record, { [key]: rows, [FUEL_DEFAULTS_KEY]: defaults });
+        lastSavedJson = JSON.stringify(defaults);
+        showToast('✅ تجهیزات و مشخصات پیش‌فرض این معدن ذخیره شد');
       } catch (err) { showToast(`❌ خطا: ${err.message}`); }
     } }, '💾 ذخیره به‌عنوان پیش‌فرض معدن');
-    const previewBtn = el('button', { class: 'btn btn-primary', style: 'flex:1', onclick: () => openFuelPrintPreview({
-      html: buildPrintHTML(), equipRows, photosForRow, close,
-    }) }, '👁️ پیش‌نمایش و چاپ');
+    const previewBtn = el('button', { class: 'btn btn-primary', style: 'flex:1', onclick: () => {
+      // ذخیره‌ی خودکار پیش‌فرض‌ها در پس‌زمینه؛ پیش‌نمایش منتظر نتیجه نمی‌ماند
+      persistRequestDefaults()
+        .then((wrote) => { if (wrote) showToast('✅ مشخصات نماینده، مقادیر و مواد این معدن به‌عنوان پیش‌فرض ذخیره شد'); })
+        .catch((err) => showToast(`⚠️ پیش‌فرض‌ها ذخیره نشد: ${err.message}`));
+      openFuelPrintPreview({
+        html: buildPrintHTML(), equipRows, photosForRow, close,
+      });
+    } }, '👁️ پیش‌نمایش و چاپ');
 
     body.append(
       el('label', {}, 'نوع سوخت'), typeSelect, readonlyBox,
@@ -248,9 +349,12 @@ function openPhotoViewer(name, overview, serial) {
         el('div', {}, [el('label', {}, 'باقیمانده سوخت'), remainingInput]),
         el('div', {}, [el('label', {}, 'ماه درخواستی (شمسی)'), requested.row]),
         el('div', {}, [el('label', {}, 'مقدار درخواستی'), amountRequestedInput]),
-        el('div', {}, [mainOreLbl, mainOreInput]),
         el('div', {}, [wasteLbl, wasteInput]),
       ]),
+      el('div', { style: 'font-size:var(--text-xs);color:var(--stone-500);margin-top:4px' }, 'نام نماینده، مقدار دریافتی، باقیمانده، باطله‌برداری و مواد زیر بعد از «پیش‌نمایش» برای دفعات بعد ذخیره می‌شوند.'),
+      el('div', { style: 'font-weight:700;margin:12px 0 4px' }, department === 'معدن' ? 'مواد معدنی این دوره (برای چند نوع ماده، ردیف اضافه کنید)' : 'محصولات تولیدی این دوره (برای چند محصول، ردیف اضافه کنید)'),
+      oreRowsBox,
+      el('div', { style: 'margin:6px 0 4px' }, [addOreBtn]),
       el('div', { style: 'font-weight:700;margin:12px 0 4px' }, 'لیست ماشین‌آلات / تجهیزات'),
       equipRowsBox,
       el('div', { style: 'display:flex;gap:6px;margin:6px 0 12px;flex-wrap:wrap' }, [addRowBtn, importBtn]),
@@ -259,6 +363,8 @@ function openPhotoViewer(name, overview, serial) {
   }
 
   loadEquipForType();
+  loadFuelInputs();
+  lastSavedJson = JSON.stringify(collectDefaults()); // مبنای مقایسه؛ اگر کاربر چیزی عوض نکند، نوشتن اضافه‌ای انجام نمی‌شود
   fetchApprovedEquipment().then(() => importApprovedEquipment(true));
   draw();
 }
