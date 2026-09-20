@@ -2,8 +2,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- allowBackup=false: قبلاً true بود، یعنی بعد از حذف و نصب مجدد، اندروید داده‌ی WebView
+         (از جمله کش قدیمیِ service worker با شماره‌ی build قدیمی) را از بکاپ برمی‌گرداند و اپ تازه‌نصب
+         هم دوباره «آپدیت» می‌خواست. حالت اپ وابسته به دستگاه است (نشست، بیومتریک، گوشی مورداعتماد،
+         صف آفلاین) و نباید از بکاپ برگردانده شود. -->
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"

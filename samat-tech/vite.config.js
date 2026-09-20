@@ -1,13 +1,16 @@
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
-// این پروژه دو مقصد دارد که مسیر پایه‌شون فرق می‌کنه:
-//   ۱) اندروید (Capacitor) و PWA مستقل → ریشه‌ی دامنه، یعنی base: '/'      → npm run build
+// این پروژه سه مقصد دارد:
+//   ۱) PWA مستقل → ریشه‌ی دامنه، یعنی base: '/'                            → npm run build
 //   ۲) زیرپوشه‌ی «tech-officer» داخل ریپوی samat-admin (novinproduct.ir/tech-officer/)
 //      → base: '/tech-officer/'                                            → npm run build:web-sub
-// حالت دوم با «--mode web-sub» فعال می‌شه (مستقل از سیستم‌عامل، بر خلاف متغیر محیطی).
+//   ۳) اندروید (Capacitor) → base: '/'، ولی بدون service worker             → npm run cap:sync (--mode android)
+// حالت دوم با «--mode web-sub» و حالت سوم با «--mode android» فعال می‌شود (مستقل از سیستم‌عامل،
+// بر خلاف متغیر محیطی).
 export default defineConfig(({ mode }) => {
   const isSubPath = mode === 'web-sub';
+  const isAndroid = mode === 'android';
   const base = isSubPath ? '/tech-officer/' : '/';
 
   return {
@@ -27,6 +30,11 @@ export default defineConfig(({ mode }) => {
     plugins: [
       VitePWA({
         registerType: 'autoUpdate',
+        // داخل APK اندروید، فایل‌های وب مستقیم از خودِ APK لود می‌شوند و service worker فقط ضرر دارد:
+        // بعد از نصب APK جدید، WebView همچنان باندل قدیمیِ کش‌شده را سرو می‌کرد (و حتی بعد از
+        // حذف و نصب مجدد، به‌خاطر بازگردانی داده‌ی WebView از بکاپ). پس برای بیلد اندروید ثبت
+        // service worker اصلاً تزریق نمی‌شود؛ PWA وب و ساب‌پث بدون تغییر می‌مانند.
+        injectRegister: isAndroid ? false : 'auto',
         // فقط فایل‌های استاتیک خود اپ (JS/CSS/فونت) کش می‌شوند — نه پاسخ‌های Supabase؛
         // صف کارهای آفلاین (عکس/گزارش ثبت‌شده بدون اینترنت) یک لایه‌ی جدا در خود اپلیکیشن است، نه service worker.
         workbox: {

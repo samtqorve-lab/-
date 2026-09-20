@@ -8,7 +8,7 @@
     "build": "vite build",
     "build:web-sub": "vite build --mode web-sub",
     "preview": "vite preview",
-    "cap:sync": "vite build && npx cap sync android",
+    "cap:sync": "vite build --mode android && npx cap sync android",
     "cap:open": "npx cap open android",
     "test:e2e": "playwright test"
   },

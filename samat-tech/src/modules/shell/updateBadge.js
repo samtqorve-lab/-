@@ -1,8 +1,11 @@
-import { checkForAppUpdate, UPDATE_PAGE_URL, CURRENT_BUILD } from '../../lib/appUpdate.js';
+import {
+  checkForAppUpdate, UPDATE_PAGE_URL, CURRENT_BUILD, purgeStaleWebCachesInNative,
+} from '../../lib/appUpdate.js';
 import { el } from '../../lib/dom.js';
 
 /** بنر کوچک شناور بالای صفحه وقتی نسخه‌ی جدیدتری از APK منتشر شده باشد. */
 export async function mountUpdateBadge() {
+  purgeStaleWebCachesInNative(); // بدون await — فقط یک پاکسازی پس‌زمینه‌ی بی‌ضرر
   const manifest = await checkForAppUpdate();
   if (!manifest) return;
 
@@ -18,7 +21,7 @@ export async function mountUpdateBadge() {
         class: 'btn-sm',
         style: 'background:#fff;color:var(--patina-700)',
         onclick: () => {
-          window.open(`${UPDATE_PAGE_URL}?app=tech&current=${CURRENT_BUILD}`, '_system');
+          window.open(`${UPDATE_PAGE_URL}?app=tech&current=${manifest.installedBuild || CURRENT_BUILD}`, '_system');
         },
       }, 'مشاهده و دریافت آپدیت'),
       el('button', {
