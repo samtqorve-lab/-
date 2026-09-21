@@ -3,6 +3,7 @@ import {
   importKey, encryptBytes, decryptBytes, buildBundle,
 } from './model3dCrypto.js';
 import { extractApp1Segments, patchExifSegment, injectApp1Segments } from './model3dExif.js';
+import { buildJobMeta, planPhotoNames, rewriteNames } from './model3dGeoref.js';
 
 /**
  * ساخت مدل سه‌بعدی از عکس‌های پهباد: عکس‌ها در همین دستگاه کوچک و رمز می‌شوند، از طریق Edge Function
@@ -15,6 +16,7 @@ const FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/model3d`;
 export const MIN_PHOTOS = 3;
 export const MAX_PHOTOS = 600;
 const MAX_BUNDLE_BYTES = 12 * 1024 * 1024; // هر آپلود حدود ۱۲ مگابایت — برای اینترنت ضعیف و محدودیت نرخ GitHub
+const MAX_BUNDLE_BYTES_ORIGINAL = 24 * 1024 * 1024; // عکس‌های اندازه‌ی اصلی (۸–۱۰ مگابایتی)؛ سقف Edge Function ۴۰ مگابایت است
 const MAX_BUNDLE_PHOTOS = 30;
 const PARALLEL_UPLOADS = 2;
 
@@ -48,7 +50,7 @@ async function call(action, payload = {}) {
 
 export const listJobs = (mineName) => call('list', { mineName }).then((d) => d.jobs || []);
 export const getJobStatus = (jobId) => call('status', { jobId });
-export const createJob = (mineName) => call('create', { mineName });
+export const createJob = (mineName, { mode = 'preview', georef = 'exif' } = {}) => call('create', { mineName, mode, georef });
 export const startJob = (jobId, { expected, photos }) => call('start', { jobId, expected, photos });
 export const removeJob = (jobId) => call('remove', { jobId });
 export const getJobKey = (jobId) => call('key', { jobId }).then((d) => d.key_b64);
@@ -123,17 +125,28 @@ async function uploadAsset(jobId, index, bytes) {
 }
 
 /**
- * عکس‌ها را کوچک، بسته‌بندی، رمز و آپلود می‌کند.
+ * عکس‌ها را کوچک، بسته‌بندی، رمز و آپلود می‌کند. تنظیمات پردازش (job.json) و فایل‌های موقعیت دقیق
+ * (geo.txt یا gcp_list.txt) هم در یک بسته‌ی جدا و رمزشده می‌روند تا workflow آن‌ها را بخواند.
  * @param {{ jobId: string, keyB64: string, files: File[], maxPixels: number,
+ *           settings?: { mode?: string, georef?: string, gpsAccuracy?: number, demResolution?: number,
+ *                        quality?: string, ortho?: boolean, geoText?: string, gcpText?: string },
  *           onProgress?: (p: { phase: string, done: number, total: number }) => void,
  *           shouldCancel?: () => boolean }} opts
  * @returns {Promise<{ assets: number, photos: number }>}
  */
 export async function uploadPhotos({
-  jobId, keyB64, files, maxPixels, onProgress = () => {}, shouldCancel = () => false,
+  jobId, keyB64, files, maxPixels, settings = {}, onProgress = () => {}, shouldCancel = () => false,
 }) {
   const key = await importKey(keyB64);
   const total = files.length;
+  const mode = settings.mode || 'preview';
+  const georef = mode === 'survey' ? (settings.georef || 'exif') : 'exif';
+  // مختصات پیکسلی نقاط GCP مربوط به اندازه‌ی اصلی عکس‌هاست؛ پس با GCP هرگز کوچک نمی‌کنیم
+  const pixels = georef === 'gcp' ? 0 : maxPixels;
+  const bundleLimit = pixels ? MAX_BUNDLE_BYTES : MAX_BUNDLE_BYTES_ORIGINAL;
+  // نام اصلی عکس‌ها حفظ می‌شود (فایل‌های geo/GCP با همان نام‌ها به عکس‌ها اشاره می‌کنند)
+  const { names, mapping } = planPhotoNames(files.map((f) => f.name));
+
   let prepared = 0;
   let uploaded = 0;
   let assets = 0;
@@ -142,13 +155,13 @@ export async function uploadPhotos({
 
   const report = (phase) => onProgress({ phase, done: phase === 'prepare' ? prepared : uploaded, total });
 
-  const flush = async (items) => {
+  const flush = async (items, photoCount = items.length) => {
     assets += 1;
     const index = assets;
     const task = (async () => {
       const encrypted = await encryptBytes(buildBundle(items), key);
       await uploadAsset(jobId, index, encrypted);
-      uploaded += items.length;
+      uploaded += photoCount;
       report('upload');
     })().catch((e) => { if (!firstError) firstError = e; }).finally(() => inflight.delete(task));
     inflight.add(task);
@@ -161,12 +174,12 @@ export async function uploadPhotos({
     if (shouldCancel()) throw new Error('CANCELLED');
     if (firstError) break;
     // eslint-disable-next-line no-await-in-loop
-    const bytes = await prepareJpeg(files[i], maxPixels);
+    const bytes = await prepareJpeg(files[i], pixels);
     prepared += 1;
     report('prepare');
-    bundle.push({ name: `p${String(i + 1).padStart(4, '0')}.jpg`, bytes });
+    bundle.push({ name: names[i], bytes });
     bundleBytes += bytes.length;
-    if (bundleBytes >= MAX_BUNDLE_BYTES || bundle.length >= MAX_BUNDLE_PHOTOS) {
+    if (bundleBytes >= bundleLimit || bundle.length >= MAX_BUNDLE_PHOTOS) {
       const items = bundle;
       bundle = [];
       bundleBytes = 0;
@@ -175,22 +188,44 @@ export async function uploadPhotos({
     }
   }
   if (!firstError && bundle.length) await flush(bundle);
+
+  // بسته‌ی تنظیمات: job.json همیشه؛ geo.txt / gcp_list.txt فقط در صورت انتخاب همان روش
+  if (!firstError) {
+    const enc = new TextEncoder();
+    const extras = [{ name: 'job.json', bytes: enc.encode(buildJobMeta({ ...settings, mode, georef })) }];
+    if (mode === 'survey' && georef === 'geo' && settings.geoText) {
+      extras.push({ name: 'geo.txt', bytes: enc.encode(rewriteNames(settings.geoText, 'geo', mapping)) });
+    }
+    if (mode === 'survey' && georef === 'gcp' && settings.gcpText) {
+      extras.push({ name: 'gcp_list.txt', bytes: enc.encode(rewriteNames(settings.gcpText, 'gcp', mapping)) });
+    }
+    await flush(extras, 0);
+  }
   await Promise.all(inflight);
   if (firstError) throw firstError;
   return { assets, photos: total };
 }
 
-/** مدل آماده را از GitHub (از طریق Edge Function) می‌گیرد و در همین دستگاه رمزگشایی می‌کند. */
-export async function downloadModel(jobId) {
+/** خروجی‌های قابل دریافت یک کار و نوع فایل هرکدام */
+export const ASSET_INFO = {
+  'model.glb': { label: 'مدل سه‌بعدی', mime: 'model/gltf-binary', file: 'model3d.glb' },
+  'dsm.tif': { label: 'DSM (مدل ارتفاعی)', mime: 'image/tiff', file: 'dsm.tif' },
+  'ortho.tif': { label: 'اورتوفوتو', mime: 'image/tiff', file: 'orthophoto.tif' },
+  'stats.json': { label: 'گزارش دقت', mime: 'application/json', file: 'stats.json' },
+};
+
+/** یکی از خروجی‌های آماده را از GitHub (از طریق Edge Function) می‌گیرد و در همین دستگاه رمزگشایی می‌کند. */
+export async function downloadModel(jobId, asset = 'model.glb') {
+  const info = ASSET_INFO[asset] || ASSET_INFO['model.glb'];
   const keyB64 = await getJobKey(jobId);
-  const res = await fetch(`${FN_URL}?action=download&job_id=${jobId}`, { headers: await authHeaders() });
+  const res = await fetch(`${FN_URL}?action=download&job_id=${jobId}&asset=${encodeURIComponent(asset)}`, { headers: await authHeaders() });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || `دریافت مدل ناموفق بود (${res.status})`);
+    throw new Error(data.error || `دریافت فایل ناموفق بود (${res.status})`);
   }
   const encrypted = new Uint8Array(await res.arrayBuffer());
   const plain = await decryptBytes(encrypted, await importKey(keyB64));
-  return new Blob([plain], { type: 'model/gltf-binary' });
+  return new Blob([plain], { type: info.mime });
 }
 
 /** ذخیره یا اشتراک‌گذاری فایل: اول منوی اشتراک‌گذاری موبایل، در غیر این صورت دانلود معمولی */
