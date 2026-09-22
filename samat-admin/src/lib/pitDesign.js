@@ -16,6 +16,12 @@
 // چندضلعی‌های محدب/تقریباً محدب (مثلاً مستطیل کف گودال) درست کار می‌کند؛ برای
 // اشکال بسیار نامنظم/فرورفته ممکن است در ترازهای بالا خودتلاقی ایجاد کند —
 // شبیه محدودیت مشابهی که در نسخهٔ پایتون این ابزار (با shapely.buffer) مستند شده.
+//
+// ⚠️ رمپ/جادهٔ دسترسی (designRamp پایین‌تر): یک مسیر مارپیچیِ الگویی حول دیوارهٔ
+// بیرونی گودال است (نه یک بهینه‌سازی مسیر واقعی با شعاع گردش/سرعت طراحی کامیون).
+// شیب هر پاره‌خط با تنظیم خودکار طول قدم بر اساس محیط هر پله به شیب درخواستی
+// نزدیک می‌شود، اما دقیقاً برابر آن نیست — عدد واقعی در خروجی segments هر پاره‌خط
+// گزارش می‌شود؛ پیش از استفادهٔ عملیاتی با مهندس معدن تطبیق دهید.
 
 import Delaunator from 'delaunator';
 import { buildTriIndex, interpolateZ } from './volumeCalc.js';
@@ -27,10 +33,13 @@ export function bermWidthRitchie(benchHeight) {
   return 0.2 * benchHeight + 4.5;
 }
 
+export function benchFaceHorizontal(params) {
+  return params.benchHeight / Math.tan((params.benchFaceAngleDeg * Math.PI) / 180);
+}
+
 export function benchSetback(params) {
   const berm = params.bermWidthAuto ? bermWidthRitchie(params.benchHeight) : params.bermWidth;
-  const faceHorizontal = params.benchHeight / Math.tan((params.benchFaceAngleDeg * Math.PI) / 180);
-  return faceHorizontal + berm;
+  return benchFaceHorizontal(params) + berm;
 }
 
 export function overallSlopeAngleDeg(params) {
@@ -109,7 +118,9 @@ function lineIntersect(p1, d1, p2, d2) {
 
 /**
  * آفست یک چندضلعی به‌اندازهٔ distance به سمت بیرون (روش لبه‌به‌لبه — نگاه کنید به هشدار بالای فایل).
- * coords: آرایه‌ای از [x,y]، بدون نقطهٔ تکراری پایانی.
+ * coords: آرایه‌ای از [x,y]، بدون نقطهٔ تکراری پایانی. ترتیب و تعداد رأس‌ها با ورودی یکسان می‌ماند
+ * (رأس i در خروجی از همان لبه‌های مجاور رأس i در ورودی ساخته می‌شود) — این تناظر یک‌به‌یک در
+ * pitDesign3D.js برای ساخت مشِ سینه/برم بین دو حلقهٔ متوالی استفاده می‌شود.
  */
 export function offsetPolygonOutward(coords, distance) {
   const area = signedArea(coords);
@@ -161,6 +172,34 @@ function polygonArea(coords) {
   return Math.abs(signedArea(coords));
 }
 
+function polygonPerimeter(coords) {
+  let p = 0;
+  for (let i = 0; i < coords.length; i += 1) {
+    const [x0, y0] = coords[i];
+    const [x1, y1] = coords[(i + 1) % coords.length];
+    p += Math.hypot(x1 - x0, y1 - y0);
+  }
+  return p;
+}
+
+/** نقطه‌ای روی محیط چندضلعی به فاصلهٔ frac (۰ تا ۱) از رأس اول، در جهت پیمایش رأس‌ها. */
+function pointAtPerimeterFraction(coords, frac) {
+  const n = coords.length;
+  const total = polygonPerimeter(coords) || 1;
+  let target = (((frac % 1) + 1) % 1) * total;
+  for (let i = 0; i < n; i += 1) {
+    const [x0, y0] = coords[i];
+    const [x1, y1] = coords[(i + 1) % n];
+    const segLen = Math.hypot(x1 - x0, y1 - y0) || 1e-9;
+    if (target <= segLen) {
+      const t = target / segLen;
+      return [x0 + (x1 - x0) * t, y0 + (y1 - y0) * t];
+    }
+    target -= segLen;
+  }
+  return coords[0];
+}
+
 // ---------- طراحی پله‌بندی ----------
 
 /**
@@ -168,10 +207,16 @@ function polygonArea(coords) {
  * @param {object} surface خروجی buildSurface
  * @param {number[][]} bottomPolygon چندضلعی کف گودال [[x,y],...]
  * @param {object} params { benchHeight, benchFaceAngleDeg, bermWidth, bermWidthAuto, maxBenches, bottomElevation }
- * @returns {{benches: Array<{level:number, elevation:number, polygon:number[][], outcropped:boolean}>}}
+ * @returns {{benches: Array<{level:number, elevation:number, polygon:number[][], faceTopPolygon?:number[][], outcropped:boolean}>}}
+ *
+ * هر پله (به‌جز پلهٔ صفر/کف) هم `polygon` (لبهٔ بیرونی برم، یعنی محل شروع پلهٔ بعدی) و هم
+ * `faceTopPolygon` (لبهٔ بالای سینهٔ پله، پیش از آفست برم) را نگه می‌دارد؛ فاصلهٔ بین حلقهٔ
+ * قبلی و faceTopPolygon سینهٔ شیب‌دار پله است، و فاصلهٔ بین faceTopPolygon و polygon برم
+ * (تِردِ) تخت آن است — این دو، پایهٔ نمایش سه‌بعدی در pitDesign3D.js هستند.
  */
 export function designBenches(surface, bottomPolygon, params) {
-  const setback = benchSetback(params);
+  const berm = params.bermWidthAuto ? bermWidthRitchie(params.benchHeight) : params.bermWidth;
+  const faceHorizontal = benchFaceHorizontal(params);
   let bottomElev = params.bottomElevation;
   if (bottomElev == null) {
     const zs = bottomPolygon.map(([x, y]) => elevationAt(surface, x, y));
@@ -187,12 +232,13 @@ export function designBenches(surface, bottomPolygon, params) {
 
   for (let level = 0; level < maxBenches; level += 1) {
     const nextElev = currentElev + params.benchHeight;
-    const grown = offsetPolygonOutward(currentPoly, setback);
+    const faceTop = offsetPolygonOutward(currentPoly, faceHorizontal);
+    const grown = offsetPolygonOutward(faceTop, berm);
     const groundZ = grown.map(([x, y]) => elevationAt(surface, x, y));
     const outcropped = groundZ.every((z) => z <= nextElev);
 
     benches.push({
-      level: level + 1, elevation: nextElev, polygon: grown, outcropped,
+      level: level + 1, elevation: nextElev, polygon: grown, faceTopPolygon: faceTop, outcropped,
     });
     currentPoly = grown;
     currentElev = nextElev;
@@ -202,6 +248,75 @@ export function designBenches(surface, bottomPolygon, params) {
   }
 
   return { benches, params };
+}
+
+// ---------- رمپ / جادهٔ دسترسی ----------
+
+/**
+ * یک رمپ مارپیچیِ الگویی می‌سازد که از بالاترین پلهٔ ساخته‌شده (برون‌زد یا سقف تعداد پله) تا کف
+ * گودال پایین می‌رود، با پیمایش حول لبهٔ بیرونی هر پله. طول قدمِ زاویه‌ای در هر تراز طوری تنظیم
+ * می‌شود که فاصلهٔ افقی طی‌شده در آن تراز، تا حد امکان با H/tan(شیب درخواستی) برابر باشد — نه یک
+ * بهینه‌سازی مسیر واقعی؛ شیب واقعیِ هر پاره‌خط در segments گزارش می‌شود.
+ * @param {object} designResult خروجی designBenches
+ * @param {{width?:number, gradePercent?:number, startFraction?:number, direction?:1|-1}} [rampParams]
+ * @returns {{width:number, requestedGradePercent:number, centerline:Array, leftEdge:Array, rightEdge:Array, segments:Array, totalLength:number}}
+ */
+export function designRamp(designResult, rampParams = {}) {
+  const {
+    width = 8, gradePercent = 10, startFraction = 0, direction = 1,
+  } = rampParams;
+  const benches = designResult.benches;
+  if (benches.length < 2) throw new Error('برای رمپ حداقل یک پله لازم است');
+  const H = designResult.params.benchHeight;
+  const grade = Math.max(0.5, gradePercent) / 100;
+  const requiredRun = H / grade;
+
+  const centerline = [];
+  let angle = startFraction;
+  for (let i = benches.length - 1; i >= 0; i -= 1) {
+    const b = benches[i];
+    const [x, y] = pointAtPerimeterFraction(b.polygon, angle);
+    centerline.push({
+      x, y, z: b.elevation, level: b.level,
+    });
+    if (i > 0) {
+      const perim = polygonPerimeter(b.polygon) || 1;
+      const stepFrac = Math.min(0.4, Math.max(0.015, requiredRun / perim));
+      angle += stepFrac * direction;
+    }
+  }
+
+  const half = width / 2;
+  const leftEdge = []; const rightEdge = []; const segments = [];
+  let totalLength = 0;
+  for (let i = 0; i < centerline.length; i += 1) {
+    const prev = centerline[Math.max(0, i - 1)];
+    const next = centerline[Math.min(centerline.length - 1, i + 1)];
+    let dx = next.x - prev.x; let dy = next.y - prev.y;
+    const len = Math.hypot(dx, dy) || 1;
+    dx /= len; dy /= len;
+    const nx = -dy; const ny = dx; // نرمال افقی بر جهت مسیر
+    const c = centerline[i];
+    leftEdge.push({ x: c.x + nx * half, y: c.y + ny * half, z: c.z });
+    rightEdge.push({ x: c.x - nx * half, y: c.y - ny * half, z: c.z });
+    if (i > 0) {
+      const a = centerline[i - 1];
+      const runH = Math.hypot(c.x - a.x, c.y - a.y);
+      const rise = c.z - a.z;
+      totalLength += Math.hypot(runH, rise);
+      segments.push({
+        fromLevel: a.level,
+        toLevel: c.level,
+        horizontalRun: runH,
+        rise,
+        gradePercent: runH > 1e-6 ? (Math.abs(rise) / runH) * 100 : Infinity,
+      });
+    }
+  }
+
+  return {
+    width, requestedGradePercent: gradePercent, centerline, leftEdge, rightEdge, segments, totalLength,
+  };
 }
 
 // ---------- حجم خاک‌برداری ----------
@@ -246,7 +361,7 @@ export function computeCutVolume(surface, designResult, cellSize = 2) {
   return { totalCutM3: total, perBenchM3: perBench, cellSize };
 }
 
-export { polygonArea, pointInPolygon };
+export { polygonArea, pointInPolygon, polygonPerimeter };
 
 // ---------- خروجی‌گیری ----------
 
@@ -270,8 +385,29 @@ export function exportBenchesDXF(designResult) {
   return lines.join('\n');
 }
 
-/** گزارش CSV پارامترها + جدول پله‌ها (+ حجم هر تراز، در صورت وجود). */
-export function exportReportCSV(designResult, volumeReport) {
+/**
+ * خروجی DXF رمپ/جادهٔ دسترسی به‌صورت سه پلی‌لاینِ سه‌بعدیِ واقعی (POLYLINE با VERTEX هر کدام دارای
+ * الیویشن خودش — بر‌خلاف LWPOLYLINE که فقط یک الیویشن ثابت برای کل پلی‌لاین دارد؛ چون رمپ در طول
+ * مسیرش ارتفاعش پیوسته تغییر می‌کند، این فرمت لازم است): محور مرکزی + دو لبهٔ چپ/راست.
+ */
+export function exportRampDXF(rampResult) {
+  const lines = ['0', 'SECTION', '2', 'ENTITIES'];
+  const writePolyline3D = (pts, layer) => {
+    lines.push('0', 'POLYLINE', '8', layer, '66', '1', '70', '8'); // 70=8 → پرچم پلی‌لاین سه‌بعدی
+    pts.forEach((p) => {
+      lines.push('0', 'VERTEX', '8', layer, '10', String(p.x), '20', String(p.y), '30', String(p.z), '70', '32');
+    });
+    lines.push('0', 'SEQEND');
+  };
+  writePolyline3D(rampResult.centerline, 'RAMP_CENTERLINE');
+  writePolyline3D(rampResult.leftEdge, 'RAMP_EDGE');
+  writePolyline3D(rampResult.rightEdge, 'RAMP_EDGE');
+  lines.push('0', 'ENDSEC', '0', 'EOF');
+  return lines.join('\n');
+}
+
+/** گزارش CSV پارامترها + جدول پله‌ها (+ حجم هر تراز و جدول رمپ، در صورت وجود). */
+export function exportReportCSV(designResult, volumeReport, rampResult) {
   const p = designResult.params;
   const rows = [];
   rows.push(['--- پارامترهای طراحی ---']);
@@ -292,6 +428,17 @@ export function exportReportCSV(designResult, volumeReport) {
     rows.push(['--- حجم کل ---']);
     rows.push(['حجم کل خاک‌برداری (m3)', volumeReport.totalCutM3.toFixed(1)]);
     rows.push(['اندازهٔ سلول شبکهٔ محاسبه (m)', volumeReport.cellSize]);
+  }
+  if (rampResult) {
+    rows.push([]);
+    rows.push(['--- رمپ / جادهٔ دسترسی ---']);
+    rows.push(['عرض جاده (m)', rampResult.width]);
+    rows.push(['شیب درخواستی (%)', rampResult.requestedGradePercent]);
+    rows.push(['طول کل مسیر (m)', rampResult.totalLength.toFixed(1)]);
+    rows.push(['از پله', 'تا پله', 'فاصلهٔ افقی (m)', 'اختلاف ارتفاع (m)', 'شیب واقعی (%)']);
+    rampResult.segments.forEach((s) => {
+      rows.push([s.fromLevel, s.toLevel, s.horizontalRun.toFixed(1), s.rise.toFixed(1), Number.isFinite(s.gradePercent) ? s.gradePercent.toFixed(1) : '—']);
+    });
   }
   return rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\r\n');
 }
