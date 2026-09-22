@@ -1,10 +1,11 @@
 import { el, showToast } from '../../lib/dom.js';
 import { extractPointsFromFile, getFileExt } from '../../lib/surveyParsers.js';
 import {
-  buildSurface, designBenches, computeCutVolume, rectanglePolygon,
+  buildSurface, designBenches, designRamp, computeCutVolume, rectanglePolygon,
   benchSetback, overallSlopeAngleDeg, bermWidthRitchie, polygonArea,
-  exportBenchesDXF, exportReportCSV,
+  exportBenchesDXF, exportRampDXF, exportReportCSV,
 } from '../../lib/pitDesign.js';
+import { openPitDesign3DViewer } from '../../lib/pitDesign3DViewer.js';
 
 function fmtNum(n, digits = 1) {
   return Number(n).toLocaleString('fa-IR', { maximumFractionDigits: digits });
@@ -26,8 +27,8 @@ function numberField(label, value, step = 'any') {
   return { wrap: el('div', {}, [el('label', {}, label), input]), input };
 }
 
-/** رسم نمای بالا (plan view) از نقاط توپوگرافی + حلقه‌های پله روی canvas — بدون کتابخانه‌ی خارجی. */
-function renderPlanView(canvas, points, designResult) {
+/** رسم نمای بالا (plan view) از نقاط توپوگرافی + حلقه‌های پله + خط رمپ روی canvas — بدون کتابخانه‌ی خارجی. */
+function renderPlanView(canvas, points, designResult, rampResult) {
   const ctx = canvas.getContext('2d');
   const W = canvas.width; const H = canvas.height;
   ctx.clearRect(0, 0, W, H);
@@ -67,6 +68,19 @@ function renderPlanView(canvas, points, designResult) {
     ctx.closePath();
     ctx.stroke();
   });
+
+  // خط محور رمپ/جاده، در صورت وجود
+  if (rampResult) {
+    ctx.strokeStyle = '#2b6fb0';
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([5, 3]);
+    ctx.beginPath();
+    rampResult.centerline.forEach((p, j) => {
+      if (j === 0) ctx.moveTo(toX(p.x), toY(p.y)); else ctx.lineTo(toX(p.x), toY(p.y));
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
 }
 
 export async function renderPitDesign(container) {
@@ -77,8 +91,8 @@ export async function renderPitDesign(container) {
     'فرمت‌های ورودی: txt/csv/xyz/asc، DXF، KML، LandXML.',
     el('br'),
     el('b', {}, '⚠️ توجه: '),
-    'این ابزار پوستهٔ نهایی را به‌صورت هندسی/الگویی می‌سازد (نه بهینه‌سازی اقتصادی با مدل بلوک). ',
-    'مقادیر پیش‌فرض (ارتفاع پله، شیب سینه، فرمول ریچی برای برم) مقادیر متداول صنعتی‌اند — پیش از استفادهٔ عملیاتی با متن دقیق آیین‌نامهٔ اصول طراحی معادن روباز و نظر مهندس ناظر تطبیق دهید.',
+    'این ابزار پوستهٔ نهایی و رمپ را به‌صورت هندسی/الگویی می‌سازد (نه بهینه‌سازی اقتصادی با مدل بلوک یا بهینه‌سازی مسیر واقعی جاده). ',
+    'مقادیر پیش‌فرض (ارتفاع پله، شیب سینه، فرمول ریچی برای برم، شیب رمپ) مقادیر متداول صنعتی‌اند — پیش از استفادهٔ عملیاتی با متن دقیق آیین‌نامهٔ اصول طراحی معادن روباز و نظر مهندس ناظر تطبیق دهید.',
   ]);
 
   const fileInput = el('input', { type: 'file', accept: '.txt,.csv,.xyz,.asc,.dxf,.kml,.xml' });
@@ -102,9 +116,17 @@ export async function renderPitDesign(container) {
   const maxB = numberField('سقف تعداد پله', 40, '1');
   const cellSize = numberField('اندازهٔ سلول محاسبهٔ حجم (m)', 3);
 
+  const rampOn = el('input', { type: 'checkbox', checked: true });
+  const rampOnWrap = el('label', { style: 'display:flex;align-items:center;gap:6px;font-size:var(--text-xs);margin-top:4px' }, [
+    rampOn, 'رمپ/جادهٔ دسترسی هم طراحی شود',
+  ]);
+  const rampWidth = numberField('عرض جاده (m)', 8);
+  const rampGrade = numberField('شیب درخواستی جاده (%)', 10);
+
   const formGrid = el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px 14px' }, [
     cx.wrap, cy.wrap, bl.wrap, bw.wrap, ba.wrap, be.wrap,
     bh.wrap, bang.wrap, berm.wrap, maxB.wrap, cellSize.wrap,
+    rampWidth.wrap, rampGrade.wrap,
   ]);
 
   const runBtn = el('button', { class: 'btn btn-primary', style: 'width:100%;justify-content:center;margin-top:12px' }, '⛏ اجرای طراحی پله‌بندی');
@@ -112,8 +134,10 @@ export async function renderPitDesign(container) {
   const canvas = el('canvas', { width: '480', height: '360', style: 'width:100%;border-radius:8px;border:1px solid var(--stone-300);margin-top:8px' });
 
   let points = null;
+  let lastSurface = null;
   let lastResult = null;
   let lastVolume = null;
+  let lastRamp = null;
 
   fileInput.addEventListener('change', async () => {
     const f = fileInput.files[0];
@@ -148,22 +172,29 @@ export async function renderPitDesign(container) {
       };
       const result = designBenches(surface, bottomPolygon, params);
       const volume = computeCutVolume(surface, result, parseFloat(cellSize.input.value) || 3);
-      lastResult = result; lastVolume = volume;
+      const ramp = rampOn.checked && result.benches.length > 1
+        ? designRamp(result, { width: parseFloat(rampWidth.input.value) || 8, gradePercent: parseFloat(rampGrade.input.value) || 10 })
+        : null;
+      lastSurface = surface; lastResult = result; lastVolume = volume; lastRamp = ramp;
 
       resultBox.innerHTML = '';
       resultBox.style.display = 'block';
       const benchCount = result.benches.length - 1;
+      const kpis = [
+        el('div', { class: 'kpi-card' }, [el('div', { class: 'kpi-n' }, `${benchCount}`), el('div', { class: 'kpi-l' }, 'تعداد پله')]),
+        el('div', { class: 'kpi-card' }, [el('div', { class: 'kpi-n' }, `${overallSlopeAngleDeg(params).toFixed(1)}°`), el('div', { class: 'kpi-l' }, 'شیب کلی دیواره')]),
+        el('div', { class: 'kpi-card', style: '--kpi-accent:var(--rust-600)' }, [el('div', { class: 'kpi-n' }, fmtNum(volume.totalCutM3, 0)), el('div', { class: 'kpi-l' }, 'حجم کل خاک‌برداری (m³)')]),
+      ];
+      if (ramp) {
+        kpis.push(el('div', { class: 'kpi-card' }, [el('div', { class: 'kpi-n' }, fmtNum(ramp.totalLength, 0)), el('div', { class: 'kpi-l' }, 'طول کل رمپ (m)')]));
+      }
       resultBox.append(
-        el('div', { class: 'kpi-grid' }, [
-          el('div', { class: 'kpi-card' }, [el('div', { class: 'kpi-n' }, `${benchCount}`), el('div', { class: 'kpi-l' }, 'تعداد پله')]),
-          el('div', { class: 'kpi-card' }, [el('div', { class: 'kpi-n' }, `${overallSlopeAngleDeg(params).toFixed(1)}°`), el('div', { class: 'kpi-l' }, 'شیب کلی دیواره')]),
-          el('div', { class: 'kpi-card', style: '--kpi-accent:var(--rust-600)' }, [el('div', { class: 'kpi-n' }, fmtNum(volume.totalCutM3, 0)), el('div', { class: 'kpi-l' }, 'حجم کل خاک‌برداری (m³)')]),
-        ]),
+        el('div', { class: 'kpi-grid' }, kpis),
         el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-top:8px' },
           `واپس‌روی هر پله: ${benchSetback(params).toFixed(2)} m${params.bermWidthAuto ? ` (عرض برم طبق فرمول ریچی: ${bermWidthRitchie(params.benchHeight).toFixed(2)} m)` : ''} — از تراز ${result.benches[0].elevation.toFixed(1)} تا ${result.benches[result.benches.length - 1].elevation.toFixed(1)} متر`),
         canvas,
       );
-      renderPlanView(canvas, points, result);
+      renderPlanView(canvas, points, result, ramp);
 
       const table = el('table', { class: 'data-table', style: 'width:100%;margin-top:10px;font-size:var(--text-xs)' });
       table.append(el('thead', {}, el('tr', {}, ['پله', 'تراز (m)', 'مساحت (m²)', 'برون‌زد؟'].map((h) => el('th', {}, h)))));
@@ -179,14 +210,30 @@ export async function renderPitDesign(container) {
       table.append(tbody);
       resultBox.append(table);
 
-      const exportRow = el('div', { style: 'display:flex;gap:8px;margin-top:12px' }, [
+      if (ramp) {
+        const worst = ramp.segments.reduce((m, s) => (Number.isFinite(s.gradePercent) && s.gradePercent > m ? s.gradePercent : m), 0);
+        resultBox.append(el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-top:8px' },
+          `رمپ: عرض ${ramp.width} متر، شیب درخواستی ${ramp.requestedGradePercent}٪، بیشینهٔ شیب واقعیِ محاسبه‌شده در طول مسیر: ${worst.toFixed(1)}٪ (خط چین آبی در نقشه).`));
+      }
+
+      const view3dBtn = el('button', {
+        class: 'btn btn-primary', style: 'width:100%;justify-content:center;margin-top:10px',
+        onclick: () => openPitDesign3DViewer(surface, result, ramp),
+      }, '🧊 نمایش سه‌بعدی (پله + جاده روی زمین واقعی)');
+      resultBox.append(view3dBtn);
+
+      const exportRow = el('div', { style: 'display:flex;gap:8px;margin-top:12px;flex-wrap:wrap' }, [
         el('button', {
           class: 'btn btn-ghost', style: 'flex:1;justify-content:center',
           onclick: () => downloadText(exportBenchesDXF(result), 'pit_benches.dxf', 'application/dxf'),
-        }, '⬇ خروجی DXF'),
+        }, '⬇ خروجی DXF (پله‌ها)'),
+        ...(ramp ? [el('button', {
+          class: 'btn btn-ghost', style: 'flex:1;justify-content:center',
+          onclick: () => downloadText(exportRampDXF(ramp), 'pit_ramp.dxf', 'application/dxf'),
+        }, '⬇ خروجی DXF (رمپ)')] : []),
         el('button', {
           class: 'btn btn-ghost', style: 'flex:1;justify-content:center',
-          onclick: () => downloadText(exportReportCSV(result, volume), 'design_report.csv', 'text/csv;charset=utf-8;'),
+          onclick: () => downloadText(exportReportCSV(result, volume, ramp), 'design_report.csv', 'text/csv;charset=utf-8;'),
         }, '⬇ گزارش CSV'),
       ]);
       resultBox.append(exportRow);
@@ -198,11 +245,12 @@ export async function renderPitDesign(container) {
   });
 
   container.append(el('div', { class: 'card' }, [
-    el('h3', {}, '⛰ طراحی پله‌بندی معدن روباز'),
+    el('h3', {}, '⛰ طراحی پله‌بندی معدن روباز + رمپ دسترسی'),
     intro,
     el('label', {}, 'فایل توپوگرافی'), fileInput, fileStatus,
     formGrid,
     bermAutoWrap,
+    rampOnWrap,
     runBtn,
     resultBox,
   ]));
