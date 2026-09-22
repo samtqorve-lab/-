@@ -1,14 +1,17 @@
 import { el, showToast, openModal } from '../../lib/dom.js';
 import {
-  QUALITY_OPTIONS, MIN_PHOTOS, MAX_PHOTOS,
+  QUALITY_OPTIONS, MIN_PHOTOS, MAX_PHOTOS, ASSET_INFO,
   listJobs, createJob, startJob, removeJob, uploadPhotos, downloadModel, saveBlob, runSelftest,
 } from '../../lib/model3d.js';
+import { createOptionsPanel } from '../../lib/model3dOptions.js';
 
 /**
- * نسخه‌ی ادمین: همان ساخت مدل سه‌بعدی، به‌همراه «بررسی اتصال» و دسترسی به مدل‌های همه‌ی کاربران این معدن.
+ * نسخه‌ی ادمین: همان ساخت مدل سه‌بعدی، به‌همراه «مشاهده»، «بررسی اتصال» و دسترسی به مدل‌های همه‌ی کاربران این معدن.
  * ساخت مدل سه‌بعدی از عکس‌های پهباد برای یک معدن. عکس‌ها در همین دستگاه کوچک و رمز می‌شوند، روی GitHub
- * با OpenDroneMap به مدل تبدیل می‌شوند و فقط مدل رمزشده آنجا می‌ماند (نه در فضای Supabase).
- * ساخت مدل چند دقیقه تا چند ساعت (بسته به تعداد عکس) طول می‌کشد؛ بعد از شروع می‌توان صفحه را بست.
+ * با OpenDroneMap به مدل تبدیل می‌شوند و فقط خروجی رمزشده آنجا می‌ماند (نه در فضای Supabase).
+ * دو نوع پردازش: «پیش‌نمایش سریع» و «نقشه‌برداری دقیق» (DSM برای محاسبه‌ی حجم؛ با GPS معمولی،
+ * موقعیت دقیق PPK/RTK یا نقاط کنترل زمینی). ساخت چند دقیقه تا چند ساعت طول می‌کشد؛ بعد از شروع
+ * می‌توان صفحه را بست.
  */
 
 const STATUS = {
@@ -17,10 +20,24 @@ const STATUS = {
   done: { label: 'آماده', color: 'var(--patina-700)' },
   failed: { label: 'ناموفق', color: 'var(--rust-700)' },
 };
+const GEOREF_LABEL = { exif: 'GPS معمولی', geo: 'PPK/RTK', gcp: 'GCP' };
+const ASSET_SHORT = { 'dsm.tif': 'DSM', 'ortho.tif': 'اورتوفوتو', 'stats.json': 'گزارش' };
 const POLL_MS = 30_000;
 
 function fmtWhen(iso) {
   try { return new Date(iso).toLocaleString('fa-IR'); } catch { return ''; }
+}
+
+/** خطای ODM (متر) را به سانتی‌متر نشان می‌دهد؛ فقط اگر عددهای x,y,z موجود باشند */
+function summaryText(j) {
+  const s = j.summary;
+  if (!s) return '';
+  const fmt = (e) => (e && ['x', 'y', 'z'].every((k) => typeof e[k] === 'number')
+    ? `X ${(e.x * 100).toFixed(1)} · Y ${(e.y * 100).toFixed(1)} · Z ${(e.z * 100).toFixed(1)} سانتی‌متر` : '');
+  const g = fmt(s.gcp_errors && s.gcp_errors.error);
+  if (g) return `خطای نقاط کنترل: ${g}`;
+  const p = fmt(s.gps_errors && s.gps_errors.error);
+  return p ? `خطای موقعیت GPS: ${p}` : '';
 }
 
 export function openModel3dModal(mine, nameField) {
@@ -38,15 +55,27 @@ export function openModel3dModal(mine, nameField) {
   const pickBtn = el('button', { class: 'btn', style: 'width:100%' }, '📂 انتخاب عکس‌های پهباد');
   const summary = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-top:6px' });
   const qualitySelect = el('select', {}, QUALITY_OPTIONS.map((q) => el('option', { value: q.id }, q.label)));
+  const qualityNote = el('div', { style: 'font-size:11px;color:var(--stone-600);margin-top:4px;display:none' }, 'با نقاط کنترل زمینی (GCP) عکس‌ها با اندازه‌ی اصلی آپلود می‌شوند.');
   const startBtn = el('button', { class: 'btn btn-primary', style: 'width:100%;margin-top:12px', disabled: '' }, '🚀 شروع ساخت مدل');
   const progressText = el('div', { style: 'font-size:var(--text-xs);color:var(--ink-700);margin-top:10px' });
   const progressBar = el('progress', { max: '100', value: '0', style: 'width:100%;display:none' });
+  const panel = createOptionsPanel({ onChange: () => refresh() });
+
+  /** وضعیت دکمه‌ها را با انتخاب عکس‌ها، تنظیمات پنل و مشغول‌بودن هماهنگ می‌کند */
+  function refresh() {
+    const check = panel.render(files.map((f) => f.name));
+    const locked = panel.forcesOriginalSize();
+    if (locked) qualitySelect.value = 'original';
+    qualityNote.style.display = locked ? 'block' : 'none';
+    qualitySelect.disabled = busy || locked;
+    pickBtn.disabled = busy;
+    panel.setDisabled(busy);
+    startBtn.disabled = busy || files.length < MIN_PHOTOS || !check.ok;
+  }
 
   function setBusy(v) {
     busy = v;
-    pickBtn.disabled = v;
-    qualitySelect.disabled = v;
-    startBtn.disabled = v || files.length < MIN_PHOTOS;
+    refresh();
   }
 
   function setProgress(text, pct) {
@@ -63,31 +92,42 @@ export function openModel3dModal(mine, nameField) {
     }
   }
 
+  function assetButton(j, asset, text, style) {
+    const btn = el('button', { class: 'btn-sm', style }, text);
+    btn.addEventListener('click', async () => {
+      btn.disabled = true; btn.textContent = '⏳ در حال دریافت...';
+      try {
+        const blob = await downloadModel(j.jobId, asset);
+        const info = ASSET_INFO[asset];
+        await saveBlob(blob, `${j.jobId.slice(0, 8)}-${info.file}`);
+      } catch (err) { errBox.textContent = err.message; }
+      btn.disabled = false; btn.textContent = text;
+    });
+    return btn;
+  }
+
   function jobRow(j) {
     const st = STATUS[j.status] || { label: j.status, color: 'var(--stone-600)' };
     const actions = [];
+    const assets = j.assets && j.assets.length ? j.assets : ['model.glb'];
     if (j.status === 'done') {
-      const view = el('button', { class: 'btn-sm', style: 'background:var(--ink-700);color:#fff' }, '👁 مشاهده');
-      view.addEventListener('click', async () => {
-        view.disabled = true; view.textContent = '⏳ در حال دریافت...';
-        try {
-          const blob = await downloadModel(j.jobId);
-          const { openModel3dViewer } = await import('../../lib/model3dViewer.js');
-          openModel3dViewer(blob, { title: `${mineName} — ${fmtWhen(j.createdAt)}` });
-        } catch (err) { errBox.textContent = err.message; }
-        view.disabled = false; view.textContent = '👁 مشاهده';
+      if (assets.includes('model.glb')) {
+        const view = el('button', { class: 'btn-sm', style: 'background:var(--ink-700);color:#fff' }, '👁 مشاهده');
+        view.addEventListener('click', async () => {
+          view.disabled = true; view.textContent = '⏳ در حال دریافت...';
+          try {
+            const blob = await downloadModel(j.jobId);
+            const { openModel3dViewer } = await import('../../lib/model3dViewer.js');
+            openModel3dViewer(blob, { title: `${mineName} — ${fmtWhen(j.createdAt)}` });
+          } catch (err) { errBox.textContent = err.message; }
+          view.disabled = false; view.textContent = '👁 مشاهده';
+        });
+        actions.push(view);
+        actions.push(assetButton(j, 'model.glb', '⬇️ مدل', 'background:var(--patina-700);color:#fff'));
+      }
+      ['dsm.tif', 'stats.json', 'ortho.tif'].filter((a) => assets.includes(a)).forEach((a) => {
+        actions.push(assetButton(j, a, `⬇️ ${ASSET_SHORT[a]}`, 'background:var(--stone-200);color:var(--ink-700)'));
       });
-      actions.push(view);
-      const dl = el('button', { class: 'btn-sm', style: 'background:var(--patina-700);color:#fff' }, '⬇️ دریافت');
-      dl.addEventListener('click', async () => {
-        dl.disabled = true; dl.textContent = '⏳ در حال دریافت...';
-        try {
-          const blob = await downloadModel(j.jobId);
-          await saveBlob(blob, `model3d-${j.jobId.slice(0, 8)}.glb`);
-        } catch (err) { errBox.textContent = err.message; }
-        dl.disabled = false; dl.textContent = '⬇️ دریافت';
-      });
-      actions.push(dl);
     }
     if (j.status === 'failed') {
       const retry = el('button', { class: 'btn-sm', style: 'background:var(--stone-200);color:var(--ink-700)' }, '🔁 تلاش مجدد');
@@ -109,14 +149,17 @@ export function openModel3dModal(mine, nameField) {
       });
       actions.push(del);
     }
+    const kind = j.mode === 'survey' ? `نقشه‌برداری (${GEOREF_LABEL[j.georef] || ''})` : 'پیش‌نمایش';
+    const extra = j.status === 'done' ? summaryText(j) : '';
     return el('div', { style: 'padding:8px 0;border-bottom:1px solid var(--stone-200)' }, [
-      el('div', { style: 'display:flex;justify-content:space-between;align-items:center;gap:8px' }, [
-        el('div', {}, [
-          el('div', { style: `font-weight:700;font-size:12px;color:${st.color}` }, st.label),
+      el('div', { style: 'display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap' }, [
+        el('div', { style: 'flex:1 1 150px;min-width:0' }, [
+          el('div', { style: `font-weight:700;font-size:12px;color:${st.color}` }, `${st.label} — ${kind}`),
           el('div', { style: 'font-size:11px;color:var(--stone-600)' }, `${fmtWhen(j.createdAt)}${j.photoCount ? ` — ${j.photoCount} عکس` : ''}`),
         ]),
-        el('div', { style: 'display:flex;gap:6px;flex-shrink:0' }, actions),
+        el('div', { style: 'display:flex;gap:6px;flex-wrap:wrap' }, actions),
       ]),
+      extra ? el('div', { style: 'font-size:11px;color:var(--stone-600);margin-top:4px' }, extra) : null,
       j.status === 'failed' && j.error ? el('div', { style: 'font-size:11px;color:var(--rust-700);margin-top:4px' }, j.error) : null,
     ]);
   }
@@ -148,25 +191,27 @@ export function openModel3dModal(mine, nameField) {
     }
     summary.textContent = files.length ? `${files.length} عکس انتخاب شد (${mb.toFixed(0)} مگابایت)` : '';
     if (files.length && files.length < MIN_PHOTOS) errBox.textContent = `حداقل ${MIN_PHOTOS} عکس لازم است (برای مدل خوب معمولاً ده‌ها عکس با هم‌پوشانی ۷۰٪)`;
-    setBusy(false);
+    refresh();
   });
   pickBtn.addEventListener('click', () => fileInput.click());
 
   startBtn.addEventListener('click', async () => {
     errBox.textContent = '';
-    if (files.length < MIN_PHOTOS) return;
+    if (files.length < MIN_PHOTOS || !panel.render(files.map((f) => f.name)).ok) return;
+    const settings = panel.getSettings();
     const quality = QUALITY_OPTIONS.find((q) => q.id === qualitySelect.value) || QUALITY_OPTIONS[0];
     setBusy(true);
     let jobId = null;
     try {
       setProgress('در حال آماده‌سازی...', null);
-      const created = await createJob(mineName);
+      const created = await createJob(mineName, { mode: settings.mode, georef: settings.georef });
       jobId = created.jobId;
       const { assets, photos } = await uploadPhotos({
         jobId,
         keyB64: created.key_b64,
         files,
         maxPixels: quality.maxPixels,
+        settings,
         shouldCancel: () => !isOpen(),
         onProgress: ({ phase, done, total }) => {
           if (!isOpen()) return;
@@ -211,11 +256,13 @@ export function openModel3dModal(mine, nameField) {
     el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:8px;line-height:1.9' },
       'عکس‌های پهباد را انتخاب کنید تا مدل سه‌بعدی معدن ساخته شود. عکس‌ها رمز می‌شوند و بعد از ساخت مدل پاک می‌شوند. عکس‌ها باید هم‌پوشانی زیاد و موقعیت مکانی (GPS) داشته باشند.'),
     pickBtn, fileInput, summary,
-    el('label', { style: 'margin-top:10px;display:block' }, 'کیفیت عکس برای آپلود'), qualitySelect,
+    panel.node,
+    el('label', { style: 'margin-top:10px;display:block' }, 'کیفیت عکس برای آپلود'), qualitySelect, qualityNote,
     errBox, startBtn, progressText, progressBar,
     el('h4', { style: 'margin-top:16px;font-size:var(--text-sm);color:var(--ink-700)' }, 'مدل‌های این معدن'),
     jobsBox,
     checkBtn, checkBox,
   );
+  refresh();
   loadJobs();
 }
