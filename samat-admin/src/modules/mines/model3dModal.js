@@ -1,7 +1,7 @@
 import { el, showToast, openModal } from '../../lib/dom.js';
 import {
   QUALITY_OPTIONS, MIN_PHOTOS, MAX_PHOTOS, ASSET_INFO,
-  listJobs, createJob, startJob, removeJob, uploadPhotos, downloadModel, saveBlob, runSelftest,
+  listJobs, createJob, startJob, removeJob, uploadPhotos, downloadModel, saveBlob, runSelftest, mergeJobs,
 } from '../../lib/model3d.js';
 import { createOptionsPanel } from '../../lib/model3dOptions.js';
 
@@ -12,6 +12,10 @@ import { createOptionsPanel } from '../../lib/model3dOptions.js';
  * دو نوع پردازش: «پیش‌نمایش سریع» و «نقشه‌برداری دقیق» (DSM برای محاسبه‌ی حجم؛ با GPS معمولی،
  * موقعیت دقیق PPK/RTK یا نقاط کنترل زمینی). ساخت چند دقیقه تا چند ساعت طول می‌کشد؛ بعد از شروع
  * می‌توان صفحه را بست.
+ *
+ * برای معدن‌های بزرگ که با یک پرواز پوشش داده نمی‌شوند: هر پرواز را جداگانه (دوباره از همین پنجره،
+ * با «📂 انتخاب عکس‌های پهباد») در حالت «نقشه‌برداری دقیق» بسازید؛ وقتی دو یا چند پرواز survey از
+ * این معدن آماده شد، دکمه‌ی «🧩 ادغام پروازها» همه‌شان را در یک DSM/ارتوفتو/مدل یکپارچه ادغام می‌کند.
  */
 
 const STATUS = {
@@ -23,6 +27,7 @@ const STATUS = {
 const GEOREF_LABEL = { exif: 'GPS معمولی', geo: 'PPK/RTK', gcp: 'GCP' };
 const ASSET_SHORT = { 'dsm.tif': 'DSM', 'ortho.tif': 'اورتوفوتو', 'stats.json': 'گزارش' };
 const POLL_MS = 30_000;
+const MIN_MERGE_FLIGHTS = 2;
 
 function fmtWhen(iso) {
   try { return new Date(iso).toLocaleString('fa-IR'); } catch { return ''; }
@@ -50,6 +55,7 @@ export function openModel3dModal(mine, nameField) {
   let pollTimer = null;
 
   const jobsBox = el('div', { style: 'margin-top:8px' });
+  const mergeBox = el('div', { style: 'margin-top:10px;display:none' });
   const errBox = el('div', { style: 'color:var(--rust-700);font-size:var(--text-xs);margin-top:8px;min-height:4px' });
   const fileInput = el('input', { type: 'file', accept: 'image/jpeg', multiple: '', style: 'display:none' });
   const pickBtn = el('button', { class: 'btn', style: 'width:100%' }, '📂 انتخاب عکس‌های پهباد');
@@ -149,13 +155,14 @@ export function openModel3dModal(mine, nameField) {
       });
       actions.push(del);
     }
-    const kind = j.mode === 'survey' ? `نقشه‌برداری (${GEOREF_LABEL[j.georef] || ''})` : 'پیش‌نمایش';
+    const kind = j.mode === 'survey' ? `نقشه‌برداری (${GEOREF_LABEL[j.georef] || ''})`
+      : j.mode === 'merge' ? '🧩 ادغام چند پرواز' : 'پیش‌نمایش';
     const extra = j.status === 'done' ? summaryText(j) : '';
     return el('div', { style: 'padding:8px 0;border-bottom:1px solid var(--stone-200)' }, [
       el('div', { style: 'display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap' }, [
         el('div', { style: 'flex:1 1 150px;min-width:0' }, [
           el('div', { style: `font-weight:700;font-size:12px;color:${st.color}` }, `${st.label} — ${kind}`),
-          el('div', { style: 'font-size:11px;color:var(--stone-600)' }, `${fmtWhen(j.createdAt)}${j.photoCount ? ` — ${j.photoCount} عکس` : ''}`),
+          el('div', { style: 'font-size:11px;color:var(--stone-600)' }, `${fmtWhen(j.createdAt)}${j.photoCount ? ` — ${j.mode === 'merge' ? `${j.photoCount} پرواز` : `${j.photoCount} عکس`}` : ''}`),
         ]),
         el('div', { style: 'display:flex;gap:6px;flex-wrap:wrap' }, actions),
       ]),
@@ -163,6 +170,19 @@ export function openModel3dModal(mine, nameField) {
       j.status === 'failed' && j.error ? el('div', { style: 'font-size:11px;color:var(--rust-700);margin-top:4px' }, j.error) : null,
     ]);
   }
+
+  const mergeBtn = el('button', { class: 'btn', style: 'width:100%;background:var(--ochre-600);color:#fff' }, '🧩 ادغام پروازها');
+  mergeBtn.addEventListener('click', async () => {
+    mergeBtn.disabled = true; const orig = mergeBtn.textContent; mergeBtn.textContent = '⏳ در حال شروع ادغام...';
+    try {
+      const r = await mergeJobs(mineName);
+      showToast(`✅ ادغام ${r.flightCount} پرواز شروع شد — چند دقیقه تا چند ساعت طول می‌کشد`);
+    } catch (err) {
+      errBox.textContent = err.message;
+    }
+    mergeBtn.disabled = false; mergeBtn.textContent = orig;
+    if (isOpen()) loadJobs();
+  });
 
   async function loadJobs() {
     try {
@@ -172,6 +192,19 @@ export function openModel3dModal(mine, nameField) {
         jobsBox.append(el('div', { style: 'font-size:11px;color:var(--stone-500)' }, 'هنوز مدلی برای این معدن ساخته نشده'));
       } else {
         jobs.forEach((j) => jobsBox.append(jobRow(j)));
+      }
+      const readyFlights = jobs.filter((j) => j.mode === 'survey' && j.status === 'done').length;
+      const mergeRunning = jobs.some((j) => j.mode === 'merge' && j.status === 'queued');
+      mergeBox.innerHTML = '';
+      mergeBox.style.display = readyFlights >= MIN_MERGE_FLIGHTS ? 'block' : 'none';
+      if (readyFlights >= MIN_MERGE_FLIGHTS) {
+        mergeBox.append(
+          el('div', { style: 'font-size:11px;color:var(--stone-600);margin-bottom:6px' },
+            `${readyFlights} پرواز نقشه‌برداریِ آماده در این معدن — می‌توانید همه را در یک مدل یکپارچه ادغام کنید.`),
+          mergeBtn,
+        );
+        mergeBtn.disabled = mergeRunning;
+        if (mergeRunning) mergeBtn.textContent = '⏳ ادغام قبلی هنوز در حال اجراست...';
       }
       schedulePoll(jobs);
     } catch (err) {
@@ -254,13 +287,13 @@ export function openModel3dModal(mine, nameField) {
 
   body.append(
     el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:8px;line-height:1.9' },
-      'عکس‌های پهباد را انتخاب کنید تا مدل سه‌بعدی معدن ساخته شود. عکس‌ها رمز می‌شوند و بعد از ساخت مدل پاک می‌شوند. عکس‌ها باید هم‌پوشانی زیاد و موقعیت مکانی (GPS) داشته باشند.'),
+      'عکس‌های پهباد را انتخاب کنید تا مدل سه‌بعدی معدن ساخته شود. عکس‌ها رمز می‌شوند و بعد از ساخت مدل پاک می‌شوند. عکس‌ها باید هم‌پوشانی زیاد و موقعیت مکانی (GPS) داشته باشند. برای معدن‌های بزرگ، چند پرواز جداگانه (نقشه‌برداری دقیق) بسازید و بعد با دکمه‌ی ادغام یکی‌شان کنید.'),
     pickBtn, fileInput, summary,
     panel.node,
     el('label', { style: 'margin-top:10px;display:block' }, 'کیفیت عکس برای آپلود'), qualitySelect, qualityNote,
     errBox, startBtn, progressText, progressBar,
     el('h4', { style: 'margin-top:16px;font-size:var(--text-sm);color:var(--ink-700)' }, 'مدل‌های این معدن'),
-    jobsBox,
+    jobsBox, mergeBox,
     checkBtn, checkBox,
   );
   refresh();
