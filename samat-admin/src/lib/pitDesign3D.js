@@ -23,11 +23,13 @@ function toScene(origin, x, y, z) {
   return [x - origin[0], z - origin[2], -(y - origin[1])];
 }
 
-function ringObject(THREE, poly, z, origin, color) {
+function ringObject(THREE, poly, z, origin, color, linewidth = 1) {
   const pts = poly.map(([x, y]) => new THREE.Vector3(...toScene(origin, x, y, z)));
   pts.push(pts[0].clone());
   const geo = new THREE.BufferGeometry().setFromPoints(pts);
-  return new THREE.LineLoop(geo, new THREE.LineBasicMaterial({ color }));
+  // توجه: THREE.LineBasicMaterial روی اکثر مرورگرها linewidth را نادیده می‌گیرد (محدودیت
+  // شناخته‌شدهٔ WebGL)؛ اینجا فقط برای مستندسازی نیت نگه داشته شده، تفکیک بصری اصلی از رنگ می‌آید.
+  return new THREE.LineLoop(geo, new THREE.LineBasicMaterial({ color, linewidth }));
 }
 
 /**
@@ -55,8 +57,11 @@ function quadStrip(THREE, ringA, zA, ringB, zB, origin, color, opacity = 1) {
 }
 
 /**
- * گروه سه‌بعدی کل پله‌بندی: برای هر پله سینهٔ شیب‌دار (قهوه‌ای) + برمِ تخت (زرد/خاکی) + خط لبهٔ هر
- * تراز؛ لبهٔ نهایی (برون‌زد به سطح) با رنگ متفاوت مشخص می‌شود.
+ * گروه سه‌بعدی کل پله‌بندی: برای هر پله سینهٔ شیب‌دار (قهوه‌ای) + خط لبهٔ هر تراز؛ برمِ تخت
+ * (زرد/خاکی) فقط روی ترازهایی که واقعاً کاچ‌بنچ هستند (isCatchBench) کشیده می‌شود — در کاچ‌بنچ
+ * چندتایی، پله‌های میانی بدون برم مستقیم روی هم می‌نشینند (تمایز شیب بین‌رمپی/IRA از شیب کلی/OSA
+ * که در pitDesign.js توضیح داده شده). لبهٔ کاچ‌بنچ‌ها با رنگ متفاوت از پله‌های میانی مشخص می‌شود،
+ * و لبهٔ نهایی (برون‌زد به سطح) رنگ جداگانه دارد.
  */
 export function buildBenchesGroup(THREE, designResult, origin) {
   const group = new THREE.Group();
@@ -67,12 +72,17 @@ export function buildBenchesGroup(THREE, designResult, origin) {
     if (upper.faceTopPolygon) {
       const face = quadStrip(THREE, lower.polygon, lower.elevation, upper.faceTopPolygon, upper.elevation, origin, 0x8a5a3c);
       if (face) group.add(face); // سینهٔ پله (ریزر)
-      const berm = quadStrip(THREE, upper.faceTopPolygon, upper.elevation, upper.polygon, upper.elevation, origin, 0xb7a66e, 0.92);
-      if (berm) group.add(berm); // برم (تِرد)
+      if (upper.isCatchBench) {
+        const berm = quadStrip(THREE, upper.faceTopPolygon, upper.elevation, upper.polygon, upper.elevation, origin, 0xb7a66e, 0.92);
+        if (berm) group.add(berm); // برم (تِرد) — فقط روی کاچ‌بنچ واقعی
+      }
     }
-    group.add(ringObject(THREE, upper.polygon, upper.elevation, origin, upper.outcropped ? 0xffcf5c : 0x2b2a24));
+    let color = 0x555349; // پلهٔ میانی (بدون برم)، خاکستری کم‌رنگ
+    if (upper.outcropped) color = 0xffcf5c; // برون‌زد نهایی به سطح
+    else if (upper.isCatchBench) color = 0x2b2a24; // لبهٔ کاچ‌بنچ، تیره و پررنگ
+    group.add(ringObject(THREE, upper.polygon, upper.elevation, origin, color, upper.isCatchBench ? 2 : 1));
   }
-  group.add(ringObject(THREE, benches[0].polygon, benches[0].elevation, origin, 0x2b2a24));
+  group.add(ringObject(THREE, benches[0].polygon, benches[0].elevation, origin, 0x2b2a24, 2));
   return group;
 }
 
