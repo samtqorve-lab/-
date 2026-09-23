@@ -54,6 +54,16 @@ export const createJob = (mineName, { mode = 'preview', georef = 'exif' } = {}) 
 export const startJob = (jobId, { expected, photos }) => call('start', { jobId, expected, photos });
 export const removeJob = (jobId) => call('remove', { jobId });
 export const getJobKey = (jobId) => call('key', { jobId }).then((d) => d.key_b64);
+/**
+ * چند پروازِ survey/done یک معدن را در یک DSM/ارتوفتو/مدل سه‌بعدیِ یکپارچه ادغام می‌کند
+ * (workflow جدا: merge-3d.yml). اگر jobIds داده نشود، خودش همه‌ی پروازهای survey/done همان
+ * معدن را انتخاب می‌کند. نتیجه یک job جدید با mode='merge' است که دقیقاً مثل بقیه‌ی کارها
+ * با getJobStatus/downloadModel/removeJob کار می‌کند.
+ * @param {string} mineName
+ * @param {string[]} [jobIds]
+ * @returns {Promise<{jobId:string, flightCount:number, flightIds:string[]}>}
+ */
+export const mergeJobs = (mineName, jobIds) => call('merge', { mineName, jobIds });
 /** فقط ادمین: بررسی اتصال به GitHub، توکن، workflow و یک رفت‌وبرگشت آزمایشی (بدون پردازش واقعی) */
 export const runSelftest = () => call('selftest');
 
