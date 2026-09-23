@@ -2,7 +2,7 @@ import { el, showToast } from '../../lib/dom.js';
 import { extractPointsFromFile, getFileExt } from '../../lib/surveyParsers.js';
 import {
   buildSurface, designBenches, designRamp, computeCutVolume, rectanglePolygon,
-  benchSetback, overallSlopeAngleDeg, bermWidthRitchie, polygonArea,
+  interRampAngleDeg, overallSlopeAngleDeg, polygonArea,
   exportBenchesDXF, exportRampDXF, exportReportCSV,
 } from '../../lib/pitDesign.js';
 import { openPitDesign3DViewer } from '../../lib/pitDesign3DViewer.js';
@@ -27,6 +27,14 @@ function numberField(label, value, step = 'any') {
   return { wrap: el('div', {}, [el('label', {}, label), input]), input };
 }
 
+function debounce(fn, ms) {
+  let t = null;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), ms);
+  };
+}
+
 /** رسم نمای بالا (plan view) از نقاط توپوگرافی + حلقه‌های پله + خط رمپ روی canvas — بدون کتابخانه‌ی خارجی. */
 function renderPlanView(canvas, points, designResult, rampResult) {
   const ctx = canvas.getContext('2d');
@@ -47,7 +55,6 @@ function renderPlanView(canvas, points, designResult, rampResult) {
   const toX = (x) => (x - minX) * scale;
   const toY = (y) => H - (y - minY) * scale;
 
-  // نقاط توپوگرافی به‌عنوان زمینه
   ctx.fillStyle = 'rgba(90,74,58,0.35)';
   points.forEach(([x, y]) => {
     ctx.beginPath();
@@ -55,12 +62,18 @@ function renderPlanView(canvas, points, designResult, rampResult) {
     ctx.fill();
   });
 
-  // حلقه‌های پله، از کف (تیره) تا پوستهٔ نهایی (روشن)
+  // حلقه‌های پله: کاچ‌بنچ پررنگ/ضخیم، پلهٔ میانی (بدون برم) کم‌رنگ/نازک، برون‌زد نهایی زرد
   const n = designResult.benches.length;
   designResult.benches.forEach((b, i) => {
-    const t = n <= 1 ? 0 : i / (n - 1);
-    ctx.strokeStyle = `rgb(${Math.round(140 + 100 * t)},${Math.round(40 + 20 * t)},${Math.round(30)})`;
-    ctx.lineWidth = i === n - 1 ? 2.5 : 1.2;
+    if (i === 0) {
+      ctx.strokeStyle = '#3d3b32'; ctx.lineWidth = 2;
+    } else if (b.outcropped) {
+      ctx.strokeStyle = '#caa53d'; ctx.lineWidth = 2.5;
+    } else if (b.isCatchBench) {
+      ctx.strokeStyle = '#7a4a2a'; ctx.lineWidth = 2;
+    } else {
+      ctx.strokeStyle = 'rgba(120,110,95,0.55)'; ctx.lineWidth = 1;
+    }
     ctx.beginPath();
     b.polygon.forEach(([x, y], j) => {
       if (j === 0) ctx.moveTo(toX(x), toY(y)); else ctx.lineTo(toX(x), toY(y));
@@ -68,8 +81,8 @@ function renderPlanView(canvas, points, designResult, rampResult) {
     ctx.closePath();
     ctx.stroke();
   });
+  void n;
 
-  // خط محور رمپ/جاده، در صورت وجود
   if (rampResult) {
     ctx.strokeStyle = '#2b6fb0';
     ctx.lineWidth = 2.5;
@@ -87,12 +100,14 @@ export async function renderPitDesign(container) {
   container.innerHTML = '';
 
   const intro = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:10px' }, [
-    'طراحی پارامتریک پله‌بندی معدن روباز از روی نقاط برداشت نقشه‌برداری یا فایل توپوگرافی. ',
-    'فرمت‌های ورودی: txt/csv/xyz/asc، DXF، KML، LandXML.',
+    'طراحی پارامتریک پله‌بندی معدن روباز از روی نقاط برداشت نقشه‌برداری یا فایل توپوگرافی، با تفکیک ',
+    el('b', {}, 'شیب بین‌رمپی (IRA)'), ' از ', el('b', {}, 'شیب کلی نهایی دیواره (OSA)'),
+    ' و پشتیبانی از کاچ‌بنچ چندتایی (Double/Triple Benching). فرمت‌های ورودی: txt/csv/xyz/asc، DXF، KML، LandXML.',
     el('br'),
     el('b', {}, '⚠️ توجه: '),
-    'این ابزار پوستهٔ نهایی و رمپ را به‌صورت هندسی/الگویی می‌سازد (نه بهینه‌سازی اقتصادی با مدل بلوک یا بهینه‌سازی مسیر واقعی جاده). ',
-    'مقادیر پیش‌فرض (ارتفاع پله، شیب سینه، فرمول ریچی برای برم، شیب رمپ) مقادیر متداول صنعتی‌اند — پیش از استفادهٔ عملیاتی با متن دقیق آیین‌نامهٔ اصول طراحی معادن روباز و نظر مهندس ناظر تطبیق دهید.',
+    'این ابزار اصول هندسی متداول طراحی پله‌بندی (IRA/OSA، فرمول ریچی برای برم، کاچ‌بنچ) را پیاده می‌کند، ',
+    'اما توده‌سنگ، آب زیرزمینی، لرزه‌خیزی یا پایداری واقعی شیب را تحلیل نمی‌کند و بهینه‌سازی اقتصادی (مدل بلوک) هم نیست. ',
+    'نتایج فقط طراحی هندسیِ الگویی‌اند — پیش از استفادهٔ عملیاتی حتماً با مهندس ژئوتکنیک/معدن و متن دقیق مقررهٔ حاکم تطبیق داده شود.',
   ]);
 
   const fileInput = el('input', { type: 'file', accept: '.txt,.csv,.xyz,.asc,.dxf,.kml,.xml' });
@@ -106,12 +121,19 @@ export async function renderPitDesign(container) {
   const be = numberField('تراز کف گودال (m) — خالی = خودکار', '');
   be.input.placeholder = 'خودکار از روی نقاط';
 
-  const bh = numberField('ارتفاع پله H (m)', 10);
+  const bh = numberField('ارتفاع پلهٔ تکی H (m)', 10);
   const bang = numberField('شیب سینهٔ پله (deg)', 70);
-  const berm = numberField('عرض برم ایمنی (m)', 5);
+  const catchN = numberField('فاصلهٔ کاچ‌بنچ (هر چند پله یک برم ایمنی)', 1, '1');
+
+  const osaMode = el('input', { type: 'checkbox' });
+  const osaModeWrap = el('label', { style: 'display:flex;align-items:center;gap:6px;font-size:var(--text-xs);margin-top:4px' }, [
+    osaMode, 'به‌جای عرض برم ثابت، بر اساس یک «شیب نهایی هدف» طراحی شود (عرض برم خودکار حل می‌شود)',
+  ]);
+  const targetOSA = numberField('شیب نهایی هدف — OSA (deg)', 42);
+  const berm = numberField('عرض برمِ کاچ‌بنچ (m)', 5);
   const bermAuto = el('input', { type: 'checkbox' });
   const bermAutoWrap = el('label', { style: 'display:flex;align-items:center;gap:6px;font-size:var(--text-xs);margin-top:4px' }, [
-    bermAuto, 'به‌جای مقدار ثابت، از فرمول ریچی (۰.۲H+۴.۵) استفاده شود',
+    bermAuto, 'به‌جای مقدار ثابت، از فرمول ریچی (۰.۲H+۴.۵ روی ارتفاع گروه کاچ‌بنچ) استفاده شود',
   ]);
   const maxB = numberField('سقف تعداد پله', 40, '1');
   const cellSize = numberField('اندازهٔ سلول محاسبهٔ حجم (m)', 3);
@@ -125,35 +147,28 @@ export async function renderPitDesign(container) {
 
   const formGrid = el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px 14px' }, [
     cx.wrap, cy.wrap, bl.wrap, bw.wrap, ba.wrap, be.wrap,
-    bh.wrap, bang.wrap, berm.wrap, maxB.wrap, cellSize.wrap,
+    bh.wrap, bang.wrap, catchN.wrap, targetOSA.wrap, berm.wrap, maxB.wrap, cellSize.wrap,
     rampWidth.wrap, rampGrade.wrap,
   ]);
 
+  function syncOsaFieldState() {
+    targetOSA.input.disabled = !osaMode.checked;
+    berm.input.disabled = osaMode.checked;
+    bermAuto.disabled = osaMode.checked;
+    targetOSA.wrap.style.opacity = osaMode.checked ? '1' : '0.45';
+    berm.wrap.style.opacity = osaMode.checked ? '0.45' : '1';
+    bermAutoWrap.style.opacity = osaMode.checked ? '0.45' : '1';
+  }
+  syncOsaFieldState();
+
   const runBtn = el('button', { class: 'btn btn-primary', style: 'width:100%;justify-content:center;margin-top:12px' }, '⛏ اجرای طراحی پله‌بندی');
+  const liveHint = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-500);margin-top:4px;display:none' }, '↻ با هر تغییر پارامتر، طراحی و نمودار به‌صورت خودکار به‌روز می‌شود.');
   const resultBox = el('div', { style: 'margin-top:14px;display:none' });
   const canvas = el('canvas', { width: '480', height: '360', style: 'width:100%;border-radius:8px;border:1px solid var(--stone-300);margin-top:8px' });
 
   let points = null;
-  let lastSurface = null;
-  let lastResult = null;
-  let lastVolume = null;
-  let lastRamp = null;
 
-  fileInput.addEventListener('change', async () => {
-    const f = fileInput.files[0];
-    if (!f) return;
-    fileStatus.textContent = `در حال خواندن (${getFileExt(f.name).toUpperCase()})...`;
-    try {
-      points = await extractPointsFromFile(f);
-      if (points.length < 10) throw new Error('تعداد نقاط استخراج‌شده خیلی کم است');
-      fileStatus.textContent = `✅ ${points.length.toLocaleString('fa-IR')} نقطه یافت شد`;
-    } catch (err) {
-      points = null;
-      fileStatus.textContent = `⚠️ خطا: ${err.message}`;
-    }
-  });
-
-  runBtn.addEventListener('click', () => {
+  function runDesign() {
     if (!points) { showToast('⚠️ ابتدا یک فایل توپوگرافی معتبر انتخاب کنید'); return; }
     runBtn.disabled = true; const orig = runBtn.textContent; runBtn.textContent = '⏳ در حال طراحی...';
     try {
@@ -165,8 +180,11 @@ export async function renderPitDesign(container) {
       const params = {
         benchHeight: parseFloat(bh.input.value),
         benchFaceAngleDeg: parseFloat(bang.input.value),
+        catchBenchInterval: parseInt(catchN.input.value, 10) || 1,
         bermWidth: parseFloat(berm.input.value),
         bermWidthAuto: bermAuto.checked,
+        osaMode: osaMode.checked,
+        targetOSADeg: parseFloat(targetOSA.input.value),
         maxBenches: parseInt(maxB.input.value, 10) || 40,
         bottomElevation: be.input.value === '' ? null : parseFloat(be.input.value),
       };
@@ -175,35 +193,42 @@ export async function renderPitDesign(container) {
       const ramp = rampOn.checked && result.benches.length > 1
         ? designRamp(result, { width: parseFloat(rampWidth.input.value) || 8, gradePercent: parseFloat(rampGrade.input.value) || 10 })
         : null;
-      lastSurface = surface; lastResult = result; lastVolume = volume; lastRamp = ramp;
 
       resultBox.innerHTML = '';
       resultBox.style.display = 'block';
       const benchCount = result.benches.length - 1;
+      const catchCount = result.benches.filter((b) => b.isCatchBench).length;
+      const ira = interRampAngleDeg(result.params);
+      const osa = overallSlopeAngleDeg(result.params, result.resolvedBerm);
       const kpis = [
-        el('div', { class: 'kpi-card' }, [el('div', { class: 'kpi-n' }, `${benchCount}`), el('div', { class: 'kpi-l' }, 'تعداد پله')]),
-        el('div', { class: 'kpi-card' }, [el('div', { class: 'kpi-n' }, `${overallSlopeAngleDeg(params).toFixed(1)}°`), el('div', { class: 'kpi-l' }, 'شیب کلی دیواره')]),
+        el('div', { class: 'kpi-card' }, [el('div', { class: 'kpi-n' }, `${benchCount}`), el('div', { class: 'kpi-l' }, `پله (${catchCount} کاچ‌بنچ)`)]),
+        el('div', { class: 'kpi-card' }, [el('div', { class: 'kpi-n' }, `${ira.toFixed(1)}°`), el('div', { class: 'kpi-l' }, 'شیب بین‌رمپی — IRA')]),
+        el('div', { class: 'kpi-card' }, [el('div', { class: 'kpi-n' }, `${osa.toFixed(1)}°`), el('div', { class: 'kpi-l' }, 'شیب کلی نهایی — OSA')]),
         el('div', { class: 'kpi-card', style: '--kpi-accent:var(--rust-600)' }, [el('div', { class: 'kpi-n' }, fmtNum(volume.totalCutM3, 0)), el('div', { class: 'kpi-l' }, 'حجم کل خاک‌برداری (m³)')]),
       ];
       if (ramp) {
         kpis.push(el('div', { class: 'kpi-card' }, [el('div', { class: 'kpi-n' }, fmtNum(ramp.totalLength, 0)), el('div', { class: 'kpi-l' }, 'طول کل رمپ (m)')]));
       }
-      resultBox.append(
-        el('div', { class: 'kpi-grid' }, kpis),
-        el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-top:8px' },
-          `واپس‌روی هر پله: ${benchSetback(params).toFixed(2)} m${params.bermWidthAuto ? ` (عرض برم طبق فرمول ریچی: ${bermWidthRitchie(params.benchHeight).toFixed(2)} m)` : ''} — از تراز ${result.benches[0].elevation.toFixed(1)} تا ${result.benches[result.benches.length - 1].elevation.toFixed(1)} متر`),
-        canvas,
-      );
+      resultBox.append(el('div', { class: 'kpi-grid' }, kpis));
+
+      const infoLines = [
+        `عرض برمِ کاچ‌بنچ: ${result.resolvedBerm.toFixed(2)} m — از تراز ${result.benches[0].elevation.toFixed(1)} تا ${result.benches[result.benches.length - 1].elevation.toFixed(1)} متر`,
+      ];
+      if (result.osaInfo && result.osaInfo.clamped) {
+        infoLines.push(`⚠️ شیب هدف (${result.osaInfo.requestedOSA}°) با حداقل برم ایمنی (ریچی) قابل‌دستیابی نبود؛ برم در حداقل ایمن نگه داشته شد و شیب واقعی معادل ${result.osaInfo.achievedOSA.toFixed(1)}° است — ایمنی فدای عدد شیب نشد.`);
+      }
+      resultBox.append(el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-top:8px' }, infoLines.join(' — ')), canvas);
       renderPlanView(canvas, points, result, ramp);
 
       const table = el('table', { class: 'data-table', style: 'width:100%;margin-top:10px;font-size:var(--text-xs)' });
-      table.append(el('thead', {}, el('tr', {}, ['پله', 'تراز (m)', 'مساحت (m²)', 'برون‌زد؟'].map((h) => el('th', {}, h)))));
+      table.append(el('thead', {}, el('tr', {}, ['پله', 'تراز (m)', 'مساحت (m²)', 'کاچ‌بنچ؟', 'برون‌زد؟'].map((h) => el('th', {}, h)))));
       const tbody = el('tbody');
       result.benches.forEach((b) => {
         tbody.append(el('tr', {}, [
           el('td', {}, String(b.level)),
           el('td', {}, b.elevation.toFixed(1)),
           el('td', {}, fmtNum(polygonArea(b.polygon), 0)),
+          el('td', {}, b.isCatchBench ? '🟫' : ''),
           el('td', {}, b.outcropped ? '✅' : ''),
         ]));
       });
@@ -237,21 +262,52 @@ export async function renderPitDesign(container) {
         }, '⬇ گزارش CSV'),
       ]);
       resultBox.append(exportRow);
+      liveHint.style.display = 'block';
     } catch (err) {
       showToast(`⚠️ خطا: ${err.message}`);
     } finally {
       runBtn.disabled = false; runBtn.textContent = orig;
     }
+  }
+
+  const liveRecompute = debounce(() => { if (points) runDesign(); }, 450);
+  formGrid.querySelectorAll('input').forEach((inp) => {
+    inp.addEventListener('input', liveRecompute);
   });
+  [osaMode, bermAuto, rampOn].forEach((cb) => {
+    cb.addEventListener('change', () => {
+      if (cb === osaMode) syncOsaFieldState();
+      liveRecompute();
+    });
+  });
+
+  fileInput.addEventListener('change', async () => {
+    const f = fileInput.files[0];
+    if (!f) return;
+    fileStatus.textContent = `در حال خواندن (${getFileExt(f.name).toUpperCase()})...`;
+    try {
+      points = await extractPointsFromFile(f);
+      if (points.length < 10) throw new Error('تعداد نقاط استخراج‌شده خیلی کم است');
+      fileStatus.textContent = `✅ ${points.length.toLocaleString('fa-IR')} نقطه یافت شد`;
+      runDesign();
+    } catch (err) {
+      points = null;
+      fileStatus.textContent = `⚠️ خطا: ${err.message}`;
+    }
+  });
+
+  runBtn.addEventListener('click', runDesign);
 
   container.append(el('div', { class: 'card' }, [
     el('h3', {}, '⛰ طراحی پله‌بندی معدن روباز + رمپ دسترسی'),
     intro,
     el('label', {}, 'فایل توپوگرافی'), fileInput, fileStatus,
     formGrid,
+    osaModeWrap,
     bermAutoWrap,
     rampOnWrap,
     runBtn,
+    liveHint,
     resultBox,
   ]));
 }
