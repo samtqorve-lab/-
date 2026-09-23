@@ -1,21 +1,30 @@
 // موتور طراحی پارامتریک پله‌بندی معدن روباز.
 //
 // روش: از یک چندضلعی کف گودال (در تراز کف) شروع می‌کنیم و در هر تراز (به فاصلهٔ
-// ارتفاع پله H)، مرز را به‌اندازهٔ «واپس‌روی افقی هر پله»
-//     setback = H / tan(bench_face_angle) + berm_width
-// به‌سمت بیرون آفست می‌دهیم (شیوهٔ متداول طراحی الگویی/دستی پله‌بندی، نه یک
-// بهینه‌سازی اقتصادی مثل Lerchs–Grossmann که به مدل بلوک/عیار نیاز دارد).
-// در هر تراز، اگر تمام نقاط مرز از سطح زمین طبیعی فراتر رفتند، رشد آن حلقه
-// متوقف می‌شود (برون‌زد به سطح).
+// ارتفاع پله H)، مرز را به‌سمت بیرون آفست می‌دهیم. دو اصل استاندارد طراحی پله‌بندی
+// اینجا رعایت شده:
+//
+//  1) تفکیک شیب بین‌رمپی (Inter-Ramp Angle, IRA) از شیب کلی نهایی دیواره
+//     (Overall Slope Angle, OSA): وقتی چند پلهٔ تکی بدون برم میانی روی هم قرار
+//     می‌گیرند (کاچ‌بنچ چندتایی / Double-Triple Benching — پارامتر
+//     catchBenchInterval)، شیب محلی دیواره بین دو کاچ‌بنچ برابر شیب سینهٔ پله
+//     (IRA) است، اما شیب کلی که برم‌های ایمنی را هم حساب می‌کند (OSA) کمتر است.
+//     این دقیقاً همان تمایزی است که در طراحی واقعی معادن روباز به‌کار می‌رود.
+//  2) امکان وارد کردن مستقیم «شیب نهایی هدف» به‌جای عرض برم: در این حالت عرض برم
+//     لازم برای رسیدن به آن شیب حل می‌شود (solveBermForTargetOSA)؛ اگر برمِ حاصل
+//     از حداقل عرض ایمنی (فرمول ریچی) کمتر شود، به‌جای شکستن اصل ایمنی، عرض برم
+//     در حداقل ایمن نگه داشته می‌شود و شیب واقعاً قابل‌دستیابی به‌جای شیب درخواستی
+//     گزارش می‌شود (نه یک عدد گمراه‌کننده).
 //
 // ⚠️ مقادیر پیش‌فرض (ارتفاع پله، شیب سینه، فرمول ریچی برای برم) مقادیر متداول
-// صنعتی هستند، نه رونوشت مستقیم از متن آیین‌نامهٔ اصول طراحی معادن روباز ایران.
-// پیش از استفادهٔ عملیاتی با متن دقیق مقرره و نظر مهندس ناظر تطبیق دهید.
+// صنعتی هستند، نه رونوشت مستقیم از متن یک آیین‌نامهٔ خاص. این ابزار توده‌سنگ،
+// آب زیرزمینی، لرزه‌خیزی یا پایداری واقعی شیب را تحلیل نمی‌کند — طراحی هندسیِ
+// الگویی است، نه تحلیل ژئوتکنیکی. پیش از استفادهٔ عملیاتی حتماً با مهندس
+// ژئوتکنیک/معدن و متن دقیق مقررهٔ حاکم تطبیق داده شود.
 //
 // ⚠️ آفست چندضلعی اینجا با روش «آفست لبه‌به‌لبه» (edge-offset) پیاده شده که برای
 // چندضلعی‌های محدب/تقریباً محدب (مثلاً مستطیل کف گودال) درست کار می‌کند؛ برای
-// اشکال بسیار نامنظم/فرورفته ممکن است در ترازهای بالا خودتلاقی ایجاد کند —
-// شبیه محدودیت مشابهی که در نسخهٔ پایتون این ابزار (با shapely.buffer) مستند شده.
+// اشکال بسیار نامنظم/فرورفته ممکن است در ترازهای بالا خودتلاقی ایجاد کند.
 //
 // ⚠️ رمپ/جادهٔ دسترسی (designRamp پایین‌تر): یک مسیر مارپیچیِ الگویی حول دیوارهٔ
 // بیرونی گودال است (نه یک بهینه‌سازی مسیر واقعی با شعاع گردش/سرعت طراحی کامیون).
@@ -37,14 +46,55 @@ export function benchFaceHorizontal(params) {
   return params.benchHeight / Math.tan((params.benchFaceAngleDeg * Math.PI) / 180);
 }
 
+/** واپس‌روی یک پلهٔ تکی با برم کامل (مرجع اطلاعاتی — در کاچ‌بنچ چندتایی فقط هر Nامین پله واقعاً برم می‌گیرد). */
 export function benchSetback(params) {
   const berm = params.bermWidthAuto ? bermWidthRitchie(params.benchHeight) : params.bermWidth;
   return benchFaceHorizontal(params) + berm;
 }
 
-export function overallSlopeAngleDeg(params) {
-  const setback = benchSetback(params);
-  return (Math.atan(params.benchHeight / setback) * 180) / Math.PI;
+/** شیب بین‌رمپی (IRA): شیب محلی دیوار بین دو کاچ‌بنچ متوالی، بدون برم میانی — برابر شیب سینهٔ پله. */
+export function interRampAngleDeg(params) {
+  return params.benchFaceAngleDeg;
+}
+
+/**
+ * شیب کلی نهایی دیواره (OSA)، با احتساب یک برم کاچ‌بنچ روی ارتفاع یک گروه کامل
+ * (H × catchBenchInterval). اگر berm داده نشود، از params.bermWidth/bermWidthAuto
+ * محاسبه می‌شود (سازگار با نسخهٔ قبلی — امضای این تابع را تغییر نمی‌دهد).
+ */
+export function overallSlopeAngleDeg(params, berm) {
+  const catchN = Math.max(1, params.catchBenchInterval || 1);
+  const combinedH = params.benchHeight * catchN;
+  const faceHorizontal = benchFaceHorizontal(params);
+  const effectiveBerm = berm != null
+    ? berm
+    : (params.bermWidthAuto ? bermWidthRitchie(combinedH) : params.bermWidth);
+  const totalHorizontal = faceHorizontal * catchN + effectiveBerm;
+  return (Math.atan(combinedH / totalHorizontal) * 180) / Math.PI;
+}
+
+/**
+ * عرض برمِ کاچ‌بنچ لازم برای رسیدن به یک شیب کلی هدف (targetOSADeg)، با ثابت نگه‌داشتن
+ * ارتفاع پله/شیب سینه/فاصلهٔ کاچ‌بنچ. اگر برمِ حاصل از حداقل ایمن (ریچی) کمتر شود، به
+ * حداقل ایمن محدود می‌شود و شیبِ واقعاً قابل‌دستیابی (achievedOSA، کمتر از هدف) گزارش
+ * می‌شود — هرگز ایمنی به‌خاطر رسیدن به یک عدد شیب فدا نمی‌شود.
+ */
+export function solveBermForTargetOSA(params, targetOSADeg) {
+  const catchN = Math.max(1, params.catchBenchInterval || 1);
+  const combinedH = params.benchHeight * catchN;
+  const faceHorizontal = benchFaceHorizontal(params);
+  const neededTotalHorizontal = combinedH / Math.tan((targetOSADeg * Math.PI) / 180);
+  const rawBerm = neededTotalHorizontal - faceHorizontal * catchN;
+  const minBerm = bermWidthRitchie(combinedH);
+  if (rawBerm < minBerm) {
+    const achievedOSA = (Math.atan(combinedH / (faceHorizontal * catchN + minBerm)) * 180) / Math.PI;
+    return {
+      berm: minBerm, achievedOSA, requestedOSA: targetOSADeg, clamped: true,
+    };
+  }
+  return {
+    berm: rawBerm, achievedOSA: targetOSADeg, requestedOSA: targetOSADeg, clamped: false,
+  };
 }
 
 // ---------- سطح زمین (TIN) ----------
@@ -85,7 +135,6 @@ export function buildSurface(points) {
 export function elevationAt(surface, x, y) {
   const z = interpolateZ(surface.idx, surface.coordsFlat, surface.triangles, surface.zvals, x, y);
   if (!Number.isNaN(z)) return z;
-  // برون‌یابی ساده: نزدیک‌ترین نقطهٔ ورودی (برای نقاط بیرون از هال محدب مثلث‌بندی)
   let best = Infinity; let bestZ = surface.zvals[0];
   for (let i = 0; i < surface.zvals.length; i += 1) {
     const dx = surface.coordsFlat[i * 2] - x;
@@ -109,7 +158,6 @@ function signedArea(coords) {
 }
 
 function lineIntersect(p1, d1, p2, d2) {
-  // تقاطع دو خط بی‌نهایت به‌صورت نقطه+بردار جهت؛ اگر تقریباً موازی باشند، میانگین دو نقطه برگردانده می‌شود
   const denom = d1[0] * d2[1] - d1[1] * d2[0];
   if (Math.abs(denom) < 1e-9) return [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2];
   const t = ((p2[0] - p1[0]) * d2[1] - (p2[1] - p1[1]) * d2[0]) / denom;
@@ -118,9 +166,8 @@ function lineIntersect(p1, d1, p2, d2) {
 
 /**
  * آفست یک چندضلعی به‌اندازهٔ distance به سمت بیرون (روش لبه‌به‌لبه — نگاه کنید به هشدار بالای فایل).
- * coords: آرایه‌ای از [x,y]، بدون نقطهٔ تکراری پایانی. ترتیب و تعداد رأس‌ها با ورودی یکسان می‌ماند
- * (رأس i در خروجی از همان لبه‌های مجاور رأس i در ورودی ساخته می‌شود) — این تناظر یک‌به‌یک در
- * pitDesign3D.js برای ساخت مشِ سینه/برم بین دو حلقهٔ متوالی استفاده می‌شود.
+ * ترتیب و تعداد رأس‌ها با ورودی یکسان می‌ماند — این تناظر یک‌به‌یک در pitDesign3D.js برای ساخت
+ * مشِ سینه/برم بین دو حلقهٔ متوالی استفاده می‌شود.
  */
 export function offsetPolygonOutward(coords, distance) {
   const area = signedArea(coords);
@@ -134,7 +181,6 @@ export function offsetPolygonOutward(coords, distance) {
     const dy = p1[1] - p0[1];
     const len = Math.hypot(dx, dy) || 1;
     const dir = [dx / len, dy / len];
-    // نرمال بیرونی: برای چندضلعی CCW چرخش -۹۰ درجه‌ی جهت لبه؛ برای CW برعکس
     const normal = ccw ? [dir[1], -dir[0]] : [-dir[1], dir[0]];
     const offP0 = [p0[0] + normal[0] * distance, p0[1] + normal[1] * distance];
     offsetLines.push({ point: offP0, dir });
@@ -182,7 +228,6 @@ function polygonPerimeter(coords) {
   return p;
 }
 
-/** نقطه‌ای روی محیط چندضلعی به فاصلهٔ frac (۰ تا ۱) از رأس اول، در جهت پیمایش رأس‌ها. */
 function pointAtPerimeterFraction(coords, frac) {
   const n = coords.length;
   const total = polygonPerimeter(coords) || 1;
@@ -203,20 +248,36 @@ function pointAtPerimeterFraction(coords, frac) {
 // ---------- طراحی پله‌بندی ----------
 
 /**
- * تولید پله‌ها از کف گودال تا برون‌زد به سطح زمین طبیعی.
+ * تولید پله‌ها از کف گودال تا برون‌زد به سطح زمین طبیعی، با پشتیبانی از کاچ‌بنچ چندتایی
+ * و حل‌کردن برم بر اساس شیب نهایی هدف (نگاه کنید به توضیح بالای فایل).
  * @param {object} surface خروجی buildSurface
  * @param {number[][]} bottomPolygon چندضلعی کف گودال [[x,y],...]
- * @param {object} params { benchHeight, benchFaceAngleDeg, bermWidth, bermWidthAuto, maxBenches, bottomElevation }
- * @returns {{benches: Array<{level:number, elevation:number, polygon:number[][], faceTopPolygon?:number[][], outcropped:boolean}>}}
+ * @param {object} params {
+ *   benchHeight, benchFaceAngleDeg, bermWidth, bermWidthAuto, maxBenches, bottomElevation,
+ *   catchBenchInterval?: number (پیش‌فرض ۱ = هر پله کاچ‌بنچ است؛ ۲/۳ = کاچ‌بنچ چندتایی),
+ *   osaMode?: boolean, targetOSADeg?: number (اگر osaMode باشد، بر bermWidth/bermWidthAuto اولویت دارد)
+ * }
+ * @returns {{benches:Array, params:object, resolvedBerm:number, osaInfo:object|null}}
  *
- * هر پله (به‌جز پلهٔ صفر/کف) هم `polygon` (لبهٔ بیرونی برم، یعنی محل شروع پلهٔ بعدی) و هم
- * `faceTopPolygon` (لبهٔ بالای سینهٔ پله، پیش از آفست برم) را نگه می‌دارد؛ فاصلهٔ بین حلقهٔ
- * قبلی و faceTopPolygon سینهٔ شیب‌دار پله است، و فاصلهٔ بین faceTopPolygon و polygon برم
- * (تِردِ) تخت آن است — این دو، پایهٔ نمایش سه‌بعدی در pitDesign3D.js هستند.
+ * هر پله هم `polygon` (لبهٔ بیرونی نهایی آن تراز) و هم `faceTopPolygon` (لبهٔ بالای سینهٔ
+ * پله، پیش از آفست برم — برای پله‌های غیرکاچ‌بنچ برابر خودِ polygon است چون برمی اعمال
+ * نمی‌شود) و `isCatchBench` (آیا در این تراز واقعاً برم ایمنی گرفته شده) را نگه می‌دارد.
  */
 export function designBenches(surface, bottomPolygon, params) {
-  const berm = params.bermWidthAuto ? bermWidthRitchie(params.benchHeight) : params.bermWidth;
+  const catchN = Math.max(1, Math.round(params.catchBenchInterval || 1));
   const faceHorizontal = benchFaceHorizontal(params);
+
+  let berm;
+  let osaInfo = null;
+  if (params.osaMode) {
+    osaInfo = solveBermForTargetOSA(params, params.targetOSADeg);
+    berm = osaInfo.berm;
+  } else {
+    berm = params.bermWidthAuto
+      ? bermWidthRitchie(params.benchHeight * catchN)
+      : params.bermWidth;
+  }
+
   let bottomElev = params.bottomElevation;
   if (bottomElev == null) {
     const zs = bottomPolygon.map(([x, y]) => elevationAt(surface, x, y));
@@ -224,7 +285,7 @@ export function designBenches(surface, bottomPolygon, params) {
   }
 
   const benches = [{
-    level: 0, elevation: bottomElev, polygon: bottomPolygon, outcropped: false,
+    level: 0, elevation: bottomElev, polygon: bottomPolygon, outcropped: false, isCatchBench: false,
   }];
   let currentPoly = bottomPolygon;
   let currentElev = bottomElev;
@@ -232,22 +293,30 @@ export function designBenches(surface, bottomPolygon, params) {
 
   for (let level = 0; level < maxBenches; level += 1) {
     const nextElev = currentElev + params.benchHeight;
+    const isCatch = ((level + 1) % catchN) === 0;
     const faceTop = offsetPolygonOutward(currentPoly, faceHorizontal);
-    const grown = offsetPolygonOutward(faceTop, berm);
+    const grown = isCatch ? offsetPolygonOutward(faceTop, berm) : faceTop;
     const groundZ = grown.map(([x, y]) => elevationAt(surface, x, y));
     const outcropped = groundZ.every((z) => z <= nextElev);
 
     benches.push({
-      level: level + 1, elevation: nextElev, polygon: grown, faceTopPolygon: faceTop, outcropped,
+      level: level + 1,
+      elevation: nextElev,
+      polygon: grown,
+      faceTopPolygon: faceTop,
+      outcropped,
+      isCatchBench: isCatch,
     });
     currentPoly = grown;
     currentElev = nextElev;
 
     if (outcropped) break;
-    if (currentElev > surface.bbox.maxZ + params.benchHeight) break; // ایمنی؛ در ادامه maxZ ست می‌شود
+    if (currentElev > surface.bbox.maxZ + params.benchHeight) break;
   }
 
-  return { benches, params };
+  return {
+    benches, params: { ...params, catchBenchInterval: catchN }, resolvedBerm: berm, osaInfo,
+  };
 }
 
 // ---------- رمپ / جادهٔ دسترسی ----------
@@ -295,7 +364,7 @@ export function designRamp(designResult, rampParams = {}) {
     let dx = next.x - prev.x; let dy = next.y - prev.y;
     const len = Math.hypot(dx, dy) || 1;
     dx /= len; dy /= len;
-    const nx = -dy; const ny = dx; // نرمال افقی بر جهت مسیر
+    const nx = -dy; const ny = dx;
     const c = centerline[i];
     leftEdge.push({ x: c.x + nx * half, y: c.y + ny * half, z: c.z });
     rightEdge.push({ x: c.x - nx * half, y: c.y - ny * half, z: c.z });
@@ -321,11 +390,6 @@ export function designRamp(designResult, rampParams = {}) {
 
 // ---------- حجم خاک‌برداری ----------
 
-/**
- * حجم خاک‌برداری با تفاضل رستری بین زمین طبیعی و سطح پله‌ای طراحی‌شده.
- * برای هر سلول شبکه، ارتفاع طراحی = تراز پلهٔ زیرین (annulus) بین دو حلقهٔ متوالی که آن نقطه
- * را دربر می‌گیرند؛ سقف با min(terrain, design) اعمال می‌شود تا حجم منفی تولید نشود.
- */
 export function computeCutVolume(surface, designResult, cellSize = 2) {
   const benches = designResult.benches;
   const finalPoly = benches[benches.length - 1].polygon;
@@ -343,12 +407,11 @@ export function computeCutVolume(surface, designResult, cellSize = 2) {
 
   for (let y = minY; y <= maxY; y += cellSize) {
     for (let x = minX; x <= maxX; x += cellSize) {
-      // کوچک‌ترین حلقه‌ای که این نقطه را دربر می‌گیرد پیدا می‌شود
       let containIdx = -1;
       for (let i = 0; i < benches.length; i += 1) {
         if (pointInPolygon(x, y, benches[i].polygon)) { containIdx = i; break; }
       }
-      if (containIdx === -1) continue; // بیرون از پوستهٔ نهایی؛ دست‌نخورده
+      if (containIdx === -1) continue;
 
       const terrainZ = elevationAt(surface, x, y);
       const designElev = containIdx === 0 ? benches[0].elevation : benches[containIdx - 1].elevation;
@@ -365,18 +428,15 @@ export { polygonArea, pointInPolygon, polygonPerimeter };
 
 // ---------- خروجی‌گیری ----------
 
-/**
- * ساخت متن خام DXF (ASCII، بدون کتابخانه) شامل یک LWPOLYLINE بسته برای هر پله در تراز ارتفاعی
- * خودش (با اِلیوِیشن روی خودِ LWPOLYLINE)، قابل‌باز شدن مستقیم در AutoCAD/Civil3D.
- */
 export function exportBenchesDXF(designResult) {
   const lines = ['0', 'SECTION', '2', 'ENTITIES'];
   designResult.benches.forEach((b) => {
     const n = b.polygon.length;
-    lines.push('0', 'LWPOLYLINE', '8', b === designResult.benches[designResult.benches.length - 1] ? 'FINAL_PIT_CREST' : 'PIT_BENCHES');
-    lines.push('90', String(n)); // تعداد رأس
-    lines.push('70', '1'); // ۱ = بسته (closed)
-    lines.push('38', String(b.elevation)); // elevation
+    const isFinal = b === designResult.benches[designResult.benches.length - 1];
+    lines.push('0', 'LWPOLYLINE', '8', isFinal ? 'FINAL_PIT_CREST' : (b.isCatchBench ? 'CATCH_BENCH' : 'PIT_BENCH'));
+    lines.push('90', String(n));
+    lines.push('70', '1');
+    lines.push('38', String(b.elevation));
     b.polygon.forEach(([x, y]) => {
       lines.push('10', String(x), '20', String(y));
     });
@@ -385,15 +445,10 @@ export function exportBenchesDXF(designResult) {
   return lines.join('\n');
 }
 
-/**
- * خروجی DXF رمپ/جادهٔ دسترسی به‌صورت سه پلی‌لاینِ سه‌بعدیِ واقعی (POLYLINE با VERTEX هر کدام دارای
- * الیویشن خودش — بر‌خلاف LWPOLYLINE که فقط یک الیویشن ثابت برای کل پلی‌لاین دارد؛ چون رمپ در طول
- * مسیرش ارتفاعش پیوسته تغییر می‌کند، این فرمت لازم است): محور مرکزی + دو لبهٔ چپ/راست.
- */
 export function exportRampDXF(rampResult) {
   const lines = ['0', 'SECTION', '2', 'ENTITIES'];
   const writePolyline3D = (pts, layer) => {
-    lines.push('0', 'POLYLINE', '8', layer, '66', '1', '70', '8'); // 70=8 → پرچم پلی‌لاین سه‌بعدی
+    lines.push('0', 'POLYLINE', '8', layer, '66', '1', '70', '8');
     pts.forEach((p) => {
       lines.push('0', 'VERTEX', '8', layer, '10', String(p.x), '20', String(p.y), '30', String(p.z), '70', '32');
     });
@@ -406,22 +461,31 @@ export function exportRampDXF(rampResult) {
   return lines.join('\n');
 }
 
-/** گزارش CSV پارامترها + جدول پله‌ها (+ حجم هر تراز و جدول رمپ، در صورت وجود). */
+/** گزارش CSV پارامترها (شامل IRA/OSA و کاچ‌بنچ) + جدول پله‌ها (+ حجم هر تراز و جدول رمپ). */
 export function exportReportCSV(designResult, volumeReport, rampResult) {
   const p = designResult.params;
   const rows = [];
   rows.push(['--- پارامترهای طراحی ---']);
-  rows.push(['ارتفاع پله (H, m)', p.benchHeight]);
+  rows.push(['ارتفاع پلهٔ تکی (H, m)', p.benchHeight]);
   rows.push(['شیب سینهٔ پله (deg)', p.benchFaceAngleDeg]);
-  rows.push(['عرض برم ایمنی (m)', p.bermWidthAuto ? bermWidthRitchie(p.benchHeight).toFixed(2) : p.bermWidth]);
-  rows.push(['واپس‌روی هر پله (m)', benchSetback(p).toFixed(2)]);
-  rows.push(['شیب کلی دیوارهٔ نهایی (deg)', overallSlopeAngleDeg(p).toFixed(2)]);
+  rows.push(['فاصلهٔ کاچ‌بنچ (هر چند پله یک برم)', p.catchBenchInterval || 1]);
+  rows.push(['عرض برمِ کاچ‌بنچ (m)', designResult.resolvedBerm.toFixed(2)]);
+  rows.push(['شیب بین‌رمپی — IRA (deg)', interRampAngleDeg(p).toFixed(2)]);
+  rows.push(['شیب کلی نهایی دیواره — OSA (deg)', overallSlopeAngleDeg(p, designResult.resolvedBerm).toFixed(2)]);
+  if (designResult.osaInfo) {
+    rows.push(['شیب هدف درخواستی (deg)', designResult.osaInfo.requestedOSA]);
+    rows.push(['شیب هدف قابل‌دستیابی بود؟', designResult.osaInfo.clamped ? 'خیر — به حداقل برم ایمنی محدود شد' : 'بله']);
+  }
   rows.push([]);
   rows.push(['--- پله‌ها ---']);
-  rows.push(['شماره پله', 'تراز ارتفاعی (m)', 'مساحت (m2)', 'برون‌زد به سطح؟', 'حجم برآوردی این تراز (m3)']);
+  rows.push(['شماره پله', 'تراز ارتفاعی (m)', 'مساحت (m2)', 'کاچ‌بنچ؟', 'برون‌زد به سطح؟', 'حجم برآوردی این تراز (m3)']);
   designResult.benches.forEach((b) => {
     const vol = volumeReport ? (volumeReport.perBenchM3[b.level] || 0) : '';
-    rows.push([b.level, b.elevation.toFixed(2), polygonArea(b.polygon).toFixed(1), b.outcropped ? 'بله' : 'خیر', typeof vol === 'number' ? vol.toFixed(1) : vol]);
+    rows.push([
+      b.level, b.elevation.toFixed(2), polygonArea(b.polygon).toFixed(1),
+      b.isCatchBench ? 'بله' : 'خیر', b.outcropped ? 'بله' : 'خیر',
+      typeof vol === 'number' ? vol.toFixed(1) : vol,
+    ]);
   });
   if (volumeReport) {
     rows.push([]);
