@@ -1,9 +1,11 @@
 /**
  * فهرست مرجع مشخصات فنی رایج‌ترین ماشین‌آلات معدنی — برای استفاده‌ی سریع هنگام برآورد اولیه
- * (مثلاً انتخاب نوع بیل متناسب با ظرفیت کامیون، یا تخمین توان مورد نیاز حفاری).
+ * (مثلاً انتخاب نوع بیل متناسب با ظرفیت کامیون، یا تخمین توان مورد نیاز حفاری، یا پیشنهاد
+ * عرض جاده/ارتفاع پله در ابزار طراحی پله‌بندی از روی همین ماشین‌آلات).
  * ⚠️ اعداد، مقادیر نمونه/معمول رده‌ی هر مدل هستند (گرد‌شده، بر مبنای اطلاعات عمومی منتشرشده)،
  * نه مشخصات دقیق و به‌روزِ هر پیکربندی خاص — برای مناقصه/خرید/محاسبه‌ی دقیق حتماً به بروشور فنی
- * رسمی سازنده (Spec Sheet) و سال ساخت واقعی دستگاه مراجعه شود.
+ * رسمی سازنده (Spec Sheet) و سال ساخت واقعی دستگاه مراجعه شود. همین‌طور widthM (عرض کلی دامپتراک)
+ * و maxBenchHeightM (حداکثر ارتفاع پله‌ی متناسب با دسترسی بیل/لودر) هم گرد‌شده و تقریبی‌اند.
  */
 export const EQUIPMENT_CATEGORIES = [
   'بیل مکانیکی (اکسکاواتور)',
@@ -15,22 +17,22 @@ export const EQUIPMENT_CATEGORIES = [
 ];
 
 export const EQUIPMENT_LIST = [
-  // بیل مکانیکی
-  { category: 'بیل مکانیکی (اکسکاواتور)', model: 'Caterpillar 320', powerKw: 122, weightTon: 20, capacity: '1.0 m³ (باکت)', note: 'بیل متوسط، پرکاربرد در معادن کوچک/متوسط' },
-  { category: 'بیل مکانیکی (اکسکاواتور)', model: 'Caterpillar 6015', powerKw: 400, weightTon: 150, capacity: '9 m³ (باکت)', note: 'بیل معدنی بزرگ، بارگیری کامیون‌های سنگین' },
-  { category: 'بیل مکانیکی (اکسکاواتور)', model: 'Komatsu PC1250', powerKw: 505, weightTon: 113, capacity: '6.3 m³ (باکت)', note: 'بیل هیدرولیک سنگین معدنی' },
-  { category: 'بیل مکانیکی (اکسکاواتور)', model: 'Hitachi EX1200', powerKw: 522, weightTon: 118, capacity: '6.5 m³ (باکت)', note: 'بیل هیدرولیک سنگین معدنی' },
-  // لودر
-  { category: 'لودر چرخ‌لاستیکی', model: 'Caterpillar 950', powerKw: 158, weightTon: 18, capacity: '2.7 m³ (باکت)', note: 'لودر متوسط، بارگیری و جابجایی مواد در کارخانه' },
-  { category: 'لودر چرخ‌لاستیکی', model: 'Caterpillar 980', powerKw: 250, weightTon: 30, capacity: '5.0 m³ (باکت)', note: 'لودر سنگین معدنی' },
-  { category: 'لودر چرخ‌لاستیکی', model: 'Komatsu WA500', powerKw: 260, weightTon: 32, capacity: '5.2 m³ (باکت)', note: 'لودر سنگین معدنی' },
-  { category: 'لودر چرخ‌لاستیکی', model: 'Volvo L120', powerKw: 173, weightTon: 19, capacity: '2.9 m³ (باکت)', note: 'لودر متوسط چندمنظوره' },
-  // کامیون معدنی
-  { category: 'کامیون معدنی (دامپتراک)', model: 'Caterpillar 773', powerKw: 410, weightTon: 65, capacity: '40 تن (بار مفید)', note: 'دامپتراک صلب، معادن روباز متوسط' },
-  { category: 'کامیون معدنی (دامپتراک)', model: 'Caterpillar 777', powerKw: 641, weightTon: 100, capacity: '91 تن (بار مفید)', note: 'دامپتراک معدنی سنگین رایج' },
-  { category: 'کامیون معدنی (دامپتراک)', model: 'Caterpillar 793', powerKw: 1864, weightTon: 246, capacity: '227 تن (بار مفید)', note: 'دامپتراک فوق‌سنگین معادن بزرگ' },
-  { category: 'کامیون معدنی (دامپتراک)', model: 'Komatsu HD785', powerKw: 706, weightTon: 101, capacity: '91 تن (بار مفید)', note: 'دامپتراک معدنی سنگین' },
-  { category: 'کامیون معدنی (دامپتراک)', model: 'Volvo A40', powerKw: 331, weightTon: 30, capacity: '39 تن (بار مفید)', note: 'کامیون مفصلی (Articulated)، مناسب مسیرهای صعب' },
+  // بیل مکانیکی — maxBenchHeightM: حداکثر ارتفاع پله‌ی متناسب با ارتفاع/عمق حفاری این بیل
+  { category: 'بیل مکانیکی (اکسکاواتور)', model: 'Caterpillar 320', powerKw: 122, weightTon: 20, capacity: '1.0 m³ (باکت)', maxBenchHeightM: 6, note: 'بیل متوسط، پرکاربرد در معادن کوچک/متوسط' },
+  { category: 'بیل مکانیکی (اکسکاواتور)', model: 'Caterpillar 6015', powerKw: 400, weightTon: 150, capacity: '9 m³ (باکت)', maxBenchHeightM: 15, note: 'بیل معدنی بزرگ، بارگیری کامیون‌های سنگین' },
+  { category: 'بیل مکانیکی (اکسکاواتور)', model: 'Komatsu PC1250', powerKw: 505, weightTon: 113, capacity: '6.3 m³ (باکت)', maxBenchHeightM: 10, note: 'بیل هیدرولیک سنگین معدنی' },
+  { category: 'بیل مکانیکی (اکسکاواتور)', model: 'Hitachi EX1200', powerKw: 522, weightTon: 118, capacity: '6.5 m³ (باکت)', maxBenchHeightM: 10, note: 'بیل هیدرولیک سنگین معدنی' },
+  // لودر — بازوی کوتاه‌تر از بیل دارد؛ معمولاً برای پله‌های کم‌ارتفاع‌تر یا بارگیری از توده مناسب‌تر است
+  { category: 'لودر چرخ‌لاستیکی', model: 'Caterpillar 950', powerKw: 158, weightTon: 18, capacity: '2.7 m³ (باکت)', maxBenchHeightM: 4, note: 'لودر متوسط، بارگیری و جابجایی مواد در کارخانه' },
+  { category: 'لودر چرخ‌لاستیکی', model: 'Caterpillar 980', powerKw: 250, weightTon: 30, capacity: '5.0 m³ (باکت)', maxBenchHeightM: 5, note: 'لودر سنگین معدنی' },
+  { category: 'لودر چرخ‌لاستیکی', model: 'Komatsu WA500', powerKw: 260, weightTon: 32, capacity: '5.2 m³ (باکت)', maxBenchHeightM: 5, note: 'لودر سنگین معدنی' },
+  { category: 'لودر چرخ‌لاستیکی', model: 'Volvo L120', powerKw: 173, weightTon: 19, capacity: '2.9 m³ (باکت)', maxBenchHeightM: 4, note: 'لودر متوسط چندمنظوره' },
+  // کامیون معدنی — widthM: عرض کلی دامپتراک (برای پیشنهاد عرض رمپ در ابزار طراحی پله)
+  { category: 'کامیون معدنی (دامپتراک)', model: 'Caterpillar 773', powerKw: 410, weightTon: 65, capacity: '40 تن (بار مفید)', widthM: 5.6, note: 'دامپتراک صلب، معادن روباز متوسط' },
+  { category: 'کامیون معدنی (دامپتراک)', model: 'Caterpillar 777', powerKw: 641, weightTon: 100, capacity: '91 تن (بار مفید)', widthM: 6.0, note: 'دامپتراک معدنی سنگین رایج' },
+  { category: 'کامیون معدنی (دامپتراک)', model: 'Caterpillar 793', powerKw: 1864, weightTon: 246, capacity: '227 تن (بار مفید)', widthM: 9.8, note: 'دامپتراک فوق‌سنگین معادن بزرگ' },
+  { category: 'کامیون معدنی (دامپتراک)', model: 'Komatsu HD785', powerKw: 706, weightTon: 101, capacity: '91 تن (بار مفید)', widthM: 6.2, note: 'دامپتراک معدنی سنگین' },
+  { category: 'کامیون معدنی (دامپتراک)', model: 'Volvo A40', powerKw: 331, weightTon: 30, capacity: '39 تن (بار مفید)', widthM: 3.2, note: 'کامیون مفصلی (Articulated)، مناسب مسیرهای صعب' },
   // دستگاه حفاری
   { category: 'دستگاه حفاری', model: 'Atlas Copco ROC L8', powerKw: 250, weightTon: 30, capacity: 'قطر چال ۸۹–۱۶۵ mm', note: 'دستگاه حفاری چرخشی-ضربه‌ای سطحی' },
   { category: 'دستگاه حفاری', model: 'Sandvik DP1500i', powerKw: 261, weightTon: 32, capacity: 'قطر چال ۹۰–۱۵۲ mm', note: 'دستگاه حفاری هیدرولیک سطحی' },
