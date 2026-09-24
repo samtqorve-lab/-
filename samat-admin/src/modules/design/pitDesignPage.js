@@ -2,10 +2,15 @@ import { el, showToast } from '../../lib/dom.js';
 import { extractPointsFromFile, getFileExt } from '../../lib/surveyParsers.js';
 import {
   buildSurface, designBenches, designRamp, computeCutVolume, rectanglePolygon,
-  interRampAngleDeg, overallSlopeAngleDeg, polygonArea,
+  interRampAngleDeg, overallSlopeAngleDeg, polygonArea, suggestRampWidth,
   exportBenchesDXF, exportRampDXF, exportReportCSV,
 } from '../../lib/pitDesign.js';
 import { openPitDesign3DViewer } from '../../lib/pitDesign3DViewer.js';
+import { EQUIPMENT_LIST } from '../../lib/equipmentSpecs.js';
+import {
+  calcRMR, RMR_CONDITION_OPTIONS, RMR_WATER_OPTIONS, rmrNumericGuideline,
+} from '../../lib/geologyCalc.js';
+import { calcSlopeFactorOfSafety } from '../../lib/miningEconomics.js';
 
 function fmtNum(n, digits = 1) {
   return Number(n).toLocaleString('fa-IR', { maximumFractionDigits: digits });
@@ -96,18 +101,22 @@ function renderPlanView(canvas, points, designResult, rampResult) {
   }
 }
 
+const TRUCKS = EQUIPMENT_LIST.filter((e) => e.category === 'کامیون معدنی (دامپتراک)' && e.widthM);
+const LOADERS = EQUIPMENT_LIST.filter((e) => (e.category === 'بیل مکانیکی (اکسکاواتور)' || e.category === 'لودر چرخ‌لاستیکی') && e.maxBenchHeightM);
+
 export async function renderPitDesign(container) {
   container.innerHTML = '';
 
   const intro = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:10px' }, [
     'طراحی پارامتریک پله‌بندی معدن روباز از روی نقاط برداشت نقشه‌برداری یا فایل توپوگرافی، با تفکیک ',
     el('b', {}, 'شیب بین‌رمپی (IRA)'), ' از ', el('b', {}, 'شیب کلی نهایی دیواره (OSA)'),
-    ' و پشتیبانی از کاچ‌بنچ چندتایی (Double/Triple Benching). فرمت‌های ورودی: txt/csv/xyz/asc، DXF، KML، LandXML.',
+    '، پشتیبانی از کاچ‌بنچ چندتایی، پیشنهاد پارامتر از روی ماشین‌آلات موجود، و بررسی پایداری شیب از روی مکانیک سنگی. ',
+    'فرمت‌های ورودی: txt/csv/xyz/asc، DXF، KML، LandXML.',
     el('br'),
     el('b', {}, '⚠️ توجه: '),
-    'این ابزار اصول هندسی متداول طراحی پله‌بندی (IRA/OSA، فرمول ریچی برای برم، کاچ‌بنچ) را پیاده می‌کند، ',
-    'اما توده‌سنگ، آب زیرزمینی، لرزه‌خیزی یا پایداری واقعی شیب را تحلیل نمی‌کند و بهینه‌سازی اقتصادی (مدل بلوک) هم نیست. ',
-    'نتایج فقط طراحی هندسیِ الگویی‌اند — پیش از استفادهٔ عملیاتی حتماً با مهندس ژئوتکنیک/معدن و متن دقیق مقررهٔ حاکم تطبیق داده شود.',
+    'این ابزار اصول هندسی متداول طراحی پله‌بندی (IRA/OSA، فرمول ریچی، کاچ‌بنچ) و یک بررسی سادهٔ پایداری (روش شیب بی‌نهایت) را پیاده می‌کند، ',
+    'اما جایگزین تحلیل کامل ژئوتکنیکی (گسیختگی دایره‌ای/بلوکی، لرزه‌خیزی، آب زیرزمینی واقعی) یا بهینه‌سازی اقتصادی (مدل بلوک) نیست. ',
+    'نتایج فقط طراحی/غربالگری الگویی‌اند — پیش از استفادهٔ عملیاتی حتماً با مهندس ژئوتکنیک/معدن و متن دقیق مقررهٔ حاکم تطبیق داده شود.',
   ]);
 
   const fileInput = el('input', { type: 'file', accept: '.txt,.csv,.xyz,.asc,.dxf,.kml,.xml' });
@@ -161,6 +170,84 @@ export async function renderPitDesign(container) {
   }
   syncOsaFieldState();
 
+  // ---------- پیشنهاد پارامتر از روی ماشین‌آلات موجود ----------
+  const truckSelect = el('select', {}, [
+    el('option', { value: '' }, '— انتخاب کامیون —'),
+    ...TRUCKS.map((t, i) => el('option', { value: String(i) }, `${t.model} (عرض ${t.widthM} m)`)),
+  ]);
+  const lanesSelect = el('select', {}, [
+    el('option', { value: '2' }, 'دوطرفه'),
+    el('option', { value: '1' }, 'یک‌طرفه'),
+  ]);
+  const applyRampBtn = el('button', { class: 'btn-sm' }, '↩ اعمال روی عرض جاده');
+  applyRampBtn.addEventListener('click', () => {
+    const t = TRUCKS[Number(truckSelect.value)];
+    if (!t) { showToast('⚠️ یک کامیون انتخاب کنید'); return; }
+    rampWidth.input.value = String(suggestRampWidth(t.widthM, Number(lanesSelect.value)));
+    liveRecompute();
+  });
+  const loaderSelect = el('select', {}, [
+    el('option', { value: '' }, '— انتخاب بیل/لودر —'),
+    ...LOADERS.map((t, i) => el('option', { value: String(i) }, `${t.model} (حداکثر پله ${t.maxBenchHeightM} m)`)),
+  ]);
+  const applyBenchBtn = el('button', { class: 'btn-sm' }, '↩ اعمال روی ارتفاع پله');
+  applyBenchBtn.addEventListener('click', () => {
+    const l = LOADERS[Number(loaderSelect.value)];
+    if (!l) { showToast('⚠️ یک بیل/لودر انتخاب کنید'); return; }
+    bh.input.value = String(l.maxBenchHeightM);
+    liveRecompute();
+  });
+  const equipmentBox = el('details', { style: 'margin-top:10px;border:1px solid var(--stone-300);border-radius:8px;padding:8px 10px' }, [
+    el('summary', { style: 'font-weight:700;cursor:pointer;font-size:var(--text-xs)' }, '🚛 پیشنهاد پارامتر از روی ماشین‌آلات موجود'),
+    el('div', { style: 'font-size:11px;color:var(--stone-600);margin:6px 0' }, 'عرض جاده = ضریبِ متداول (یک‌طرفه ۲.۵×، دوطرفه ۳.۵×) در عرض واقعی کامیون؛ ارتفاع پله = حداکثر ارتفاع دسترسی بیل/لودر انتخاب‌شده (اعداد equipmentSpecs.js، تقریبی).'),
+    el('div', { style: 'display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;margin-bottom:8px' }, [
+      el('div', {}, [el('label', {}, 'کامیون'), truckSelect]),
+      el('div', {}, [el('label', {}, 'نوع مسیر'), lanesSelect]),
+      applyRampBtn,
+    ]),
+    el('div', { style: 'display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end' }, [
+      el('div', {}, [el('label', {}, 'بیل/لودر'), loaderSelect]),
+      applyBenchBtn,
+    ]),
+  ]);
+
+  // ---------- بررسی پایداری شیب از روی مکانیک سنگی (RMR + شیب بی‌نهایت) ----------
+  const ucs = numberField('مقاومت فشاری تک‌محوره — UCS (MPa)', 80);
+  const rqd = numberField('RQD (%)', 70);
+  const spacing = numberField('فاصلهٔ درزه‌ها (mm)', 300);
+  const conditionSelect = el('select', {}, Object.entries(RMR_CONDITION_OPTIONS).map(([k, v]) => el('option', { value: k }, v.label)));
+  const waterSelect = el('select', {}, Object.entries(RMR_WATER_OPTIONS).map(([k, v]) => el('option', { value: k }, v.label)));
+  const rmrResultBox = el('div', { style: 'font-size:11px;color:var(--stone-600);margin:6px 0' });
+  const cohesion = numberField('چسبندگی توده‌سنگ — c (kPa)', 250);
+  const friction = numberField('زاویهٔ اصطکاک داخلی — φ (deg)', 30);
+  const unitWeight = numberField('وزن مخصوص سنگ — γ (kN/m³)', 25);
+  const calcRmrBtn = el('button', { class: 'btn-sm' }, '🧮 محاسبهٔ رده‌ی RMR و اعمال چسبندگی/اصطکاک');
+  calcRmrBtn.addEventListener('click', () => {
+    try {
+      const r = calcRMR({
+        ucsMpa: parseFloat(ucs.input.value), rqdPercent: parseFloat(rqd.input.value), spacingMm: parseFloat(spacing.input.value),
+        conditionKey: conditionSelect.value, waterKey: waterSelect.value,
+      });
+      const g = rmrNumericGuideline(r.total);
+      rmrResultBox.textContent = `امتیاز کل RMR: ${r.total} — ${r.label} (بازهٔ متداول: چسبندگی ${r.cohesionKpa} kPa، اصطکاک ${r.frictionDeg}°)`;
+      cohesion.input.value = String(g.cohesionKpa);
+      friction.input.value = String(g.frictionDeg);
+      liveRecompute();
+    } catch (err) { showToast(`⚠️ ${err.message}`); }
+  });
+  const stabilityBox = el('details', { style: 'margin-top:10px;border:1px solid var(--stone-300);border-radius:8px;padding:8px 10px', open: '' }, [
+    el('summary', { style: 'font-weight:700;cursor:pointer;font-size:var(--text-xs)' }, '🪨 بررسی پایداری شیب از روی مکانیک سنگی'),
+    el('div', { style: 'font-size:11px;color:var(--stone-600);margin:6px 0' }, 'یا مستقیم چسبندگی/اصطکاک را وارد کنید، یا از روی رده‌بندی RMR (Bieniawski) محاسبه‌شان کنید. ضریب اطمینان (FS) با روش شیب بی‌نهایت (ساده‌شده) روی کل ارتفاع دیواره و شیب OSA محاسبه می‌شود — نه تحلیل گسیختگی دایره‌ای/بلوکی واقعی.'),
+    el('div', { style: 'display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:6px' }, [ucs.wrap, rqd.wrap, spacing.wrap]),
+    el('div', { style: 'display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;margin-bottom:6px' }, [
+      el('div', {}, [el('label', {}, 'شرایط سطح درزه'), conditionSelect]),
+      el('div', {}, [el('label', {}, 'وضعیت آب زیرزمینی'), waterSelect]),
+      calcRmrBtn,
+    ]),
+    rmrResultBox,
+    el('div', { style: 'display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px' }, [cohesion.wrap, friction.wrap, unitWeight.wrap]),
+  ]);
+
   const runBtn = el('button', { class: 'btn btn-primary', style: 'width:100%;justify-content:center;margin-top:12px' }, '⛏ اجرای طراحی پله‌بندی');
   const liveHint = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-500);margin-top:4px;display:none' }, '↻ با هر تغییر پارامتر، طراحی و نمودار به‌صورت خودکار به‌روز می‌شود.');
   const resultBox = el('div', { style: 'margin-top:14px;display:none' });
@@ -200,6 +287,8 @@ export async function renderPitDesign(container) {
       const catchCount = result.benches.filter((b) => b.isCatchBench).length;
       const ira = interRampAngleDeg(result.params);
       const osa = overallSlopeAngleDeg(result.params, result.resolvedBerm);
+      const totalHeight = result.benches[result.benches.length - 1].elevation - result.benches[0].elevation;
+
       const kpis = [
         el('div', { class: 'kpi-card' }, [el('div', { class: 'kpi-n' }, `${benchCount}`), el('div', { class: 'kpi-l' }, `پله (${catchCount} کاچ‌بنچ)`)]),
         el('div', { class: 'kpi-card' }, [el('div', { class: 'kpi-n' }, `${ira.toFixed(1)}°`), el('div', { class: 'kpi-l' }, 'شیب بین‌رمپی — IRA')]),
@@ -209,13 +298,35 @@ export async function renderPitDesign(container) {
       if (ramp) {
         kpis.push(el('div', { class: 'kpi-card' }, [el('div', { class: 'kpi-n' }, fmtNum(ramp.totalLength, 0)), el('div', { class: 'kpi-l' }, 'طول کل رمپ (m)')]));
       }
+
+      let fsResult = null;
+      const c = parseFloat(cohesion.input.value);
+      const phi = parseFloat(friction.input.value);
+      const gamma = parseFloat(unitWeight.input.value);
+      if (Number.isFinite(c) && Number.isFinite(phi) && Number.isFinite(gamma) && totalHeight > 0) {
+        try {
+          fsResult = calcSlopeFactorOfSafety({
+            slopeAngleDeg: osa, frictionAngleDeg: phi, unitWeightKnM3: gamma, heightM: totalHeight, cohesionKpa: c, porePressureKpa: 0,
+          });
+        } catch { fsResult = null; }
+      }
+      if (fsResult) {
+        const fsColor = fsResult.fs >= 1.3 ? 'var(--patina-700)' : (fsResult.fs >= 1.0 ? 'var(--ochre-700)' : 'var(--rust-700)');
+        kpis.push(el('div', { class: 'kpi-card', style: `--kpi-accent:${fsColor}` }, [
+          el('div', { class: 'kpi-n', style: `color:${fsColor}` }, fsResult.fs.toFixed(2)),
+          el('div', { class: 'kpi-l' }, 'ضریب اطمینان شیب — FS (شیب بی‌نهایت)'),
+        ]));
+      }
       resultBox.append(el('div', { class: 'kpi-grid' }, kpis));
 
       const infoLines = [
-        `عرض برمِ کاچ‌بنچ: ${result.resolvedBerm.toFixed(2)} m — از تراز ${result.benches[0].elevation.toFixed(1)} تا ${result.benches[result.benches.length - 1].elevation.toFixed(1)} متر`,
+        `عرض برمِ کاچ‌بنچ: ${result.resolvedBerm.toFixed(2)} m — از تراز ${result.benches[0].elevation.toFixed(1)} تا ${result.benches[result.benches.length - 1].elevation.toFixed(1)} متر (ارتفاع کل دیواره ${totalHeight.toFixed(1)} متر)`,
       ];
       if (result.osaInfo && result.osaInfo.clamped) {
         infoLines.push(`⚠️ شیب هدف (${result.osaInfo.requestedOSA}°) با حداقل برم ایمنی (ریچی) قابل‌دستیابی نبود؛ برم در حداقل ایمن نگه داشته شد و شیب واقعی معادل ${result.osaInfo.achievedOSA.toFixed(1)}° است — ایمنی فدای عدد شیب نشد.`);
+      }
+      if (fsResult && fsResult.fs < 1.3) {
+        infoLines.push(`⚠️ ضریب اطمینان شیب (${fsResult.fs.toFixed(2)}) کمتر از حد متداول ایمنی (۱.۳ برای شرایط استاتیک) است — شیب را کم‌تر کنید، برم/کاچ‌بنچ بیشتر بگیرید، یا با مهندس ژئوتکنیک بررسی کنید.`);
       }
       resultBox.append(el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-top:8px' }, infoLines.join(' — ')), canvas);
       renderPlanView(canvas, points, result, ramp);
@@ -271,7 +382,7 @@ export async function renderPitDesign(container) {
   }
 
   const liveRecompute = debounce(() => { if (points) runDesign(); }, 450);
-  formGrid.querySelectorAll('input').forEach((inp) => {
+  [...formGrid.querySelectorAll('input'), cohesion.input, friction.input, unitWeight.input].forEach((inp) => {
     inp.addEventListener('input', liveRecompute);
   });
   [osaMode, bermAuto, rampOn].forEach((cb) => {
@@ -306,6 +417,8 @@ export async function renderPitDesign(container) {
     osaModeWrap,
     bermAutoWrap,
     rampOnWrap,
+    equipmentBox,
+    stabilityBox,
     runBtn,
     liveHint,
     resultBox,
