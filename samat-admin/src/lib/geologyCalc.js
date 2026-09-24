@@ -60,6 +60,20 @@ export function calcRMR(p) {
   return { r1, r2, r3, r4, r5, total, ...cls };
 }
 
+/**
+ * میانه‌ی همان بازه‌های RMR_CLASS_TABLE بالا، این‌بار به‌صورت عدد قابل‌محاسبه (نه رشته‌ی بازه‌ای) —
+ * برای مصرف مستقیم در ابزار پایداری شیب/طراحی پله (pitDesignPage.js، با calcSlopeFactorOfSafety).
+ * ⚠️ این یک راهنمای درشت بر مبنای رده‌ی توده‌سنگ است، نه مقدار اندازه‌گیری‌شده — مقدار واقعی
+ * چسبندگی/اصطکاک باید از آزمایش برشی مستقیم روی درزه یا ناحیه‌ی تضعیف‌شده به‌دست آید.
+ */
+export function rmrNumericGuideline(total) {
+  if (total >= 81) return { cohesionKpa: 450, frictionDeg: 50, classLabel: 'رده I — سنگ بسیار خوب' };
+  if (total >= 61) return { cohesionKpa: 350, frictionDeg: 40, classLabel: 'رده II — سنگ خوب' };
+  if (total >= 41) return { cohesionKpa: 250, frictionDeg: 30, classLabel: 'رده III — سنگ متوسط' };
+  if (total >= 21) return { cohesionKpa: 150, frictionDeg: 20, classLabel: 'رده IV — سنگ ضعیف' };
+  return { cohesionKpa: 50, frictionDeg: 10, classLabel: 'رده V — سنگ بسیار ضعیف' };
+}
+
 // ————————————————————————— تحلیل جنبشی ساده‌ی گسیختگی شیب —————————————————————————
 function angleDiffCircular(a, b) {
   let d = Math.abs(a - b) % 360;
