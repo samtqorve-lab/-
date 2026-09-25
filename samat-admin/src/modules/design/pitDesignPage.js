@@ -1,8 +1,9 @@
 import { el, showToast } from '../../lib/dom.js';
+import { sb } from '../../lib/supabase.js';
 import { extractPointsFromFile, getFileExt } from '../../lib/surveyParsers.js';
 import {
   buildSurface, designBenches, designRamp, computeCutVolume, rectanglePolygon,
-  interRampAngleDeg, overallSlopeAngleDeg, polygonArea, suggestRampWidth,
+  interRampAngleDeg, overallSlopeAngleDeg, polygonArea, suggestRampWidth, latLonToUTM,
   exportBenchesDXF, exportRampDXF, exportReportCSV,
 } from '../../lib/pitDesign.js';
 import { openPitDesign3DViewer } from '../../lib/pitDesign3DViewer.js';
@@ -40,16 +41,20 @@ function debounce(fn, ms) {
   };
 }
 
-/** رسم نمای بالا (plan view) از نقاط توپوگرافی + حلقه‌های پله + خط رمپ روی canvas — بدون کتابخانه‌ی خارجی. */
-function renderPlanView(canvas, points, designResult, rampResult) {
+/**
+ * رسم نمای بالا (plan view) از نقاط توپوگرافی + حلقه‌های پله + خط رمپ + گمانه‌های اکتشافی روی
+ * canvas — بدون کتابخانه‌ی خارجی.
+ */
+function renderPlanView(canvas, points, designResult, rampResult, boreholes) {
   const ctx = canvas.getContext('2d');
   const W = canvas.width; const H = canvas.height;
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = '#E4DFD2'; ctx.fillRect(0, 0, W, H);
 
   const finalPoly = designResult.benches[designResult.benches.length - 1].polygon;
+  const boreholePts = (boreholes || []).map((b) => [b.x, b.y]);
   let minX = Infinity; let maxX = -Infinity; let minY = Infinity; let maxY = -Infinity;
-  [...points.map(([x, y]) => [x, y]), ...finalPoly].forEach(([x, y]) => {
+  [...points.map(([x, y]) => [x, y]), ...finalPoly, ...boreholePts].forEach(([x, y]) => {
     if (x < minX) minX = x; if (x > maxX) maxX = x;
     if (y < minY) minY = y; if (y > maxY) maxY = y;
   });
@@ -99,6 +104,23 @@ function renderPlanView(canvas, points, designResult, rampResult) {
     ctx.stroke();
     ctx.setLineDash([]);
   }
+
+  // گمانه‌های اکتشافی: دایرهٔ قرمز توپر + شماره‌ی گمانه
+  if (boreholes && boreholes.length) {
+    ctx.font = '10px sans-serif';
+    boreholes.forEach((b) => {
+      const px = toX(b.x); const py = toY(b.y);
+      ctx.fillStyle = '#b23b3b';
+      ctx.beginPath();
+      ctx.arc(px, py, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.fillStyle = '#3d1414';
+      ctx.fillText(b.label, px + 6, py - 4);
+    });
+  }
 }
 
 const TRUCKS = EQUIPMENT_LIST.filter((e) => e.category === 'کامیون معدنی (دامپتراک)' && e.widthM);
@@ -110,8 +132,8 @@ export async function renderPitDesign(container) {
   const intro = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:10px' }, [
     'طراحی پارامتریک پله‌بندی معدن روباز از روی نقاط برداشت نقشه‌برداری یا فایل توپوگرافی، با تفکیک ',
     el('b', {}, 'شیب بین‌رمپی (IRA)'), ' از ', el('b', {}, 'شیب کلی نهایی دیواره (OSA)'),
-    '، پشتیبانی از کاچ‌بنچ چندتایی، پیشنهاد پارامتر از روی ماشین‌آلات موجود، و بررسی پایداری شیب از روی مکانیک سنگی. ',
-    'فرمت‌های ورودی: txt/csv/xyz/asc، DXF، KML، LandXML.',
+    '، پشتیبانی از کاچ‌بنچ چندتایی، پیشنهاد پارامتر از روی ماشین‌آلات موجود، بررسی پایداری از روی مکانیک سنگی، و نمایش گمانه‌های اکتشافی. ',
+    'فرمت‌های ورودی توپوگرافی: txt/csv/xyz/asc، DXF، KML، LandXML.',
     el('br'),
     el('b', {}, '⚠️ توجه: '),
     'این ابزار اصول هندسی متداول طراحی پله‌بندی (IRA/OSA، فرمول ریچی، کاچ‌بنچ) و یک بررسی سادهٔ پایداری (روش شیب بی‌نهایت) را پیاده می‌کند، ',
@@ -169,6 +191,70 @@ export async function renderPitDesign(container) {
     bermAutoWrap.style.opacity = osaMode.checked ? '0.45' : '1';
   }
   syncOsaFieldState();
+
+  // ---------- گمانه‌های اکتشافی (exploration_boreholes) ----------
+  let boreholes = [];
+  const mineNameInput = el('input', { type: 'text', placeholder: 'نام دقیق معدن (طبق ثبت در بخش اکتشاف)' });
+  const loadBoreholesBtn = el('button', { class: 'btn-sm' }, '📍 بارگذاری گمانه‌ها');
+  const boreholesStatus = el('div', { style: 'font-size:11px;color:var(--stone-600);margin-top:6px' });
+  const boreholesTable = el('div', { style: 'margin-top:6px;max-height:160px;overflow:auto' });
+
+  function boreholeRow(b) {
+    const useBtn = el('button', { class: 'btn-sm', style: 'padding:2px 8px' }, '↩ استفاده به‌عنوان مرکز کف گودال');
+    useBtn.addEventListener('click', () => {
+      cx.input.value = b.x.toFixed(2);
+      cy.input.value = b.y.toFixed(2);
+      liveRecompute();
+    });
+    return el('div', { style: 'display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;padding:3px 0;border-bottom:1px solid var(--stone-200)' }, [
+      el('span', {}, `${b.label} — عمق ${b.depthM ?? '؟'} m${b.lithology ? ` — ${b.lithology}` : ''}`),
+      useBtn,
+    ]);
+  }
+
+  loadBoreholesBtn.addEventListener('click', async () => {
+    const mineName = mineNameInput.value.trim();
+    if (!mineName) { showToast('⚠️ نام معدن را وارد کنید'); return; }
+    loadBoreholesBtn.disabled = true;
+    boreholesStatus.textContent = '⏳ در حال خواندن...';
+    try {
+      const { data, error } = await sb.from('exploration_boreholes')
+        .select('borehole_no, lat, lon, depth_m, lithology')
+        .eq('mine_name', mineName);
+      if (error) throw new Error(error.message);
+      const withCoords = (data || []).filter((r) => typeof r.lat === 'number' && typeof r.lon === 'number');
+      boreholes = withCoords.map((r) => {
+        const utm = latLonToUTM(r.lat, r.lon);
+        return {
+          label: r.borehole_no || '؟', x: utm.x, y: utm.y, depthM: r.depth_m, lithology: r.lithology, zone: utm.zone,
+        };
+      });
+      boreholesTable.innerHTML = '';
+      if (!boreholes.length) {
+        boreholesStatus.textContent = data && data.length
+          ? `⚠️ ${data.length} گمانه برای «${mineName}» پیدا شد اما هیچ‌کدام مختصات lat/lon ثبت‌شده ندارند`
+          : `هیچ گمانه‌ای برای «${mineName}» ثبت نشده`;
+      } else {
+        boreholesStatus.textContent = `✅ ${boreholes.length} گمانه بارگذاری شد (تبدیل‌شده به UTM زون ${boreholes[0].zone}) — ⚠️ اگر فایل توپوگرافی شما با سیستم مختصات دیگری است، ممکن است روی نقشه هم‌راستا نباشند.`;
+        boreholes.forEach((b) => boreholesTable.append(boreholeRow(b)));
+      }
+      liveRecompute();
+    } catch (err) {
+      boreholesStatus.textContent = `⚠️ خطا: ${err.message}`;
+    }
+    loadBoreholesBtn.disabled = false;
+  });
+
+  const boreholesBox = el('details', { style: 'margin-top:10px;border:1px solid var(--stone-300);border-radius:8px;padding:8px 10px' }, [
+    el('summary', { style: 'font-weight:700;cursor:pointer;font-size:var(--text-xs)' }, '📍 گمانه‌های اکتشافی این معدن'),
+    el('div', { style: 'font-size:11px;color:var(--stone-600);margin:6px 0' }, 'گمانه‌های ثبت‌شده در بخش اکتشاف را روی نقشهٔ طراحی نشان می‌دهد و امکان استفاده از موقعیت هرکدام به‌عنوان مرکز کف گودال را می‌دهد.'),
+    el('div', { style: 'display:flex;gap:8px;align-items:end' }, [
+      el('div', { style: 'flex:1' }, [el('label', {}, 'نام معدن'), mineNameInput]),
+      loadBoreholesBtn,
+    ]),
+    boreholesStatus,
+    boreholesTable,
+  ]);
 
   // ---------- پیشنهاد پارامتر از روی ماشین‌آلات موجود ----------
   const truckSelect = el('select', {}, [
@@ -329,7 +415,7 @@ export async function renderPitDesign(container) {
         infoLines.push(`⚠️ ضریب اطمینان شیب (${fsResult.fs.toFixed(2)}) کمتر از حد متداول ایمنی (۱.۳ برای شرایط استاتیک) است — شیب را کم‌تر کنید، برم/کاچ‌بنچ بیشتر بگیرید، یا با مهندس ژئوتکنیک بررسی کنید.`);
       }
       resultBox.append(el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-top:8px' }, infoLines.join(' — ')), canvas);
-      renderPlanView(canvas, points, result, ramp);
+      renderPlanView(canvas, points, result, ramp, boreholes);
 
       const table = el('table', { class: 'data-table', style: 'width:100%;margin-top:10px;font-size:var(--text-xs)' });
       table.append(el('thead', {}, el('tr', {}, ['پله', 'تراز (m)', 'مساحت (m²)', 'کاچ‌بنچ؟', 'برون‌زد؟'].map((h) => el('th', {}, h)))));
@@ -417,6 +503,7 @@ export async function renderPitDesign(container) {
     osaModeWrap,
     bermAutoWrap,
     rampOnWrap,
+    boreholesBox,
     equipmentBox,
     stabilityBox,
     runBtn,
