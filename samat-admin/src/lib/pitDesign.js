@@ -25,6 +25,9 @@
 //    calcRMR + rmrNumericGuideline) و بررسی ضریب اطمینان شیب (miningEconomics.js:
 //    calcSlopeFactorOfSafety) تأیید یا رد شود — این اتصال در خودِ pitDesignPage.js
 //    انجام می‌شود تا این فایل روی هندسه متمرکز بماند.
+//  - موقعیت گمانه‌های اکتشافی (exploration_boreholes، مختصات lat/lon) با
+//    latLonToUTM به همان دستگاه متری (UTM) طراحی تبدیل و روی نقشهٔ طراحی
+//    نمایش داده می‌شود — نگاه کنید به توضیح بالای latLonToUTM برای محدودیت‌ها.
 //
 // ⚠️ مقادیر پیش‌فرض (ارتفاع پله، شیب سینه، فرمول ریچی برای برم) مقادیر متداول
 // صنعتی هستند، نه رونوشت مستقیم از متن یک آیین‌نامهٔ خاص. این فایل به‌تنهایی توده‌سنگ،
@@ -121,6 +124,59 @@ export function solveBermForTargetOSA(params, targetOSADeg) {
 export function suggestRampWidth(vehicleWidthM, lanes = 2) {
   const factor = lanes === 1 ? 2.5 : 3.5;
   return Math.round(vehicleWidthM * factor * 10) / 10;
+}
+
+// ---------- تبدیل مختصات جغرافیایی (گمانه‌های اکتشافی) به UTM ----------
+
+const WGS84_A = 6378137.0;
+const WGS84_F = 1 / 298.257223563;
+
+/**
+ * تبدیل عرض/طول جغرافیایی (WGS84، درجه) به مختصات متری UTM، با فرمول استاندارد ترانسورس مرکاتور
+ * (Snyder 1987) — دقت زیرمتری در پهنای هر زون ۶ درجه‌ای، برای همان کاری که در این پروژه لازم است
+ * (هم‌راستا کردن گمانه‌های اکتشافی با فایل توپوگرافی روی نقشهٔ طراحی پله) کافی است.
+ * ⚠️ این پیاده‌سازیِ محلی است، نه یک کتابخانهٔ ژئودزی کامل (مثل proj4) — برای نقاط خیلی دور از
+ * نصف‌النهار مرکزی زون یا نزدیک قطب‌ها اعتبار ندارد؛ برای فاصلهٔ چند کیلومتری در یک معدن مشکلی
+ * ایجاد نمی‌کند.
+ * @param {number} latDeg
+ * @param {number} lonDeg
+ * @param {number} [zoneOverride] اگر داده نشود، از روی longitude خودکار محاسبه می‌شود
+ * @returns {{x:number, y:number, zone:number, hemisphere:'N'|'S'}}
+ */
+export function latLonToUTM(latDeg, lonDeg, zoneOverride) {
+  const a = WGS84_A;
+  const f = WGS84_F;
+  const k0 = 0.9996;
+  const e2 = f * (2 - f);
+  const ep2 = e2 / (1 - e2);
+
+  const zone = zoneOverride || Math.floor((lonDeg + 180) / 6) + 1;
+  const lonOriginDeg = (zone - 1) * 6 - 180 + 3;
+  const latRad = (latDeg * Math.PI) / 180;
+  const lonRad = (lonDeg * Math.PI) / 180;
+  const lonOriginRad = (lonOriginDeg * Math.PI) / 180;
+
+  const N = a / Math.sqrt(1 - e2 * Math.sin(latRad) ** 2);
+  const T = Math.tan(latRad) ** 2;
+  const C = ep2 * Math.cos(latRad) ** 2;
+  const A = Math.cos(latRad) * (lonRad - lonOriginRad);
+
+  const M = a * (
+    (1 - e2 / 4 - (3 * e2 ** 2) / 64 - (5 * e2 ** 3) / 256) * latRad
+    - ((3 * e2) / 8 + (3 * e2 ** 2) / 32 + (45 * e2 ** 3) / 1024) * Math.sin(2 * latRad)
+    + ((15 * e2 ** 2) / 256 + (45 * e2 ** 3) / 1024) * Math.sin(4 * latRad)
+    - ((35 * e2 ** 3) / 3072) * Math.sin(6 * latRad)
+  );
+
+  const x = k0 * N * (A + ((1 - T + C) * A ** 3) / 6
+    + ((5 - 18 * T + T ** 2 + 72 * C - 58 * ep2) * A ** 5) / 120) + 500000;
+  let y = k0 * (M + N * Math.tan(latRad) * (
+    (A ** 2) / 2 + ((5 - T + 9 * C + 4 * C ** 2) * A ** 4) / 24
+    + ((61 - 58 * T + T ** 2 + 600 * C - 330 * ep2) * A ** 6) / 720
+  ));
+  if (latDeg < 0) y += 10000000; // نیم‌کرهٔ جنوبی
+
+  return { x, y, zone, hemisphere: latDeg >= 0 ? 'N' : 'S' };
 }
 
 // ---------- سطح زمین (TIN) ----------
