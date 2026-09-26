@@ -1,5 +1,24 @@
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// رمزگشای Draco برای نمایشگر مدل سه‌بعدی پهباد (lib/model3dViewer.js): فایل‌های decoder از خود پکجِ
+// three در هر اجرای dev/build به public/draco/ کپی می‌شوند (public/draco/ در .gitignore است) تا
+// نمایشگر از همان origin اپ لود کند، نه CDN — چون اپ اندروید/دسکتاپ و کاربران ایرانی نباید
+// به سرویس خارجی وابسته باشند (همان روش samat-admin/vite.config.js).
+function copyDracoDecoderFiles() {
+  const srcDir = path.join(__dirname, 'node_modules/three/examples/jsm/libs/draco/gltf');
+  const destDir = path.join(__dirname, 'public/draco');
+  fs.mkdirSync(destDir, { recursive: true });
+  ['draco_decoder.wasm', 'draco_wasm_wrapper.js'].forEach((name) => {
+    fs.copyFileSync(path.join(srcDir, name), path.join(destDir, name));
+  });
+}
+copyDracoDecoderFiles();
 
 // این پروژه سه مقصد دارد:
 //   ۱) PWA مستقل → ریشه‌ی دامنه، یعنی base: '/'                            → npm run build
@@ -23,17 +42,17 @@ export default defineConfig(({ mode }) => {
     build: {
       // خروجی جدا از dist اصلی، تا با build آندروید/PWA اصلی قاطی نشه
       outDir: isSubPath ? 'dist-web-sub' : 'dist',
-      // بدون این، Lightning CSS کوئری‌های @media (max-width:...) را به سینتکس مدرن «width<=Npx»
+      // بدون این، Lightning CSS کوئری‌های @media (max-width:...) را به سینتاکس مدرن‌تر «width<=Npx»
       // تبدیل می‌کند که روی کروم/وب‌ویوهای اندروید قدیمی‌تر از Chrome 104 اصلاً کار نمی‌کند.
       cssTarget: ['chrome87', 'safari14', 'firefox78', 'edge88'],
     },
     plugins: [
       VitePWA({
         registerType: 'autoUpdate',
-        // داخل APK اندروید، فایل‌های وب مستقیم از خودِ APK لود می‌شوند و service worker فقط ضرر دارد:
-        // بعد از نصب APK جدید، WebView همچنان باندل قدیمیِ کش‌شده را سرو می‌کرد (و حتی بعد از
+        // داخل APK اندروید، فایل‌های وب مستقیم از خود APK لود می‌شوند و service worker فقط ضرر دارد:
+        // بعد از نصب APK جدید، WebView همچنان باندل‌ قدیمیِ کش‌شده را سرو می‌کرد (و حتی بعد از
         // حذف و نصب مجدد، به‌خاطر بازگردانی داده‌ی WebView از بکاپ). پس برای بیلد اندروید ثبت
-        // service worker اصلاً تزریق نمی‌شود؛ PWA وب و ساب‌پث بدون تغییر می‌مانند.
+        // service worker اصلاً تزریق نمی‌شود؛ PWA وب و سابپث بدون تغییر می‌مانند.
         injectRegister: isAndroid ? false : 'auto',
         // فقط فایل‌های استاتیک خود اپ (JS/CSS/فونت) کش می‌شوند — نه پاسخ‌های Supabase؛
         // صف کارهای آفلاین (عکس/گزارش ثبت‌شده بدون اینترنت) یک لایه‌ی جدا در خود اپلیکیشن است، نه service worker.
