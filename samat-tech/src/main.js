@@ -15,7 +15,7 @@ import { fetchAssignedMines, fetchMinesByGeoScope, specialtyMeta } from './lib/r
 import { mountStaffFieldPicker } from './modules/shell/staffFieldPicker.js';
 import { checkIdentityGate, loadIdentitySettings, submitIdentityVerification } from './lib/identity.js';
 import { registerSender, initOfflineQueueWatcher } from './lib/offlineQueue.js';
-import { startManagedGpsPrewarm, stopGpsPrewarm, getOrCreateDeviceId } from './lib/geo.js';
+import { startManagedGpsPrewarm, stopGpsPrewarm, getOrCreateDeviceId, getAccurateGeoLocation, isInsideMineBoundary } from './lib/geo.js';
 import { startMineGeofenceWatcher, stopMineGeofenceWatcher } from './lib/mineGeofence.js';
 import { mountOfflineBadge } from './modules/shell/offlineBadge.js';
 import { mountUpdateBadge } from './modules/shell/updateBadge.js';
@@ -33,7 +33,8 @@ mountOfflineBadge();
 mountUpdateBadge();
 initOfflineQueueWatcher(showToast);
 // GPS از همین لحظه‌ی باز شدن اپ پیش‌گرم می‌شود (نه بعد از ورود) — تا مسئول فنی زودتر
-// مجوز موقعیت‌مکانی را بدهد و اولین خوانش‌ها زودتر آماده باشند.
+// مجوز موقعیت‌مکانی را بدهد و اولین خوانش‌ها زودتر آماده باشند. همین زودبودن است که به قفل
+// بیومتریک پایین‌تر (shouldSkipBiometricGate) اجازه می‌دهد یک خوانش GPS به‌موقع پیدا کند.
 startManagedGpsPrewarm();
 
 // شنونده‌ی «تایید/رد ورود با Push» را همین ابتدای اجرای اپ سوار می‌کنیم — نه فقط داخل
@@ -57,6 +58,32 @@ function logoutAndReload() {
   sb.auth.signOut().then(() => window.location.reload());
 }
 
+/**
+ * قفل بیومتریک هر بار باز شدن اپ نشان داده می‌شود — مگر این‌که مسئول فنی/ایمنی/بهداشت همین الان
+ * با GPS داخل محدوده‌ی یکی از معدن‌های اختصاصی‌اش باشد: ایستادن واقعی سر معدن خودش یک سیگنال
+ * حضور فیزیکی معتبر است (دقیقاً همان فرضی که گیت عکس احراز هویت ماهانه هم رویش ساخته شده).
+ * fail-safe: اگر GPS در بازه‌ی کوتاه به فیکس نرسد (گوشی تازه روشن شده، داخل ساختمان، مجوز رد شده،
+ * GPS خاموش، نقشی غیر از این سه، یا هیچ معدنی اختصاص نیافته)، قفل بیومتریک مثل قبل نمایش داده
+ * می‌شود — این تابع هرگز چیزی را نامطمئن «باز» نمی‌کند.
+ * @returns {Promise<{ skip: boolean, mines: object[] }>} mines برای جلوگیری از فچ دوباره‌اش پایین‌تر برگردانده می‌شود
+ */
+async function checkBiometricSkip(row) {
+  if (!OFFICER_ROLES.includes(row.role)) return { skip: false, mines: null };
+  let mines;
+  try {
+    mines = await fetchAssignedMines(row.tech_officer_specialty, row.assigned_mines);
+  } catch {
+    return { skip: false, mines: null };
+  }
+  if (!mines.length) return { skip: false, mines };
+  try {
+    const coords = await getAccurateGeoLocation({ targetAccuracyM: 50, maxWaitMs: 4000 });
+    return { skip: mines.some((m) => isInsideMineBoundary(coords, m)), mines };
+  } catch {
+    return { skip: false, mines };
+  }
+}
+
 async function boot() {
   const root = document.getElementById('app');
   const { data: { session } } = await sb.auth.getSession();
@@ -67,11 +94,6 @@ async function boot() {
   }
   const email = session.user.email;
   import('./lib/pushNative.js').then(({ initNotifications }) => initNotifications(email)).catch(() => {});
-
-  if (hasBiometricCred(email)) {
-    const ok = await mountBiometricGate(root, email, logoutAndReload);
-    if (!ok) return; // (در عمل همیشه true resolve می‌شود یا کاربر خارج شده)
-  }
 
   const { data } = await sb.from('user_roles')
     .select('role, assigned_mines, tech_officer_specialty, identity_status, identity_verified_at, trusted_device_id, full_name, membership_no, national_code, license_no, license_expiry_date, assigned_province, assigned_county, identity_boundary_exempt, requested_mine_name, contract_no, preferred_messenger, messenger_chat_id')
@@ -85,6 +107,18 @@ async function boot() {
       role: 'pending', assigned_mines: [], full_name: session.user.email, national_code: null, membership_no: null, license_no: null, requested_mine_name: null, contract_no: null, messenger_chat_id: null,
     };
   })();
+
+  // فچ معادن اختصاصی (برای نقش‌های OFFICER) همین‌جا، *قبل* از قفل بیومتریک انجام می‌شود — هم برای
+  // تصمیم «رد شدن از قفل داخل محدوده‌ی معدن» بالا، هم تا پایین‌تر دوباره فچ نشود.
+  let officerMines = null;
+  if (hasBiometricCred(email)) {
+    const { skip, mines } = await checkBiometricSkip(row);
+    officerMines = mines;
+    if (!skip) {
+      const ok = await mountBiometricGate(root, email, logoutAndReload);
+      if (!ok) return; // (در عمل همیشه true resolve می‌شود یا کاربر خارج شده)
+    }
+  }
 
   root.innerHTML = '';
 
@@ -157,7 +191,10 @@ async function boot() {
     return;
   }
 
-  const mines = await fetchAssignedMines(row.tech_officer_specialty, row.assigned_mines);
+  // به این نقطه فقط نقش‌های OFFICER می‌رسند — officerMines از قبل (بالای همین تابع، برای تصمیم
+  // قفل بیومتریک) فچ شده؛ اگر بنا به هر دلیلی هنوز null بود (مثلاً hasBiometricCred false بود و
+  // اصلاً checkBiometricSkip صدا زده نشد)، همین‌جا فچ می‌شود.
+  const mines = officerMines || await fetchAssignedMines(row.tech_officer_specialty, row.assigned_mines);
   const identitySettings = await loadIdentitySettings();
 
   // از همین لحظه (بعد از تایید نقش، قبل از هر صفحه‌ای که ممکن است عکس/GPS بخواهد) GPS را
