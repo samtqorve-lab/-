@@ -39,6 +39,10 @@ const NAV_ITEMS = [
     hideForDept: ['صنعت', 'اصناف'],
   },
   { tab: 'boundaryMonitor', label: 'پایش مرزی', icon: '🛰️', hideForDept: 'اصناف' },
+  // ساعات ورود/خروج مسئولین فنی/ایمنی/بهداشت از محدوده‌ی معدن (geofence خودکار GPS اپ مسئول
+  // فنی) — بر اساس mine_presence_sessions در Supabase. برای هیچ بخشی مخفی نشده چون همه‌ی
+  // بخش‌ها (نه فقط معدن) می‌توانند مسئول فنی داشته باشند.
+  { tab: 'presenceReport', label: 'ساعات حضور در معدن', icon: '⏱' },
   { tab: 'users', label: 'کاربران', icon: '◐' },
   { tab: 'audit', label: 'تاریخچه تغییرات', icon: '📜' },
   { tab: 'mySettings', label: 'تنظیمات من', icon: '⚙' },
