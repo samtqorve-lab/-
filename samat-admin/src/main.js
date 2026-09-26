@@ -29,6 +29,7 @@ const LAZY_RENDERERS = {
   users: () => import('./modules/users/users.js').then((m) => m.renderUsers),
   audit: () => import('./modules/audit/auditLog.js').then((m) => m.renderAuditLog),
   boundaryMonitor: () => import('./modules/map/boundaryMonitor.js').then((m) => m.renderBoundaryMonitor),
+  presenceReport: () => import('./modules/presence/minePresenceReport.js').then((m) => m.renderMinePresenceReport),
   mySettings: () => import('./modules/settings/mySettings.js').then((m) => m.renderMySettings),
   satelliteMonitor: () => import('./modules/map/satelliteMonitorPage.js').then((m) => m.renderSatelliteMonitor),
   terrain3d: () => import('./modules/map/terrain3dPage.js').then((m) => m.renderTerrain3D),
