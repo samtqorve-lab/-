@@ -1,18 +1,16 @@
 import { sb } from './supabase.js';
 import { onGpsUpdate, isInsideMineBoundary } from './geo.js';
+import { startBackgroundGeofenceWatcher, stopBackgroundGeofenceWatcher } from './backgroundGeofence.js';
 import { queueOfflineSubmission, newQueueId, isLikelyNetworkError, registerSender } from './offlineQueue.js';
 
 // ─ ردیابی ورود/خروج مسئول فنی/ایمنی/بهداشت از محدوده‌ی معدن‌های اختصاصی‌اش: هر تعویض وضعیت در
 // جدول mine_presence_events ثبت می‌شود (برای گزارش ساعات حضور در پنل ادمین) و همزمان یک اعلان
 // فوری (Push/تلگرام/...) از طریق notify-relay به ادمین‌ها می‌رود.
 //
-// محدودیت صادقانه: این یک ناظر داخل خودِ اپ وب است، سوار بر همان GPS مشترک lib/geo.js — نه یک
-// سرویس geofencing واقعی سیستم‌عامل. یعنی فقط تا وقتی پردازه‌ی اپ زنده است (باز، یا در پس‌زمینه‌ی
-// نزدیک روی اندروید که Capacitor پردازه را نگه می‌دارد) کار می‌کند؛ اگر اپ کاملاً از حافظه پاک شود
-// یا گوشی خاموش شود، هیچ رویدادی تا باز شدن دوباره‌ی اپ ثبت نخواهد شد. برای geofencing واقعی در
-// پس‌زمینه‌ی کامل، به یک پلاگین بومی (مثل background-geolocation) نیاز است که هنوز به این پروژه
-// اضافه نشده — README را برای این محدودیت به‌روزرسانی کنید اگر بعداً اضافه شد.
-
+// دو منبع GPS همزمان تغذیه می‌کنند: ناظر معمولی lib/geo.js (فقط تا وقتی پردازه‌ی اپ زنده است) و
+// lib/backgroundGeofence.js (پلاگین بومی سرویس foreground اندروید — حتی وقتی اپ کامل از حافظه پاک
+// شده). هر دو دقیقاً همین handleCoords را صدا می‌زنند، پس تشخیص ورود/خروج (و جلوگیری از ثبت
+// تکراری، از طریق getLastState/setLastState در localStorage) برای هر دو یکسان است.
 const STATE_KEY_PREFIX = 'tor_mine_presence_v1_';
 let unsubscribe = null;
 let currentCtx = null; // { email, mines, nameField, department }
@@ -40,6 +38,9 @@ async function notifyAdmin(eventType, mineName, occurredAt, durationMinutes) {
     const { data: sessionData } = await sb.auth.getSession();
     const jwt = sessionData && sessionData.session ? sessionData.session.access_token : null;
     if (!jwt) return;
+    // نکته: اگر این تابع در پس‌زمینه (بعد از ۵ دقیقه) صدا زده شود، ممکن است اندروید همین fetch
+    // خام WebView را کند/محدود کند — تاخیر در رسیدن اعلان فوری به ادمین را باید در نظر داشت،
+    // ولی خودِ ثبت رویداد (بالاتر) مستقل از این fetch و قبلاً انجام/صف شده است.
     await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/notify-relay`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
@@ -95,9 +96,13 @@ function handleCoords(coords) {
 export function startMineGeofenceWatcher({ email, mines, nameField, department }) {
   currentCtx = { email, mines, nameField, department };
   if (!unsubscribe) unsubscribe = onGpsUpdate(handleCoords);
+  // بی‌صدا رد می‌شود اگر پلاگین نصب/sync نشده باشد یا در وب اجرا شود — ناظر بالا (onGpsUpdate)
+  // به‌تنهایی همان پوشش قبلی (وقتی اپ باز/تازه‌پس‌زمینه است) را می‌دهد.
+  startBackgroundGeofenceWatcher(handleCoords).catch(() => {});
 }
 
 export function stopMineGeofenceWatcher() {
   if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+  stopBackgroundGeofenceWatcher().catch(() => {});
   currentCtx = null;
 }
