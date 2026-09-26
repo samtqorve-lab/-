@@ -208,10 +208,15 @@ export async function uploadPhotos({
 
 /** خروجی‌های قابل دریافت یک کار و نوع فایل هرکدام */
 export const ASSET_INFO = {
-  'model.glb': { label: 'مدل سه‌بعدی', mime: 'model/gltf-binary', file: 'model3d.glb' },
+  'model.glb': { label: 'مدل سه‌بعدی (کیفیت کامل)', mime: 'model/gltf-binary', file: 'model3d.glb' },
+  'model_lod1.glb': { label: 'مدل سه‌بعدی (سبک، ۳۵٪ مثلث)', mime: 'model/gltf-binary', file: 'model3d-lod1.glb' },
+  'model_lod2.glb': { label: 'مدل سه‌بعدی (بسیار سبک، ۱۰٪ مثلث)', mime: 'model/gltf-binary', file: 'model3d-lod2.glb' },
   'dsm.tif': { label: 'DSM (مدل ارتفاعی)', mime: 'image/tiff', file: 'dsm.tif' },
   'ortho.tif': { label: 'اورتوفوتو', mime: 'image/tiff', file: 'orthophoto.tif' },
   'stats.json': { label: 'گزارش دقت', mime: 'application/json', file: 'stats.json' },
+  'pointcloud.laz': { label: 'ابر نقاط (LAZ)', mime: 'application/octet-stream', file: 'pointcloud.laz' },
+  'contours.dxf': { label: 'خطوط تراز (DXF)', mime: 'application/dxf', file: 'contours.dxf' },
+  'report.pdf': { label: 'گزارش دقت/حجم (PDF)', mime: 'application/pdf', file: 'report.pdf' },
 };
 
 /** یکی از خروجی‌های آماده را از GitHub (از طریق Edge Function) می‌گیرد و در همین دستگاه رمزگشایی می‌کند. */
