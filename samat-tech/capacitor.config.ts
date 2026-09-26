@@ -13,6 +13,9 @@ const config: CapacitorConfig = {
   },
   android: {
     allowMixedContent: false,
+    // بدون این، طبق مستندات خودِ @capacitor-community/background-geolocation، دریافت موقعیت
+    // مکانی در پس‌زمینه بعد از ۵ دقیقه متوقف می‌شود (https://github.com/capacitor-community/background-geolocation/issues/89).
+    useLegacyBridge: true,
   },
 };
 
