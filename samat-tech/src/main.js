@@ -16,6 +16,7 @@ import { mountStaffFieldPicker } from './modules/shell/staffFieldPicker.js';
 import { checkIdentityGate, loadIdentitySettings, submitIdentityVerification } from './lib/identity.js';
 import { registerSender, initOfflineQueueWatcher } from './lib/offlineQueue.js';
 import { startManagedGpsPrewarm, stopGpsPrewarm, getOrCreateDeviceId } from './lib/geo.js';
+import { startMineGeofenceWatcher, stopMineGeofenceWatcher } from './lib/mineGeofence.js';
 import { mountOfflineBadge } from './modules/shell/offlineBadge.js';
 import { mountUpdateBadge } from './modules/shell/updateBadge.js';
 import { mountOnboarding, shouldShowOnboarding } from './modules/shell/onboarding.js';
@@ -52,6 +53,7 @@ import('@capacitor/core').then(({ Capacitor }) => {
 
 function logoutAndReload() {
   stopGpsPrewarm();
+  stopMineGeofenceWatcher();
   sb.auth.signOut().then(() => window.location.reload());
 }
 
@@ -162,6 +164,12 @@ async function boot() {
   // پیش‌گرم می‌کنیم — چه کاربر برود سراغ صفحه‌ی احراز هویت، چه مستقیم به پنل اصلی برسد، دیگر از صفر
   // منتظر «لود شدن» GPS نمی‌ماند.
   startManagedGpsPrewarm();
+
+  // ناظر ورود/خروج محدوده‌ی معدن (geofence) هم از همین لحظه روشن می‌شود — مستقل از این‌که کاربر
+  // در ادامه برود سراغ صفحه‌ی احراز هویت یا مستقیم به پنل برسد؛ چون هدف ثبت واقعیِ حضور فیزیکی در
+  // معدن است، نه فقط زمانی که پنل باز است.
+  const geofenceMeta = specialtyMeta(row.tech_officer_specialty || 'استخراج');
+  startMineGeofenceWatcher({ email, mines, nameField: geofenceMeta.nameField, department: geofenceMeta.dept });
 
   // هر روش ورود (کد پرسنلی/رمز یا گوگل) فقط از «گوشی مورداعتماد» (trusted_device_id، همان گوشیی
   // که آخرین بار عکس احراز هویتش روی آن تایید شده) باید مجاز باشد — روی هر گوشی دیگری (با هر روش ورودی)
