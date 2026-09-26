@@ -4,4 +4,9 @@
     <string name="title_activity_main">سامانه مسئول فنی و ایمنی</string>
     <string name="package_name">ir.novinproduct.samattech</string>
     <string name="custom_url_scheme">ir.novinproduct.samattech</string>
+
+    <!-- @capacitor-community/background-geolocation: نام کانال نوتیفیکیشن دائمی که اندروید موقع
+         ردیابی موقعیت مکانی در پس‌زمینه نشان می‌دهد (وقتی کاربر روی نوتیفیکیشن نگه می‌دارد دیده
+         می‌شود). خودِ متن نوتیفیکیشن (عنوان/توضیح) از lib/backgroundGeofence.js می‌آید. -->
+    <string name="capacitor_background_geolocation_notification_channel_name">ثبت حضور در معدن</string>
 </resources>
