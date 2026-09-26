@@ -20,23 +20,49 @@ const STATUS = {
   failed: { label: 'ناموفق', color: 'var(--rust-700)' },
 };
 const GEOREF_LABEL = { exif: 'GPS معمولی', geo: 'PPK/RTK', gcp: 'GCP' };
-const ASSET_SHORT = { 'dsm.tif': 'DSM', 'ortho.tif': 'اورتوفوتو', 'stats.json': 'گزارش' };
+const ASSET_SHORT = {
+  'dsm.tif': 'DSM', 'ortho.tif': 'اورتوفوتو', 'stats.json': 'گزارش',
+  'pointcloud.laz': 'ابرنقاط', 'contours.dxf': 'تراز DXF', 'report.pdf': 'PDF',
+};
 const POLL_MS = 30_000;
+
+const PREFLIGHT_ITEMS = [
+  'باتری‌ها شارژ و پروانه‌ها سالم و بدون آسیب است',
+  'GPS/موقعیت‌یاب پهباد قفل شده (یا RTK/GCP آماده است)',
+  'مسیر پرواز با هم‌پوشانی حداقل ۷۰٪ برنامه‌ریزی شده',
+  'وضعیت هوا (باد، بارش، دید) برای پرواز مناسب است',
+  'مجوز/هماهنگی لازم برای پرواز در این منطقه گرفته شده',
+];
 
 function fmtWhen(iso) {
   try { return new Date(iso).toLocaleString('fa-IR'); } catch { return ''; }
 }
 
-/** خطای ODM (متر) را به سانتی‌متر نشان می‌دهد؛ فقط اگر عددهای x,y,z موجود باشند */
+const fmtNum = (n) => (typeof n === 'number' ? n.toLocaleString('fa-IR', { maximumFractionDigits: 1 }) : '—');
+
+/** خطای ODM (متر) را به سانتی‌متر نشان می‌دهد، به‌همراه حجم و تغییر (از samat-3d) اگر موجود باشد */
 function summaryText(j) {
   const s = j.summary;
   if (!s) return '';
+  const lines = [];
   const fmt = (e) => (e && ['x', 'y', 'z'].every((k) => typeof e[k] === 'number')
     ? `X ${(e.x * 100).toFixed(1)} · Y ${(e.y * 100).toFixed(1)} · Z ${(e.z * 100).toFixed(1)} سانتی‌متر` : '');
   const g = fmt(s.gcp_errors && s.gcp_errors.error);
-  if (g) return `خطای نقاط کنترل: ${g}`;
-  const p = fmt(s.gps_errors && s.gps_errors.error);
-  return p ? `خطای موقعیت GPS: ${p}` : '';
+  if (g) lines.push(`خطای نقاط کنترل: ${g}`);
+  else {
+    const p = fmt(s.gps_errors && s.gps_errors.error);
+    if (p) lines.push(`خطای موقعیت GPS: ${p}`);
+  }
+  if (s.volume) {
+    const v = s.volume;
+    lines.push(`حجم — برداشت ${fmtNum(v.cut_m3)} · افزوده ${fmtNum(v.fill_m3)} · خالص ${fmtNum(v.net_change_m3)} م³`);
+  }
+  if (s.change) {
+    const c = s.change;
+    lines.push(`تغییر نسبت به قبل — برداشت ${fmtNum(c.cut_m3)} · افزوده ${fmtNum(c.fill_m3)} م³`);
+  }
+  if (s.warnings && s.warnings.length) lines.push(`⚠️ ${s.warnings.length} هشدار سازگاری هنگام ادغام`);
+  return lines.join(' — ');
 }
 
 export function openModel3dModal(mine, nameField) {
@@ -47,6 +73,8 @@ export function openModel3dModal(mine, nameField) {
   let busy = false;
   let files = [];
   let pollTimer = null;
+  const preflightChecks = PREFLIGHT_ITEMS.map(() => false);
+  const preflightDone = () => preflightChecks.every(Boolean);
 
   const jobsBox = el('div', { style: 'margin-top:8px' });
   const errBox = el('div', { class: 'gate-err' });
@@ -60,7 +88,16 @@ export function openModel3dModal(mine, nameField) {
   const progressBar = el('progress', { max: '100', value: '0', style: 'width:100%;display:none' });
   const panel = createOptionsPanel({ onChange: () => refresh() });
 
-  /** وضعیت دکمه‌ها را با انتخاب عکس‌ها، تنظیمات پنل و مشغول‌بودن هماهنگ می‌کند */
+  const preflightBox = el('div', { style: 'margin-top:10px;padding:8px;border:1px solid var(--stone-200);border-radius:8px' }, [
+    el('div', { style: 'font-weight:700;font-size:11px;margin-bottom:6px;color:var(--ink-700)' }, '✅ چک‌لیست پیش از پرواز'),
+    ...PREFLIGHT_ITEMS.map((label, i) => {
+      const cb = el('input', { type: 'checkbox', style: 'margin-inline-end:6px' });
+      cb.addEventListener('change', () => { preflightChecks[i] = cb.checked; refresh(); });
+      return el('label', { style: 'display:flex;align-items:center;gap:6px;font-size:11px;color:var(--stone-600);padding:2px 0;cursor:pointer' }, [cb, label]);
+    }),
+  ]);
+
+  /** وضعیت دکمه‌ها را با انتخاب عکس‌ها، تنظیمات پنل، چک‌لیست پیش‌پرواز و مشغول‌بودن هماهنگ می‌کند */
   function refresh() {
     const check = panel.render(files.map((f) => f.name));
     const locked = panel.forcesOriginalSize();
@@ -69,7 +106,7 @@ export function openModel3dModal(mine, nameField) {
     qualitySelect.disabled = busy || locked;
     pickBtn.disabled = busy;
     panel.setDisabled(busy);
-    startBtn.disabled = busy || files.length < MIN_PHOTOS || !check.ok;
+    startBtn.disabled = busy || files.length < MIN_PHOTOS || !check.ok || !preflightDone();
   }
 
   function setBusy(v) {
@@ -110,10 +147,24 @@ export function openModel3dModal(mine, nameField) {
     const actions = [];
     const assets = j.assets && j.assets.length ? j.assets : ['model.glb'];
     if (j.status === 'done') {
-      if (assets.includes('model.glb')) actions.push(assetButton(j, 'model.glb', '⬇️ مدل', 'background:var(--patina-700);color:#fff'));
-      ['dsm.tif', 'stats.json', 'ortho.tif'].filter((a) => assets.includes(a)).forEach((a) => {
-        actions.push(assetButton(j, a, `⬇️ ${ASSET_SHORT[a]}`, 'background:var(--stone-200);color:var(--ink-700)'));
-      });
+      if (assets.includes('model.glb')) {
+        const view = el('button', { class: 'btn-sm', style: 'background:var(--ink-700);color:#fff' }, '👁 مشاهده');
+        view.addEventListener('click', async () => {
+          view.disabled = true; view.textContent = '⏳ در حال دریافت...';
+          try {
+            const blob = await downloadModel(j.jobId);
+            const { openModel3dViewer } = await import('../../lib/model3dViewer.js');
+            openModel3dViewer(blob, { title: `${mineName} — ${fmtWhen(j.createdAt)}`, summary: j.summary });
+          } catch (err) { errBox.textContent = err.message; }
+          view.disabled = false; view.textContent = '👁 مشاهده';
+        });
+        actions.push(view);
+        actions.push(assetButton(j, 'model.glb', '⬇️ مدل', 'background:var(--patina-700);color:#fff'));
+      }
+      ['dsm.tif', 'stats.json', 'ortho.tif', 'pointcloud.laz', 'contours.dxf', 'report.pdf']
+        .filter((a) => assets.includes(a)).forEach((a) => {
+          actions.push(assetButton(j, a, `⬇️ ${ASSET_SHORT[a]}`, 'background:var(--stone-200);color:var(--ink-700)'));
+        });
     }
     if (j.status === 'failed') {
       const retry = el('button', { class: 'btn-sm', style: 'background:var(--stone-200);color:var(--ink-700)' }, '🔁 تلاش مجدد');
@@ -176,14 +227,14 @@ export function openModel3dModal(mine, nameField) {
       files = [];
     }
     summary.textContent = files.length ? `${files.length} عکس انتخاب شد (${mb.toFixed(0)} مگابایت)` : '';
-    if (files.length && files.length < MIN_PHOTOS) errBox.textContent = `حداقل ${MIN_PHOTOS} عکس لازم است (برای مدل خوب معمولاً ده‌ها عکس با هم‌پوشانی ۷۰٪)`;
+    if (files.length && files.length < MIN_PHOTOS) errBox.textContent = `حداقل ${MIN_PHOTOS} عکس لازم است (برای مدل خوب معمولاً دهها عکس با هم‌پوشانی ۷۰٪)`;
     refresh();
   });
   pickBtn.addEventListener('click', () => fileInput.click());
 
   startBtn.addEventListener('click', async () => {
     errBox.textContent = '';
-    if (files.length < MIN_PHOTOS || !panel.render(files.map((f) => f.name)).ok) return;
+    if (files.length < MIN_PHOTOS || !panel.render(files.map((f) => f.name)).ok || !preflightDone()) return;
     const settings = panel.getSettings();
     const quality = QUALITY_OPTIONS.find((q) => q.id === qualitySelect.value) || QUALITY_OPTIONS[0];
     setBusy(true);
@@ -210,6 +261,8 @@ export function openModel3dModal(mine, nameField) {
       showToast('✅ پردازش شروع شد — چند دقیقه تا چند ساعت طول می‌کشد');
       files = [];
       summary.textContent = '';
+      preflightChecks.fill(false);
+      [...preflightBox.querySelectorAll('input[type=checkbox]')].forEach((cb) => { cb.checked = false; });
       if (isOpen()) setProgress('پردازش شروع شد. می‌توانید این صفحه را ببندید و بعداً برگردید.', null);
     } catch (err) {
       if (err.message !== 'CANCELLED' && isOpen()) {
@@ -226,6 +279,7 @@ export function openModel3dModal(mine, nameField) {
     pickBtn, fileInput, summary,
     panel.node,
     el('label', { style: 'margin-top:10px;display:block' }, 'کیفیت عکس برای آپلود'), qualitySelect, qualityNote,
+    preflightBox,
     errBox, startBtn, progressText, progressBar,
     el('h4', { style: 'margin-top:16px;font-size:var(--text-sm);color:var(--ink-700)' }, 'مدل‌های این معدن'),
     jobsBox,
