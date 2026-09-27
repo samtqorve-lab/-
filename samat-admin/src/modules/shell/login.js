@@ -5,6 +5,7 @@ import {
 } from '../../lib/auth.js';
 import { isPushLoginEnabled, requestPushApproval, verifyFallbackCode } from '../../lib/pushLogin.js';
 import { autoEnableBiometricAfterLogin } from '../../lib/biometric.js';
+import { friendlyError } from '../../lib/utils.js';
 
 export function mountLogin(root, onSuccess) {
   root.innerHTML = '';
@@ -174,7 +175,9 @@ export function mountLogin(root, onSuccess) {
         await signInWithGoogle();
         onSuccess(); // فقط در حالت اندروید به اینجا می‌رسد؛ در وب/دسکتاپ صفحه ریدایری می‌شود
       } catch (err) {
-        if (!err.userCancelled) errBox.textContent = err.message || 'خطا در ورود با گوگل';
+        // قبلاً متن خام خطای GoTrue (مثل «invalid flow state, no valid flow state found») مستقیم
+        // نشان داده می‌شد — حالا مثل بقیه‌ی فرم‌ها از friendlyError استفاده می‌کنیم.
+        if (!err.userCancelled) errBox.textContent = friendlyError(err);
       } finally {
         googleBtn.disabled = false;
         googleBtn.textContent = originalLabel;
@@ -230,7 +233,11 @@ export function mountLogin(root, onSuccess) {
           }
           draw();
         } catch (err) {
-          errBox.textContent = err.message?.includes('already registered') ? 'این ایمیل قبلاً ثبت شده است' : (err.message || 'خطا در ثبت‌نام');
+          // قبلاً فقط یک حالت خاص («already registered») دستی چک می‌شد؛ حالتی که Supabase برای
+          // ایمیل از قبل تاییدشده هیچ خطایی برنمی‌گرداند (نگاه کنید به auth.js:signUp) از اینجا
+          // اصلاً رد نمی‌شد، بلکه از مسیر موفقیت (needsEmailConfirm) با پیام درست throw می‌شود —
+          // پس friendlyError همان‌جا هم برای بقیه‌ی خطاهای فنی احتمالی به کار می‌آید.
+          errBox.textContent = friendlyError(err);
         } finally {
           submitBtn.disabled = false;
           submitBtn.textContent = 'ثبت‌نام';
