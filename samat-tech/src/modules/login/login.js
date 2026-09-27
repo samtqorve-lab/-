@@ -204,7 +204,10 @@ export function mountLogin(root, onSuccess) {
         sessionStorage.setItem('samat_google_login', '1');
         onSuccess(); // فقط در حالت اندروید به اینجا می‌رسد؛ در وب صفحه ریدایری می‌شود
       } catch (err) {
-        if (!err.userCancelled) errBox.textContent = err.message || 'خطا در ورود با گوگل';
+        // قبلاً متن خام خطای GoTrue (مثل «invalid flow state, no valid flow state found») مستقیم
+        // نشان داده می‌شد — کاربر معمولی نمی‌فهمید یعنی چه و فکر می‌کرد ورود با رمز خراب است.
+        // حالا مثل بقیه‌ی فرم‌ها از friendlyError (که این پیام را هم می‌شناسد) استفاده می‌کنیم.
+        if (!err.userCancelled) errBox.textContent = friendlyError(err);
       } finally {
         googleBtn.disabled = false;
         googleBtn.textContent = originalLabel;
