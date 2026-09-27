@@ -79,6 +79,15 @@ dependencies {
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')
+    // PushLoginMessagingService.java (این ماژول app) از com.capacitorjs.plugins.pushnotifications.MessagingService
+    // ارث‌بری می‌کند که خودش از com.google.firebase.messaging.FirebaseMessagingService ارث‌بری می‌کند. پلاگین
+    // push-notifications این وابستگی را با implementation (نه api) اعلام کرده، یعنی در زمان اجرا داخل APK نهایی
+    // هست، اما در classpath کامپایل همین ماژول app در دسترس نیست — دقیقاً همین چیزی که باعث خطاهای
+    // «cannot access FirebaseMessagingService» / «PushLoginMessagingService cannot be converted to Context» در
+    // build-android.yml می‌شد (از وقتی این فایل در 18 شهریور اضافه شد، هیچ بیلد اندرویدی موفق نشده بود). با
+    // اعلام مستقیم همین وابستگی اینجا هم، کلاس برای کامپایل کد جاوای این ماژول در دسترس قرار می‌گیرد.
+    implementation platform('com.google.firebase:firebase-bom:34.18.0')
+    implementation 'com.google.firebase:firebase-messaging'
 }
 
 apply from: 'capacitor.build.gradle'
