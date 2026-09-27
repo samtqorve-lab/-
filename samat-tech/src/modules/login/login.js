@@ -4,7 +4,7 @@ import {
   signInWithGoogle, callPublicLookup,
 } from '../../lib/auth.js';
 import { isPushLoginEnabled, requestPushApproval, verifyFallbackCode } from '../../lib/pushLogin.js';
-import { friendlyError } from '../../lib/utils.js';
+import { friendlyError, toEnDigits } from '../../lib/utils.js';
 import { autoEnableBiometricAfterLogin } from '../../lib/biometric.js';
 
 const MESSENGER_HINTS = {
@@ -264,7 +264,14 @@ export function mountLogin(root, onSuccess) {
     let lastLookedUpNo = null;
     let membershipVerified = false;
     f.membership_no.addEventListener('blur', async () => {
-      const no = parseInt(f.membership_no.value.trim(), 10);
+      // کیبورد پیش‌فرض روی اکثر گوشی‌ها فارسی است، پس ورودی این فیلد اغلب با ارقام فارسی/عربی
+      // (۰-۹ / ٠-٩) تایپ می‌شود. parseInt روی این ارقام مستقیماً NaN برمی‌گرداند (نه خطا، فقط
+      // بی‌صدا شکست می‌خورد)، پس بدون این تبدیل، جست‌وجوی خودکار برای اکثر کاربران اصلاً اجرا
+      // نمی‌شد و نام/تلفن هیچ‌وقت پر نمی‌شد. مقدار فیلد را هم با نسخه‌ی نرمال‌شده جایگزین می‌کنیم
+      // تا چیزی که در ثبت‌نام (membership_no) ذخیره می‌شود هم همیشه با ارقام انگلیسی یکدست باشد.
+      const cleaned = toEnDigits(f.membership_no.value.trim());
+      if (cleaned !== f.membership_no.value) f.membership_no.value = cleaned;
+      const no = parseInt(cleaned, 10);
       if (!Number.isFinite(no) || no === lastLookedUpNo) return;
       lastLookedUpNo = no;
       memberLookupHint.textContent = '⏳ در حال جست‌وجو در فهرست اعضای نظام مهندسی...';
@@ -316,7 +323,7 @@ export function mountLogin(root, onSuccess) {
         const result = await signUp({
           email: f.email.value.trim(), password: f.pass.value,
           full_name: f.full_name.value.trim(), phone: f.phone.value.trim(), national_code: f.national_code.value.trim(),
-          membership_no: f.membership_no.value.trim(), license_no: f.license_no.value.trim(),
+          membership_no: toEnDigits(f.membership_no.value.trim()), license_no: f.license_no.value.trim(),
           requested_mine_name: f.mine_name.value.trim(), contract_no: f.contract_no.value.trim(),
           tech_officer_specialty: f.specialty.value, preferred_messenger: f.messenger.value, messenger_chat_id: f.messenger_chat_id.value.trim(),
           membership_verified: membershipVerified,
