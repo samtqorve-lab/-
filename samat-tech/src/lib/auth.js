@@ -98,11 +98,26 @@ async function runGoogleNativeFlow() {
   const { Browser } = await import('@capacitor/browser');
   const { App } = await import('@capacitor/app');
 
+  // قبل از باز کردن تب تازه، هر تب مرورگری که از یک تلاش قبلی (که فکر می‌کردیم با «browserFinished»
+  // کنسل‌شده، ولی طبق کامنت پایین‌تر این رویداد قابل‌اعتماد نیست) شاید هنوز واقعاً باز مانده باشد
+  // را می‌بندیم — تا کاربر هیچ‌وقت نتواند به یک تب قدیمی و رهاشده برگردد و آن را تکمیل کند.
+  await Browser.close().catch(() => {});
+
   const { data, error } = await sb.auth.signInWithOAuth({
     provider: 'google',
     options: { redirectTo: NATIVE_REDIRECT, skipBrowserRedirect: true },
   });
   if (error) throw error;
+
+  // هر تلاش یک «state» یک‌بارمصرف و مخصوص خودش دارد (همان چیزی که Supabase در data.url گذاشته).
+  // رفع قبلی (بالا) فقط جلوی چند listener هم‌زمان روی یک تلاش را می‌گرفت — اما اگر یک تب مرورگر
+  // قدیمیِ یک تلاش رهاشده (که ظاهراً کنسل شده بود ولی واقعاً هنوز باز بود) دیرتر به نتیجه برسد،
+  // این deep link با state تلاش قبلی می‌رسد در حالی که code_verifier ذخیره‌شده الان مال همین تلاش
+  // تازه است (signInWithOAuth بالا آن را رونویسی کرده) — exchangeCodeForSession با این ناهم‌خوانی
+  // همیشه «invalid flow state» می‌داد، حتی بعد از رفع اول. با این چک، آن deep link قدیمی نادیده
+  // گرفته می‌شود (نه fail و نه exchange) و فقط deep link واقعی همین تلاش پردازش می‌شود.
+  let expectedState = null;
+  try { expectedState = new URL(data.url).searchParams.get('state'); } catch { /* اگر پارس نشد، چک را رد می‌کنیم نه اینکه کل ورود را بشکنیم */ }
 
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -131,6 +146,11 @@ async function runGoogleNativeFlow() {
       // دوبار با همان code یک‌بارمصرف صدا زده شود (که دومی حتماً با «invalid flow state» رد
       // می‌شود).
       if (settled) return;
+      // این deep link مال یک تلاش دیگر (قدیمی/رهاشده) است — نادیده می‌گیریم، بدون fail کردن تلاش
+      // فعلی و بدون صدا زدن exchangeCodeForSession با یک code/state ناهم‌خوان.
+      let incomingState = null;
+      try { incomingState = new URL(url).searchParams.get('state'); } catch { /* نادیده */ }
+      if (expectedState && incomingState && incomingState !== expectedState) return;
       cleanup();
       try {
         const { data: sessionData, error: exErr } = await sb.auth.exchangeCodeForSession(url);
