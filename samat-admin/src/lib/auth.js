@@ -1,4 +1,5 @@
 import { sb } from './supabase.js';
+import { toEnDigits } from './utils.js';
 
 /** @typedef {{ email: string, role: string, full_name?: string, department?: string, personnel_code?: string }} UserRoleRow */
 
@@ -45,7 +46,11 @@ async function callPublicLookup(action, params) {
 }
 
 export async function emailForPersonnelCode(personnelCode) {
-  const code = (personnelCode || '').trim();
+  // کیبورد پیش‌فرض روی اکثر گوشی‌ها فارسی است و کدهای پرسنلی معمولاً عددی‌اند؛ اگر با ارقام
+  // فارسی/عربی (۰-۹ / ٠-٩) تایپ شود، مقایسه‌ی متنی دقیق در RPC هیچ‌وقت با کد ذخیره‌شده (که با
+  // ارقام انگلیسی ثبت شده) تطبیق پیدا نمی‌کند — بدون خطا، فقط بی‌صدا «یافت نشد» برمی‌گرداند. قبل
+  // از جست‌وجو و ثبت، همیشه به ارقام انگلیسی نرمال می‌کنیم (دقیقاً مثل شماره عضویت در samat-tech).
+  const code = toEnDigits((personnelCode || '').trim());
   if (!code) return null;
   return (await callPublicLookup('getEmailByPersonnelCode', { code })) || null;
 }
@@ -88,15 +93,48 @@ export async function signInWithGoogle() {
   // در حالت وب/دسکتاپ، همین پنجره به گوگل ریدایرکت می‌شود — بعد از این خط کدی اجرا نمی‌شود.
 }
 
+// اگر یک تلاش قبلی هنوز settle نشده، اجازه‌ی شروع تلاش تازه را نمی‌دهیم — دقیقاً همان رفعی که در
+// samat-tech انجام شد: بدون این قفل، هر تلاش تازه یک App.addListener('appUrlOpen', ...) مستقل
+// ثبت می‌کرد که اگر تلاش قبلی هرگز settle نشده بود، هیچ‌وقت remove نمی‌شد و وقتی ریدایرکت واقعی
+// گوگل بالاخره می‌رسید، همه‌ی listenerهای انباشته‌شده مستقل exchangeCodeForSession را با همان
+// code یک‌بارمصرف صدا می‌زدند — اولی موفق می‌شد، بقیه دقیقاً با «invalid flow state» شکست
+// می‌خوردند.
+let googleNativeSignInInFlight = false;
+
 async function signInWithGoogleNative() {
+  if (googleNativeSignInInFlight) {
+    throw new Error('یک تلاش ورود با گوگل از قبل در حال انجام است — چند لحظه صبر کنید یا اپ را ببندید و دوباره باز کنید');
+  }
+  googleNativeSignInInFlight = true;
+  try {
+    return await runGoogleNativeFlow();
+  } finally {
+    googleNativeSignInInFlight = false;
+  }
+}
+
+async function runGoogleNativeFlow() {
   const { Browser } = await import('@capacitor/browser');
   const { App } = await import('@capacitor/app');
+
+  // قبل از باز کردن تب تازه، هر تب مرورگری که از یک تلاش قبلی (که فکر می‌کردیم با «browserFinished»
+  // کنسل‌شده، ولی این تشخیص طبق کامنت پایین‌تر قابل‌اعتماد نیست) شاید هنوز واقعاً باز مانده باشد
+  // را می‌بندیم — تا کاربر هیچ‌وقت نتواند به یک تب قدیمی و رهاشده برگردد و آن را تکمیل کند.
+  await Browser.close().catch(() => {});
 
   const { data, error } = await sb.auth.signInWithOAuth({
     provider: 'google',
     options: { redirectTo: NATIVE_REDIRECT, skipBrowserRedirect: true },
   });
   if (error) throw error;
+
+  // هر تلاش یک «state» یک‌بارمصرف و مخصوص خودش دارد (همان چیزی که Supabase در data.url گذاشته).
+  // بستنِ بالا فقط جلوی تکمیل یک تب رهاشده را می‌گیرد؛ اگر با این حال یک deep link با state تلاش
+  // قدیمی برسد در حالی که code_verifier ذخیره‌شده الان مال همین تلاش تازه است، این چک آن را
+  // بی‌صدا نادیده می‌گیرد (نه fail، نه exchange با ترکیب ناهم‌خوان) به‌جای اینکه با «invalid flow
+  // state» شکست بخورد.
+  let expectedState = null;
+  try { expectedState = new URL(data.url).searchParams.get('state'); } catch { /* اگر پارس نشد، چک را رد می‌کنیم نه اینکه کل ورود را بشکنیم */ }
 
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -119,6 +157,11 @@ async function signInWithGoogleNative() {
 
     App.addListener('appUrlOpen', async ({ url }) => {
       if (!url.startsWith(NATIVE_REDIRECT)) return;
+      if (settled) return;
+      let incomingState = null;
+      try { incomingState = new URL(url).searchParams.get('state'); } catch { /* نادیده */ }
+      if (expectedState && incomingState && incomingState !== expectedState) return;
+      cleanup();
       try {
         const { data: sessionData, error: exErr } = await sb.auth.exchangeCodeForSession(url);
         if (exErr) throw exErr;
@@ -152,10 +195,23 @@ export async function signUp({
   email, password, full_name, phone, personnel_code,
 }) {
   const { data, error } = await sb.auth.signUp({
-    email, password,
-    options: { data: { full_name, phone, personnel_code } },
+    email,
+    password,
+    // کد پرسنلی هم مثل شماره عضویت در samat-tech قبل از ذخیره به ارقام انگلیسی نرمال می‌شود، تا
+    // چیزی که در ورود با آن مقایسه می‌شود همیشه یکدست باشد.
+    options: { data: { full_name, phone, personnel_code: toEnDigits(personnel_code) } },
   });
   if (error) throw error;
+  // Supabase برای جلوگیری از افشای این‌که یک ایمیل قبلاً ثبت‌نام و تایید شده یا نه (User
+  // Enumeration Protection)، در این حالت نه خطا برمی‌گرداند و نه واقعاً ایمیلی می‌فرستد — فقط یک
+  // پاسخ ظاهراً موفق و بدون session می‌دهد، دقیقاً مثل یک ثبت‌نام واقعیِ تازه که هنوز تاییدنشده.
+  // قبلاً این دو حالت فقط از روی «session خالیه یا نه» تشخیص داده می‌شد، پس کاربرانی که از قبل
+  // حساب تاییدشده داشتند هم بی‌دلیل به مرحله‌ی «کد تایید» فرستاده می‌شدند — با کدی که هیچ‌وقت
+  // واقعاً فرستاده نشده بود. تنها نشانه‌ی قابل‌اتکای تشخیص این دو حالت از هم، آرایه‌ی identities
+  // است: برای ایمیل از قبل تاییدشده همیشه خالی برمی‌گردد، برای ثبت‌نام واقعیِ تازه پر است.
+  if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+    throw new Error('این ایمیل قبلاً ثبت‌نام و تایید شده — از فرم ورود استفاده کنید یا رمز عبور را بازیابی کنید.');
+  }
   if (!data.session) return { needsEmailConfirm: true };
   await ensureMyRoleRow(data.user);
   await sb.auth.signOut();
@@ -163,7 +219,7 @@ export async function signUp({
 }
 
 export async function confirmSignupCode(email, code) {
-  const { error } = await sb.auth.verifyOtp({ email, token: code.trim(), type: 'signup' });
+  const { error } = await sb.auth.verifyOtp({ email, token: toEnDigits(code.trim()), type: 'signup' });
   if (error) throw new Error('کد نادرست یا منقضی‌شده است — دوباره تلاش کنید یا کد جدید بگیرید');
   const { data: { user } } = await sb.auth.getUser();
   if (user) await ensureMyRoleRow(user);
