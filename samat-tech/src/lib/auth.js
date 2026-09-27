@@ -72,7 +72,29 @@ export async function signInWithGoogle() {
   // در حالت وب، همین پنجره به گوگل ریدایرکت می‌شود — بعد از این خط کدی اجرا نمی‌شود.
 }
 
+// اگر یک تلاش قبلی هنوز settle نشده (succeed/fail صدا زده نشده)، اجازه‌ی شروع تلاش تازه را
+// نمی‌دهیم. قبلاً هر تلاش تازه یک App.addListener('appUrlOpen', ...) جدید و مستقل ثبت می‌کرد؛
+// اگر تلاش قبلی هرگز settle نشده بود (کاربر وسط انتخاب حساب گوگل برگشته، برنامه را background
+// کرده، یا فقط به صفحه‌ی دیگری رفته و برگشته و دوباره زده)، آن listener قدیمی هیچ‌وقت remove
+// نمی‌شد. وقتی ریدایرکت واقعی گوگل بالاخره می‌رسید، همه‌ی listenerهای زنده‌ی انباشته‌شده آن را
+// می‌گرفتند و هرکدام مستقل exchangeCodeForSession(url) را با همان code یک‌بارمصرف صدا می‌زدند —
+// اولی موفق می‌شد و flow state (code_verifier) را روی سرور مصرف می‌کرد، بقیه دقیقاً با
+// «invalid flow state, no valid flow state found» شکست می‌خوردند.
+let googleNativeSignInInFlight = false;
+
 async function signInWithGoogleNative() {
+  if (googleNativeSignInInFlight) {
+    throw new Error('یک تلاش ورود با گوگل از قبل در حال انجام است — چند لحظه صبر کنید یا اپ را ببندید و دوباره باز کنید');
+  }
+  googleNativeSignInInFlight = true;
+  try {
+    return await runGoogleNativeFlow();
+  } finally {
+    googleNativeSignInInFlight = false;
+  }
+}
+
+async function runGoogleNativeFlow() {
   const { Browser } = await import('@capacitor/browser');
   const { App } = await import('@capacitor/app');
 
@@ -103,6 +125,13 @@ async function signInWithGoogleNative() {
 
     App.addListener('appUrlOpen', async ({ url }) => {
       if (!url.startsWith(NATIVE_REDIRECT)) return;
+      // بلافاصله (قبل از هر await) settled را چک و subscriptionها را جدا می‌کنیم — یعنی حتی اگر
+      // همین یک رویداد به هر دلیلی (مثلاً redelivery سطح اندروید روی activityهای singleTask)
+      // بیش از یک‌بار برسد، فقط اولین دریافت پردازش می‌شود؛ نه این‌که exchangeCodeForSession
+      // دوبار با همان code یک‌بارمصرف صدا زده شود (که دومی حتماً با «invalid flow state» رد
+      // می‌شود).
+      if (settled) return;
+      cleanup();
       try {
         const { data: sessionData, error: exErr } = await sb.auth.exchangeCodeForSession(url);
         if (exErr) throw exErr;
@@ -167,7 +196,7 @@ export async function resendSignupCode(email) {
   if (error) throw error;
 }
 
-/** ردیف user_roles با نقش pending را (اگر قبلاً نبوده) می‌سازد و به ادمین‌ها اطلاع می‌دهد — هم
+/** ردیف user_roles را (اگر قبلاً نبوده) می‌سازد و به ادمین‌ها اطلاع می‌دهد — هم
  *  برای ثبت‌نام با رمز، هم برای اولین ورود با گوگل (که signUp جداگانه‌ای ندارد) صدا زده می‌شود. */
 export async function ensureMyRoleRow(user) {
   const email = (user.email || '').toLowerCase();
