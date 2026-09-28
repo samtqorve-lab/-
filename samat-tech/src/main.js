@@ -3,7 +3,6 @@ import './styles/base.css';
 import './styles/components.css';
 
 import { sb } from './lib/supabase.js';
-import { ensureMyRoleRow } from './lib/auth.js';
 import { mountLogin } from './modules/login/login.js';
 import { mountIdentityPending, mountIdentityCapture, mountIdentityQueuedOffline } from './modules/identity/identityGate.js';
 import { mountBiometricGate } from './modules/identity/biometricGate.js';
@@ -98,15 +97,13 @@ async function boot() {
   const { data } = await sb.from('user_roles')
     .select('role, assigned_mines, tech_officer_specialty, identity_status, identity_verified_at, trusted_device_id, full_name, membership_no, national_code, license_no, license_expiry_date, assigned_province, assigned_county, identity_boundary_exempt, requested_mine_name, contract_no, preferred_messenger, messenger_chat_id')
     .eq('email', email).limit(1);
-  const row = (data && data[0]) || await (async () => {
-    // اولین ورود با گوگل: هنوز ردیفی در user_roles نیست (بر خلاف ثبت‌نام با رمز که موقع
-    // signUp ساخته می‌شود) — همین‌جا ساخته می‌شود تا در تب «کاربران» پنل ادمین دیده شود و سوپرادمین
-    // بتواند تاییدش کند.
-    await ensureMyRoleRow(session.user);
-    return {
-      role: 'pending', assigned_mines: [], full_name: session.user.email, national_code: null, membership_no: null, license_no: null, requested_mine_name: null, contract_no: null, messenger_chat_id: null,
-    };
-  })();
+  // اولین ورود با گوگل: هنوز ردیفی در user_roles نیست. عمداً همین‌جا ردیف ساخته نمی‌شود و به
+  // ادمین هم اطلاعی داده نمی‌شود — فقط حساب احراز هویت (ایمیل) وجود دارد. کاربر اول مستقیم به فرم
+  // تکمیل مشخصات (ثبت‌نام) می‌رود و ردیف user_roles + اعلان «ثبت‌نام جدید» برای ادمین فقط بعد از
+  // ارسال کامل همان فرم ساخته می‌شود (داخل mountCompleteProfile). isNew همین را به فرم می‌گوید.
+  const row = (data && data[0]) || {
+    role: 'pending', isNew: true, assigned_mines: [], full_name: session.user.email, national_code: null, membership_no: null, license_no: null, requested_mine_name: null, contract_no: null, messenger_chat_id: null,
+  };
 
   // فچ معادن اختصاصی (برای نقش‌های OFFICER) همین‌جا، *قبل* از قفل بیومتریک انجام می‌شود — هم برای
   // تصمیم «رد شدن از قفل داخل محدوده‌ی معدن» بالا، هم تا پایین‌تر دوباره فچ نشود.
@@ -122,9 +119,9 @@ async function boot() {
 
   root.innerHTML = '';
 
-  // ورود سریع با گوگل هیچ‌کدام از فیلدهای هویتی زیر را نمی‌دهد؛ اگر ردیف pending باشد و این
-  // فیلدها هنوز خالی‌اند، قبل از صفحه‌ی «در انتظار تایید» یک فرم تکمیل مشخصات نشان می‌دهیم —
-  // وگرنه سوپرادمین یک درخواست تایید با اطلاعات خالی و غیرقابل‌بررسی می‌بیند.
+  // ورود سریع با گوگل هیچ‌کدام از فیلدهای هویتی زیر را نمی‌دهد؛ اگر ردیف وجود ندارد (کاربر تازه) یا
+  // pending است و این فیلدها هنوز خالی‌اند، قبل از صفحه‌ی «در انتظار تایید» فرم تکمیل مشخصات
+  // (ثبت‌نام) نشان داده می‌شود — وگرنه سوپرادمین یک درخواست تایید با اطلاعات خالی و غیرقابل‌بررسی می‌بیند.
   const profileIncomplete = row.role === 'pending' && (
     !row.national_code || !row.membership_no || !row.license_no || !row.requested_mine_name || !row.contract_no || !row.messenger_chat_id
   );
