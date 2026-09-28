@@ -1,6 +1,6 @@
 import { el } from '../../lib/dom.js';
 import { sb } from '../../lib/supabase.js';
-import { deptForSpecialty, callPublicLookup } from '../../lib/auth.js';
+import { deptForSpecialty, callPublicLookup, ensureMyRoleRow } from '../../lib/auth.js';
 import { friendlyError } from '../../lib/utils.js';
 
 const MESSENGER_HINTS = {
@@ -11,10 +11,13 @@ const MESSENGER_HINTS = {
 
 /**
  * ورود سریع با گوگل هیچ‌کدام از فیلدهای هویتی (کد ملی، شماره عضویت نظام مهندسی، شماره پروانه،
- * نام معدن، شماره قرارداد، شناسه پیام‌رسان) را نمی‌گیرد — گوگل فقط نام/ایمیل می‌دهد. قبل از این
- * فیکس، ردیف user_roles با این فیلدها خالی ساخته می‌شد و کاربر مستقیم به صفحه‌ی «در انتظار تایید»
- * می‌رفت؛ سوپرادمین هم یک درخواست تایید با اطلاعات خالی و غیرقابل‌تایید می‌دید. این فرم همان
- * اطلاعات را بعد از ورود با گوگل می‌گیرد و ردیف موجود را تکمیل می‌کند.
+ * نام معدن، شماره قرارداد، شناسه پیام‌رسان) را نمی‌گیرد — گوگل فقط نام/ایمیل می‌دهد. پس کاربر
+ * بعد از ورود مستقیم به همین فرم (ثبت‌نام) می‌آید.
+ *
+ * - کاربر تازه (currentRow.isNew): هنوز هیچ ردیفی در user_roles نیست و به ادمین هم چیزی اعلام
+ *   نشده؛ ردیف (وضعیت pending) و اعلان «ثبت‌نام جدید» برای ادمین فقط همین‌جا، بعد از ارسال کامل
+ *   فرم، ساخته می‌شود — پس ادمین هرگز درخواستی با اطلاعات خالی نمی‌بیند.
+ * - کاربر قدیمی با ردیف ناقص (که قبل از این تغییر ساخته شده بود): ردیف موجود تکمیل می‌شود.
  */
 export function mountCompleteProfile(root, email, currentRow, onDone, onLogout) {
   const f = {
@@ -88,21 +91,49 @@ export function mountCompleteProfile(root, email, currentRow, onDone, onLogout) 
     try {
       const { data: taken } = await sb.rpc('is_membership_no_taken', { p_membership_no: f.membership_no.value.trim(), p_exclude_email: email });
       if (taken) throw new Error(`شماره عضویت ${f.membership_no.value.trim()} قبلاً ثبت‌نام شده — با مدیر سامانه تماس بگیرید.`);
-      const { error } = await sb.from('user_roles').update({
-        full_name: f.full_name.value.trim(),
-        phone: f.phone.value.trim(),
-        national_code: f.national_code.value.trim(),
-        membership_no: f.membership_no.value.trim(),
-        license_no: f.license_no.value.trim(),
-        requested_mine_name: f.mine_name.value.trim(),
-        contract_no: f.contract_no.value.trim(),
-        tech_officer_specialty: f.specialty.value,
-        department: deptForSpecialty(f.specialty.value),
-        preferred_messenger: f.messenger.value,
-        messenger_chat_id: f.messenger_chat_id.value.trim(),
-        membership_verified: membershipVerified,
-      }).eq('email', email);
-      if (error) throw error;
+
+      if (currentRow.isNew) {
+        // کاربر تازه‌ی گوگل: ردیف user_roles (pending) + اعلان ثبت‌نام برای ادمین، یک‌جا و با
+        // اطلاعات کامل ساخته می‌شود (ensureMyRoleRow هر دو کار را انجام می‌دهد).
+        const { data: { user } } = await sb.auth.getUser();
+        await ensureMyRoleRow({
+          email,
+          user_metadata: {
+            ...((user && user.user_metadata) || {}),
+            full_name: f.full_name.value.trim(),
+            phone: f.phone.value.trim(),
+            national_code: f.national_code.value.trim(),
+            membership_no: f.membership_no.value.trim(),
+            license_no: f.license_no.value.trim(),
+            requested_mine_name: f.mine_name.value.trim(),
+            contract_no: f.contract_no.value.trim(),
+            tech_officer_specialty: f.specialty.value,
+            preferred_messenger: f.messenger.value,
+            messenger_chat_id: f.messenger_chat_id.value.trim(),
+            membership_verified: membershipVerified,
+          },
+        });
+        // ensureMyRoleRow خطاها را عمداً قورت می‌دهد (تا ثبت‌نام با رمز را نشکند)؛ اینجا مطمئن می‌شویم
+        // ردیف واقعاً ساخته شده، وگرنه کاربر بی‌صدا دوباره به همین فرم برمی‌گشت.
+        const { data: created } = await sb.from('user_roles').select('email').eq('email', email.toLowerCase()).limit(1);
+        if (!created || !created.length) throw new Error('ثبت درخواست انجام نشد — اتصال اینترنت را بررسی کنید و دوباره تلاش کنید.');
+      } else {
+        const { error } = await sb.from('user_roles').update({
+          full_name: f.full_name.value.trim(),
+          phone: f.phone.value.trim(),
+          national_code: f.national_code.value.trim(),
+          membership_no: f.membership_no.value.trim(),
+          license_no: f.license_no.value.trim(),
+          requested_mine_name: f.mine_name.value.trim(),
+          contract_no: f.contract_no.value.trim(),
+          tech_officer_specialty: f.specialty.value,
+          department: deptForSpecialty(f.specialty.value),
+          preferred_messenger: f.messenger.value,
+          messenger_chat_id: f.messenger_chat_id.value.trim(),
+          membership_verified: membershipVerified,
+        }).eq('email', email);
+        if (error) throw error;
+      }
       onDone();
     } catch (err) {
       errBox.textContent = friendlyError(err);
