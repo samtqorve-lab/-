@@ -72,14 +72,8 @@ export async function signInWithGoogle() {
   // در حالت وب، همین پنجره به گوگل ریدایرکت می‌شود — بعد از این خط کدی اجرا نمی‌شود.
 }
 
-// اگر یک تلاش قبلی هنوز settle نشده (succeed/fail صدا زده نشده)، اجازه‌ی شروع تلاش تازه را
-// نمی‌دهیم. قبلاً هر تلاش تازه یک App.addListener('appUrlOpen', ...) جدید و مستقل ثبت می‌کرد؛
-// اگر تلاش قبلی هرگز settle نشده بود (کاربر وسط انتخاب حساب گوگل برگشته، برنامه را background
-// کرده، یا فقط به صفحه‌ی دیگری رفته و برگشته و دوباره زده)، آن listener قدیمی هیچ‌وقت remove
-// نمی‌شد. وقتی ریدایرکت واقعی گوگل بالاخره می‌رسید، همه‌ی listenerهای زنده‌ی انباشته‌شده آن را
-// می‌گرفتند و هرکدام مستقل exchangeCodeForSession(url) را با همان code یک‌بارمصرف صدا می‌زدند —
-// اولی موفق می‌شد و flow state (code_verifier) را روی سرور مصرف می‌کرد، بقیه دقیقاً با
-// «invalid flow state, no valid flow state found» شکست می‌خوردند.
+// اگر یک تلاش قبلی هنوز settle نشده، اجازه‌ی شروع تلاش تازه را نمی‌دهیم (هر تلاش یک listener
+// مستقل ثبت می‌کند و بدون این قفل ممکن است چند listener هم‌زمان زنده بمانند).
 let googleNativeSignInInFlight = false;
 
 async function signInWithGoogleNative() {
@@ -94,13 +88,32 @@ async function signInWithGoogleNative() {
   }
 }
 
+/**
+ * از آدرس deep link برگشتی (ir.novinproduct.samattech://auth-callback?code=...) فقط مقدار «code»
+ * را بیرون می‌کشد.
+ *
+ * ریشه‌ی اصلیِ خطای «invalid flow state, no valid flow state found» همین‌جا بود: قبلاً کل آدرس
+ * deep link به exchangeCodeForSession داده می‌شد، درحالی‌که این تابع فقط خودِ مقدار code را
+ * می‌پذیرد، نه یک URL کامل. سرور یک «کد» به شکل ir.novinproduct.samattech://... را طبیعتاً در
+ * جدول flow_state پیدا نمی‌کرد (flow_state_not_found) — حتی وقتی کد واقعی یک‌ثانیه‌ی قبل درست صادر
+ * شده بود. (در وب مشکلی نبود چون آنجا خود کتابخانه، code را از URL صفحه استخراج می‌کند.)
+ */
+function extractAuthCode(url) {
+  const u = new URL(url);
+  const hashParams = new URLSearchParams(u.hash.replace(/^#/, ''));
+  const providerError = u.searchParams.get('error_description') || u.searchParams.get('error')
+    || hashParams.get('error_description') || hashParams.get('error');
+  if (providerError) throw new Error(providerError);
+  const code = u.searchParams.get('code');
+  if (!code) throw new Error('کد ورود در پاسخ گوگل پیدا نشد — دوباره تلاش کنید');
+  return code;
+}
+
 async function runGoogleNativeFlow() {
   const { Browser } = await import('@capacitor/browser');
   const { App } = await import('@capacitor/app');
 
-  // قبل از باز کردن تب تازه، هر تب مرورگری که از یک تلاش قبلی (که فکر می‌کردیم با «browserFinished»
-  // کنسل‌شده، ولی طبق کامنت پایین‌تر این رویداد قابل‌اعتماد نیست) شاید هنوز واقعاً باز مانده باشد
-  // را می‌بندیم — تا کاربر هیچ‌وقت نتواند به یک تب قدیمی و رهاشده برگردد و آن را تکمیل کند.
+  // هر تب مرورگری که از تلاش قبلی شاید هنوز باز مانده باشد را قبل از شروع تلاش تازه می‌بندیم.
   await Browser.close().catch(() => {});
 
   const { data, error } = await sb.auth.signInWithOAuth({
@@ -108,16 +121,6 @@ async function runGoogleNativeFlow() {
     options: { redirectTo: NATIVE_REDIRECT, skipBrowserRedirect: true },
   });
   if (error) throw error;
-
-  // هر تلاش یک «state» یک‌بارمصرف و مخصوص خودش دارد (همان چیزی که Supabase در data.url گذاشته).
-  // رفع قبلی (بالا) فقط جلوی چند listener هم‌زمان روی یک تلاش را می‌گرفت — اما اگر یک تب مرورگر
-  // قدیمیِ یک تلاش رهاشده (که ظاهراً کنسل شده بود ولی واقعاً هنوز باز بود) دیرتر به نتیجه برسد،
-  // این deep link با state تلاش قبلی می‌رسد در حالی که code_verifier ذخیره‌شده الان مال همین تلاش
-  // تازه است (signInWithOAuth بالا آن را رونویسی کرده) — exchangeCodeForSession با این ناهم‌خوانی
-  // همیشه «invalid flow state» می‌داد، حتی بعد از رفع اول. با این چک، آن deep link قدیمی نادیده
-  // گرفته می‌شود (نه fail و نه exchange) و فقط deep link واقعی همین تلاش پردازش می‌شود.
-  let expectedState = null;
-  try { expectedState = new URL(data.url).searchParams.get('state'); } catch { /* اگر پارس نشد، چک را رد می‌کنیم نه اینکه کل ورود را بشکنیم */ }
 
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -140,20 +143,11 @@ async function runGoogleNativeFlow() {
 
     App.addListener('appUrlOpen', async ({ url }) => {
       if (!url.startsWith(NATIVE_REDIRECT)) return;
-      // بلافاصله (قبل از هر await) settled را چک و subscriptionها را جدا می‌کنیم — یعنی حتی اگر
-      // همین یک رویداد به هر دلیلی (مثلاً redelivery سطح اندروید روی activityهای singleTask)
-      // بیش از یک‌بار برسد، فقط اولین دریافت پردازش می‌شود؛ نه این‌که exchangeCodeForSession
-      // دوبار با همان code یک‌بارمصرف صدا زده شود (که دومی حتماً با «invalid flow state» رد
-      // می‌شود).
+      // اگر همین رویداد به هر دلیلی بیش از یک‌بار برسد، فقط اولین دریافت پردازش می‌شود.
       if (settled) return;
-      // این deep link مال یک تلاش دیگر (قدیمی/رهاشده) است — نادیده می‌گیریم، بدون fail کردن تلاش
-      // فعلی و بدون صدا زدن exchangeCodeForSession با یک code/state ناهم‌خوان.
-      let incomingState = null;
-      try { incomingState = new URL(url).searchParams.get('state'); } catch { /* نادیده */ }
-      if (expectedState && incomingState && incomingState !== expectedState) return;
       cleanup();
       try {
-        const { data: sessionData, error: exErr } = await sb.auth.exchangeCodeForSession(url);
+        const { data: sessionData, error: exErr } = await sb.auth.exchangeCodeForSession(extractAuthCode(url));
         if (exErr) throw exErr;
         succeed(sessionData);
       } catch (e) {
@@ -164,10 +158,9 @@ async function runGoogleNativeFlow() {
     // مرورگر معمولاً دقیقاً همان لحظه‌ای که ریدایرکت موفق اتفاق می‌افتد هم بسته می‌شود — یعنی این
     // رویداد به‌تنهایی نشانه‌ی «لغو واقعی» نیست؛ چون exchangeCodeForSession در appUrlOpen یک
     // درخواست شبکه‌ی async است، ممکن است مرورگر زودتر از تمام‌شدنِ آن ببندد و این‌جا زودتر «لغو
-    // شد» گزارش شود، درحالی‌که ورود در واقع در همان لحظه دارد با موفقیت تکمیل می‌شود — دقیقاً
-    // همان چیزی که باعث می‌شد بعد از انتخاب حساب گوگل، بی‌صدا به صفحه‌ی ورود برگردد. قبل از قطعی
-    // دانستنِ لغو، چند لحظه صبر می‌کنیم تا اگر appUrlOpen برنده شد (succeed آن settled را می‌بندد)
-    // این fail دیگر اثری نداشته باشد.
+    // شد» گزارش شود، درحالی‌که ورود در واقع دارد با موفقیت تکمیل می‌شود. قبل از قطعی دانستنِ لغو،
+    // چند لحظه صبر می‌کنیم تا اگر appUrlOpen برنده شد (succeed آن settled را می‌بندد) این fail
+    // دیگر اثری نداشته باشد.
     Browser.addListener('browserFinished', () => {
       setTimeout(() => {
         fail(Object.assign(new Error('ورود لغو شد'), { userCancelled: true }));
