@@ -1,2 +1,0 @@
-const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/web-DMtN4Qcg.js","assets/dist-DFC2s43q.js","assets/cachedTileLayer-DI91STQ1.js","assets/cachedTileLayer-Ds4Udj8m.css"])))=>i.map(i=>d[i]);
-import{t as e}from"./preload-helper-ClLDqcOC.js";import{o as t}from"./dist-DFC2s43q.js";var n=t(`Browser`,{web:()=>e(()=>import(`./web-DMtN4Qcg.js`).then(e=>new e.BrowserWeb),__vite__mapDeps([0,1,2,3]))});export{n as Browser};

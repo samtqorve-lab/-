@@ -1,0 +1,2 @@
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/web-C4dM9GFl.js","assets/dist-CJuKODba.js","assets/cachedTileLayer-CmRPcpAK.js","assets/cachedTileLayer-Ds4Udj8m.css"])))=>i.map(i=>d[i]);
+import{t as e}from"./preload-helper-Ct9-S8fq.js";import{o as t}from"./dist-CJuKODba.js";var n=t(`Browser`,{web:()=>e(()=>import(`./web-C4dM9GFl.js`).then(e=>new e.BrowserWeb),__vite__mapDeps([0,1,2,3]))});export{n as Browser};
