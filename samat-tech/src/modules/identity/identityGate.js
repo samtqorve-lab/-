@@ -1,4 +1,5 @@
 import { el, showToast, openImageViewer } from '../../lib/dom.js';
+import { sb } from '../../lib/supabase.js';
 import { getAccurateGeoLocation, isInsideMineBoundary, getOrCreateDeviceId } from '../../lib/geo.js';
 import { watermarkIdentityPhoto, watermarkLinesForIdentity } from '../../lib/watermark.js';
 import { captureLivePhoto, liveCameraSupported } from '../../lib/liveCameraCapture.js';
@@ -28,8 +29,11 @@ export function mountIdentityQueuedOffline(root, onRetryOrContinue) {
   ])));
 }
 
-export function mountIdentityCapture(root, { email, mines, captureKind, reason, nameField, boundaryExempt }, onDone, onQueuedOffline) {
+// onLogout اختیاری است: اگر داده نشود، همین‌جا خروج از حساب و بارگذاری دوباره انجام می‌شود تا
+// این صفحه (که بعد از ورود می‌آید) هیچ‌وقت بدون راه برگشت نباشد.
+export function mountIdentityCapture(root, { email, mines, captureKind, reason, nameField, boundaryExempt }, onDone, onQueuedOffline, onLogout) {
   root.innerHTML = '';
+  const logout = onLogout || (() => { sb.auth.signOut().finally(() => window.location.reload()); });
   let capturedBlob = null;
   let capturedCoords = null;
   let capturedInsideBoundary = false;
@@ -166,6 +170,9 @@ export function mountIdentityCapture(root, { email, mines, captureKind, reason, 
     el('label', {}, 'معدن'), mineSelect,
     captureBtn, fileInput, accuracyBox, preview,
     errBox, submitBtn,
+    el('div', { class: 'gate-links', style: 'justify-content:center;margin-top:10px' }, [
+      el('a', { href: '#', onclick: (e) => { e.preventDefault(); logout(); } }, '← خروج از حساب / بازگشت به صفحه‌ی ورود'),
+    ]),
   ]);
   root.append(el('div', { class: 'gate-screen' }, card));
 }
