@@ -93,12 +93,8 @@ export async function signInWithGoogle() {
   // در حالت وب/دسکتاپ، همین پنجره به گوگل ریدایرکت می‌شود — بعد از این خط کدی اجرا نمی‌شود.
 }
 
-// اگر یک تلاش قبلی هنوز settle نشده، اجازه‌ی شروع تلاش تازه را نمی‌دهیم — دقیقاً همان رفعی که در
-// samat-tech انجام شد: بدون این قفل، هر تلاش تازه یک App.addListener('appUrlOpen', ...) مستقل
-// ثبت می‌کرد که اگر تلاش قبلی هرگز settle نشده بود، هیچ‌وقت remove نمی‌شد و وقتی ریدایرکت واقعی
-// گوگل بالاخره می‌رسید، همه‌ی listenerهای انباشته‌شده مستقل exchangeCodeForSession را با همان
-// code یک‌بارمصرف صدا می‌زدند — اولی موفق می‌شد، بقیه دقیقاً با «invalid flow state» شکست
-// می‌خوردند.
+// اگر یک تلاش قبلی هنوز settle نشده، اجازه‌ی شروع تلاش تازه را نمی‌دهیم (هر تلاش یک listener
+// مستقل ثبت می‌کند و بدون این قفل ممکن است چند listener هم‌زمان زنده بمانند).
 let googleNativeSignInInFlight = false;
 
 async function signInWithGoogleNative() {
@@ -113,13 +109,32 @@ async function signInWithGoogleNative() {
   }
 }
 
+/**
+ * از آدرس deep link برگشتی (ir.novinproduct.samatadmin://auth-callback?code=...) فقط مقدار «code»
+ * را بیرون می‌کشد.
+ *
+ * ریشه‌ی اصلیِ خطای «invalid flow state, no valid flow state found» همین‌جا بود: قبلاً کل آدرس
+ * deep link به exchangeCodeForSession داده می‌شد، درحالی‌که این تابع فقط خودِ مقدار code را
+ * می‌پذیرد، نه یک URL کامل. سرور یک «کد» به شکل ir.novinproduct.samatadmin://... را طبیعتاً در
+ * جدول flow_state پیدا نمی‌کرد (flow_state_not_found). (در وب مشکلی نبود چون آنجا خود کتابخانه،
+ * code را از URL صفحه استخراج می‌کند.)
+ */
+function extractAuthCode(url) {
+  const u = new URL(url);
+  const hashParams = new URLSearchParams(u.hash.replace(/^#/, ''));
+  const providerError = u.searchParams.get('error_description') || u.searchParams.get('error')
+    || hashParams.get('error_description') || hashParams.get('error');
+  if (providerError) throw new Error(providerError);
+  const code = u.searchParams.get('code');
+  if (!code) throw new Error('کد ورود در پاسخ گوگل پیدا نشد — دوباره تلاش کنید');
+  return code;
+}
+
 async function runGoogleNativeFlow() {
   const { Browser } = await import('@capacitor/browser');
   const { App } = await import('@capacitor/app');
 
-  // قبل از باز کردن تب تازه، هر تب مرورگری که از یک تلاش قبلی (که فکر می‌کردیم با «browserFinished»
-  // کنسل‌شده، ولی این تشخیص طبق کامنت پایین‌تر قابل‌اعتماد نیست) شاید هنوز واقعاً باز مانده باشد
-  // را می‌بندیم — تا کاربر هیچ‌وقت نتواند به یک تب قدیمی و رهاشده برگردد و آن را تکمیل کند.
+  // هر تب مرورگری که از تلاش قبلی شاید هنوز باز مانده باشد را قبل از شروع تلاش تازه می‌بندیم.
   await Browser.close().catch(() => {});
 
   const { data, error } = await sb.auth.signInWithOAuth({
@@ -127,14 +142,6 @@ async function runGoogleNativeFlow() {
     options: { redirectTo: NATIVE_REDIRECT, skipBrowserRedirect: true },
   });
   if (error) throw error;
-
-  // هر تلاش یک «state» یک‌بارمصرف و مخصوص خودش دارد (همان چیزی که Supabase در data.url گذاشته).
-  // بستنِ بالا فقط جلوی تکمیل یک تب رهاشده را می‌گیرد؛ اگر با این حال یک deep link با state تلاش
-  // قدیمی برسد در حالی که code_verifier ذخیره‌شده الان مال همین تلاش تازه است، این چک آن را
-  // بی‌صدا نادیده می‌گیرد (نه fail، نه exchange با ترکیب ناهم‌خوان) به‌جای اینکه با «invalid flow
-  // state» شکست بخورد.
-  let expectedState = null;
-  try { expectedState = new URL(data.url).searchParams.get('state'); } catch { /* اگر پارس نشد، چک را رد می‌کنیم نه اینکه کل ورود را بشکنیم */ }
 
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -157,13 +164,11 @@ async function runGoogleNativeFlow() {
 
     App.addListener('appUrlOpen', async ({ url }) => {
       if (!url.startsWith(NATIVE_REDIRECT)) return;
+      // اگر همین رویداد به هر دلیلی بیش از یک‌بار برسد، فقط اولین دریافت پردازش می‌شود.
       if (settled) return;
-      let incomingState = null;
-      try { incomingState = new URL(url).searchParams.get('state'); } catch { /* نادیده */ }
-      if (expectedState && incomingState && incomingState !== expectedState) return;
       cleanup();
       try {
-        const { data: sessionData, error: exErr } = await sb.auth.exchangeCodeForSession(url);
+        const { data: sessionData, error: exErr } = await sb.auth.exchangeCodeForSession(extractAuthCode(url));
         if (exErr) throw exErr;
         succeed(sessionData);
       } catch (e) {
