@@ -4,6 +4,7 @@ import { specialtyMeta } from '../../lib/records.js';
 import { monthlyReminderStatus, licenseExpiryStatus } from '../../lib/banners.js';
 import { createFaceEquipCapture } from './faceEquipCapture.js';
 import { mountDrawerMenu } from '../shell/drawerMenu.js';
+import { iconButton, buildStoriesRow, buildBottomNav } from '../shell/igUi.js';
 import { mountBiometricToggle } from '../shell/biometricToggle.js';
 import { mountPushLoginToggle } from '../shell/pushLoginToggle.js';
 import { mountGpsStatusChip } from '../shell/gpsStatusChip.js';
@@ -271,139 +272,149 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
   }
   renderSpecialtyAccordion();
 
+  // ── اکشن‌های مشترک: هر اکشن فقط یک‌بار این‌جا تعریف می‌شود و هم در منوی کشویی، هم در ردیف
+  // استوری‌ها و هم در تب‌بار پایین استفاده می‌شود (تا رفتار هیچ‌کدام از هم جدا نشود) ──
+  const actions = {
+    profile: () => {
+      const { body } = openModal({ title: '👤 مشخصات و تنظیمات' });
+      const bioBox = el('div'); const pushBox = el('div'); const notifBox = el('div');
+      body.append(
+        el('label', {}, 'نام و نام خانوادگی'), fullNameInput,
+        el('label', {}, 'شماره عضویت نظام مهندسی/پروانه'), membershipInput,
+        saveBtn, profileStatus,
+        el('div', { style: 'height:1px;background:var(--stone-200);margin:14px 0' }),
+        bioBox, pushBox, notifBox,
+      );
+      mountBiometricToggle(bioBox, email);
+      mountPushLoginToggle(pushBox, email);
+      mountNotificationToggle(notifBox);
+    },
+    checkin: () => {
+      const { body } = openModal({ title: '🦺 چک‌این ایمنی کارگر تنها' });
+      mountSafetyCheckin(body, { email, getMineName: () => currentMine()?.[nameField] || '', department: meta.dept });
+    },
+    checklist: requireMine(async (mine) => {
+      const { openSafetyChecklistModal } = await import('./safetyChecklist.js');
+      openSafetyChecklistModal(mine, nameField, meta.dept);
+    }),
+    qr: requireMine(async (mine) => {
+      const { scanQrCheckin } = await import('./qrCheckin.js');
+      scanQrCheckin(mine, nameField, meta.dept);
+    }),
+    incident: requireMine(async (mine) => {
+      const { openIncidentModal } = await import('./incidentModal.js');
+      openIncidentModal(mine, nameField, meta.dept, { email });
+    }),
+    equipment: requireMine(async (mine) => {
+      const { mountEquipmentChecklist } = await import('./equipmentChecklist.js');
+      const { body } = openModal({ title: '⚙️ چک‌لیست تجهیزات/ماشین‌آلات تایید‌شده', width: '560px' });
+      mountEquipmentChecklist(body, mine, nameField, meta.dept, fullNameInput, membershipInput);
+    }),
+    monthly: async () => {
+      const { mountMonthlyReport } = await import('./monthlyReport.js');
+      const { body } = openModal({ title: '📤 گزارش دوره‌ای ماهانه', width: '560px' });
+      mountMonthlyReport(
+        body, currentMine, nameField, meta.dept,
+        () => ({ fullName: fullNameInput.value.trim(), membershipNo: membershipInput.value.trim() }),
+        captureApi,
+        () => historyMount?.reload(),
+      );
+    },
+    supplementary: requireMine(async (mine) => {
+      const {
+        openTrainingModal, openProductionModal, openPersonnelModal, openCorrectiveModal, openQuarterlyMapModal,
+      } = await import('./supplementaryReports.js');
+      const { body } = openModal({ title: '🗂️ گزارش‌های تکمیلی' });
+      body.append(
+        el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:10px' }, 'ثبت سریع آموزش، تولید، پرسنل، اقدام اصلاحی و نقشه‌ی سه‌ماهه.'),
+        el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:8px' }, [
+          el('button', { class: 'btn-sm', style: 'background:var(--patina-100);color:var(--patina-700)', onclick: () => openTrainingModal(mine, nameField, meta.dept) }, '🎓 آموزش ایمنی'),
+          el('button', { class: 'btn-sm', style: 'background:var(--schist-100);color:var(--schist-600)', onclick: () => openProductionModal(mine, nameField, meta.dept) }, '📈 تولید و عیار'),
+          el('button', { class: 'btn-sm', style: 'background:var(--patina-100);color:var(--patina-700)', onclick: () => openPersonnelModal(mine, nameField, meta.dept) }, '👷 پرسنل تحت سرپرستی'),
+          el('button', { class: 'btn-sm', style: 'background:var(--amber-100);color:var(--amber-700)', onclick: () => openCorrectiveModal(mine, nameField, meta.dept) }, '🛠️ اقدام اصلاحی'),
+          el('button', { class: 'btn-sm', style: 'background:var(--fluorite-100);color:var(--fluorite-700);grid-column:1 / -1', onclick: () => openQuarterlyMapModal(mine, nameField, meta.dept) }, '🗺️ نقشه سه‌ماهه'),
+        ]),
+      );
+    }),
+    history: async () => {
+      const { mountHistory } = await import('./history.js');
+      const { body } = openModal({ title: '🗂️ گزارش‌های ارسالی قبلی', width: '560px' });
+      historyMount = mountHistory(body, mines.map((m) => m[nameField]));
+    },
+    gov: async () => {
+      const { mountGovLinks } = await import('./mineCards.js');
+      const { body } = openModal({ title: '🏛️ سامانه‌های دولتی مرتبط' });
+      mountGovLinks(body, roleRow.membership_no, roleRow.national_code);
+    },
+    stakeout: requireMine(async (mine) => {
+      const { openStakeoutModal } = await import('./stakeout.js');
+      openStakeoutModal(mine, nameField);
+    }),
+  };
+
   // ── منوی کشویی: هر چیزی غیر از «انتخاب معدن / ابزارهای تخصصی / پیاده کردن نقاط پروانه /
   // عکس سینه‌کار و ماشین‌آلات» — یعنی همان ابزارهای عمومیِ مشترک بین هر سه تخصص. خروج از سامانه
   // هم اینجاست (آخرین آیتم) — هماهنگ با پنل ادمین (که «خروج از سامانه» پایین منوی کناری است) ──
   const drawer = mountDrawerMenu([
-    {
-      icon: '👤',
-      label: 'مشخصات و تنظیمات',
-      onClick: () => {
-        const { body } = openModal({ title: '👤 مشخصات و تنظیمات' });
-        const bioBox = el('div'); const pushBox = el('div'); const notifBox = el('div');
-        body.append(
-          el('label', {}, 'نام و نام خانوادگی'), fullNameInput,
-          el('label', {}, 'شماره عضویت نظام مهندسی/پروانه'), membershipInput,
-          saveBtn, profileStatus,
-          el('div', { style: 'height:1px;background:var(--stone-200);margin:14px 0' }),
-          bioBox, pushBox, notifBox,
-        );
-        mountBiometricToggle(bioBox, email);
-        mountPushLoginToggle(pushBox, email);
-        mountNotificationToggle(notifBox);
-      },
-    },
-    {
-      icon: '🦺',
-      label: 'چک‌این ایمنی کارگر تنها',
-      onClick: () => {
-        const { body } = openModal({ title: '🦺 چک‌این ایمنی کارگر تنها' });
-        mountSafetyCheckin(body, { email, getMineName: () => currentMine()?.[nameField] || '', department: meta.dept });
-      },
-    },
-    {
-      icon: '✅',
-      label: 'چک‌لیست ایمنی نوبت‌کاری',
-      onClick: requireMine(async (mine) => {
-        const { openSafetyChecklistModal } = await import('./safetyChecklist.js');
-        openSafetyChecklistModal(mine, nameField, meta.dept);
-      }),
-    },
-    {
-      icon: '🔳',
-      label: 'تایید حضور با اسکن QR',
-      onClick: requireMine(async (mine) => {
-        const { scanQrCheckin } = await import('./qrCheckin.js');
-        scanQrCheckin(mine, nameField, meta.dept);
-      }),
-    },
-    {
-      icon: '🚨',
-      label: 'اعلام حادثه',
-      onClick: requireMine(async (mine) => {
-        const { openIncidentModal } = await import('./incidentModal.js');
-        openIncidentModal(mine, nameField, meta.dept, { email });
-      }),
-    },
-    {
-      icon: '⚙️',
-      label: 'چک‌لیست تجهیزات/ماشین‌آلات تایید‌شده',
-      onClick: requireMine(async (mine) => {
-        const { mountEquipmentChecklist } = await import('./equipmentChecklist.js');
-        const { body } = openModal({ title: '⚙️ چک‌لیست تجهیزات/ماشین‌آلات تایید‌شده', width: '560px' });
-        mountEquipmentChecklist(body, mine, nameField, meta.dept, fullNameInput, membershipInput);
-      }),
-    },
-    {
-      icon: '📤',
-      label: 'ارسال گزارش دوره‌ای ماهانه',
-      onClick: async () => {
-        const { mountMonthlyReport } = await import('./monthlyReport.js');
-        const { body } = openModal({ title: '📤 گزارش دوره‌ای ماهانه', width: '560px' });
-        mountMonthlyReport(
-          body, currentMine, nameField, meta.dept,
-          () => ({ fullName: fullNameInput.value.trim(), membershipNo: membershipInput.value.trim() }),
-          captureApi,
-          () => historyMount?.reload(),
-        );
-      },
-    },
-    {
-      icon: '🗂️',
-      label: 'گزارش‌های تکمیلی',
-      onClick: requireMine(async (mine) => {
-        const {
-          openTrainingModal, openProductionModal, openPersonnelModal, openCorrectiveModal, openQuarterlyMapModal,
-        } = await import('./supplementaryReports.js');
-        const { body } = openModal({ title: '🗂️ گزارش‌های تکمیلی' });
-        body.append(
-          el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:10px' }, 'ثبت سریع آموزش، تولید، پرسنل، اقدام اصلاحی و نقشه‌ی سه‌ماهه.'),
-          el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:8px' }, [
-            el('button', { class: 'btn-sm', style: 'background:var(--patina-100);color:var(--patina-700)', onclick: () => openTrainingModal(mine, nameField, meta.dept) }, '🎓 آموزش ایمنی'),
-            el('button', { class: 'btn-sm', style: 'background:var(--schist-100);color:var(--schist-600)', onclick: () => openProductionModal(mine, nameField, meta.dept) }, '📈 تولید و عیار'),
-            el('button', { class: 'btn-sm', style: 'background:var(--patina-100);color:var(--patina-700)', onclick: () => openPersonnelModal(mine, nameField, meta.dept) }, '👷 پرسنل تحت سرپرستی'),
-            el('button', { class: 'btn-sm', style: 'background:var(--amber-100);color:var(--amber-700)', onclick: () => openCorrectiveModal(mine, nameField, meta.dept) }, '🛠️ اقدام اصلاحی'),
-            el('button', { class: 'btn-sm', style: 'background:var(--fluorite-100);color:var(--fluorite-700);grid-column:1 / -1', onclick: () => openQuarterlyMapModal(mine, nameField, meta.dept) }, '🗺️ نقشه سه‌ماهه'),
-          ]),
-        );
-      }),
-    },
-    {
-      icon: '🗂️',
-      label: 'گزارش‌های ارسالی قبلی',
-      onClick: async () => {
-        const { mountHistory } = await import('./history.js');
-        const { body } = openModal({ title: '🗂️ گزارش‌های ارسالی قبلی', width: '560px' });
-        historyMount = mountHistory(body, mines.map((m) => m[nameField]));
-      },
-    },
-    {
-      icon: '🏛️',
-      label: 'سامانه‌های دولتی مرتبط',
-      onClick: async () => {
-        const { mountGovLinks } = await import('./mineCards.js');
-        const { body } = openModal({ title: '🏛️ سامانه‌های دولتی مرتبط' });
-        mountGovLinks(body, roleRow.membership_no, roleRow.national_code);
-      },
-    },
-    {
-      icon: '🚪',
-      label: 'خروج از سامانه',
-      onClick: onLogout,
-    },
+    { icon: '👤', label: 'مشخصات و تنظیمات', onClick: actions.profile },
+    { icon: '🦺', label: 'چک‌این ایمنی کارگر تنها', onClick: actions.checkin },
+    { icon: '✅', label: 'چک‌لیست ایمنی نوبت‌کاری', onClick: actions.checklist },
+    { icon: '🔳', label: 'تایید حضور با اسکن QR', onClick: actions.qr },
+    { icon: '🚨', label: 'اعلام حادثه', onClick: actions.incident },
+    { icon: '⚙️', label: 'چک‌لیست تجهیزات/ماشین‌آلات تایید‌شده', onClick: actions.equipment },
+    { icon: '📤', label: 'ارسال گزارش دوره‌ای ماهانه', onClick: actions.monthly },
+    { icon: '🗂️', label: 'گزارش‌های تکمیلی', onClick: actions.supplementary },
+    { icon: '🗂️', label: 'گزارش‌های ارسالی قبلی', onClick: actions.history },
+    { icon: '🏛️', label: 'سامانه‌های دولتی مرتبط', onClick: actions.gov },
+    { icon: '🚪', label: 'خروج از سامانه', onClick: onLogout, danger: true },
   ]);
 
-  const shell = el('div', { class: 'app-shell' }, [
+  // ── ردیف «استوری»: میانبر سریع به پرکاربردترین ابزارها ──
+  const stories = buildStoriesRow([
+    { icon: '🎯', label: 'استیک‌اوت', onClick: actions.stakeout },
+    { icon: '🦺', label: 'چک‌این ایمنی', onClick: actions.checkin },
+    { icon: '✅', label: 'چک‌لیست', onClick: actions.checklist },
+    { icon: '🔳', label: 'اسکن QR', onClick: actions.qr },
+    { icon: '🚨', label: 'حادثه', onClick: actions.incident },
+    { icon: '📤', label: 'گزارش ماهانه', onClick: actions.monthly },
+    { icon: '⚙️', label: 'تجهیزات', onClick: actions.equipment },
+    { icon: '🗂️', label: 'تکمیلی', onClick: actions.supplementary },
+  ]);
+
+  // ── تب‌بار پایین ──
+  const bottomNav = buildBottomNav([
+    { icon: 'home', label: 'خانه', active: true, onClick: () => window.scrollTo({ top: 0, behavior: 'smooth' }) },
+    { icon: 'shield', label: 'ایمنی', onClick: actions.checklist },
+    { icon: 'plus', label: 'گزارش', center: true, onClick: actions.monthly },
+    { icon: 'list', label: 'سوابق', onClick: actions.history },
+    { icon: 'user', label: 'پروفایل', onClick: actions.profile },
+  ]);
+
+  const shell = el('div', { class: 'app-shell has-nav' }, [
     el('div', { class: 'topbar' }, [
       drawer.toggleBtn,
-      el('div', { style: 'flex:1' }, [
-        el('div', { class: 'title' }, roleRow.membership_no || roleRow.full_name || email),
-        el('div', { class: 'sub' }, `${SPEC_ICONS[specialty] || '🦺'} مسئول فنی — تخصص: ${specialty}`),
-        gpsChipBox,
+      el('div', { class: 'topbar-title' }, [
+        el('span', { class: 'brand-wordmark' }, 'SAMAT'),
+        el('span', { class: 'topbar-sub' }, 'مسئول فنی'),
       ]),
+      iconButton('alert', 'اعلام حادثه', actions.incident),
     ]),
+    stories,
     el('div', { class: 'content' }, [
       banners,
+      el('div', { class: 'profile' }, [
+        el('div', { class: 'avatar-ring' }, el('div', { class: 'avatar-inner' }, SPEC_ICONS[specialty] || '🦺')),
+        el('div', { class: 'profile-info' }, [
+          el('div', { class: 'profile-name' }, roleRow.full_name || email),
+          el('div', { class: 'profile-role' }, `مسئول فنی · تخصص ${specialty}`),
+          roleRow.membership_no ? el('div', { class: 'profile-meta mono' }, roleRow.membership_no) : null,
+          gpsChipBox,
+        ]),
+      ]),
+      el('div', { class: 'profile-actions' }, [
+        el('button', { class: 'btn btn-ghost btn-compact', onclick: actions.profile }, 'ویرایش مشخصات'),
+        el('button', { class: 'btn btn-ghost btn-compact', onclick: actions.history }, 'گزارش‌های قبلی'),
+      ]),
       el('div', { class: 'card' }, [
         el('h3', {}, `${meta.dept === 'معدن' ? '⛏️' : meta.dept === 'اکتشاف' ? '🔍' : '⚗️'} انتخاب ${meta.dept === 'معدن' ? 'معدن' : meta.dept === 'اکتشاف' ? 'محدوده اکتشافی' : 'واحد فرآوری'}`),
         mineSelect,
@@ -411,10 +422,7 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
         specialtyBox,
         el('button', {
           class: 'btn-sm', style: 'background:var(--patina-50);color:var(--patina-700);margin-top:10px;width:100%',
-          onclick: requireMine(async (mine) => {
-            const { openStakeoutModal } = await import('./stakeout.js');
-            openStakeoutModal(mine, nameField);
-          }),
+          onclick: actions.stakeout,
         }, '🎯 پیاده کردن نقاط پروانه (استیک‌اوت GPS)'),
       ]),
       el('div', { class: 'card' }, [
@@ -431,6 +439,7 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
         }, '🛢️ ماشین‌آلات پیش‌فرض معدن (برای سهمیه‌ی سوخت)'),
       ]),
     ]),
+    bottomNav,
   ]);
   root.append(shell);
   mountGpsStatusChip(gpsChipBox);
