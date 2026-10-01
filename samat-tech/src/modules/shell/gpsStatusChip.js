@@ -6,13 +6,15 @@ import {
 /** یک نشان کوچک در بالای صفحه که نشان می‌دهد GPS از قبل پیش‌گرم و آماده است — تا مسئول فنی
  * مطمئن شود لازم نیست موقع عکس‌گرفتن منتظر «لود شدن» GPS بماند. اگر بعد از چند ثانیه هنوز هیچ
  * خوانشی نیامده باشد (معمولاً یعنی مجوز موقعیت‌مکانی رد شده یا GPS گوشی خاموش است)، به‌جای
- * ماندن ابدی روی «آماده‌سازی»، پیام خطا و یک دکمه‌ی «تلاش دوباره» نشان می‌دهیم. */
+ * ماندن ابدی روی «آماده‌سازی»، پیام خطا و یک دکمه‌ی «تلاش دوباره» نشان می‌دهیم.
+ * رنگ‌ها برای پس‌زمینه‌ی روشن (هدر سفید به سبک اینستاگرام) تنظیم شده‌اند. */
 const STUCK_AFTER_MS = 8000;
+const NEUTRAL_COLOR = 'var(--stone-600)';
 
 export function mountGpsStatusChip(container) {
   let lastErr = null;
   const chip = el('span', {
-    style: 'font-size:11px;color:rgba(255,255,255,.75);cursor:pointer',
+    style: `font-size:11px;color:${NEUTRAL_COLOR};cursor:pointer`,
     onclick: () => {
       const gpsOff = isDeviceGpsOffError(lastErr);
       const toSettings = gpsOff || willOpenSettingsOnRetry();
@@ -30,7 +32,7 @@ export function mountGpsStatusChip(container) {
     chip.textContent = gpsOff
       ? '⚙️ تنظیمات موقعیت مکانی باز شد — برگردید به اپ'
       : openingSettings ? '⚙️ تنظیمات مجوز باز شد — برگردید به اپ' : '📡 در حال آماده‌سازی GPS...';
-    chip.style.color = 'rgba(255,255,255,.75)';
+    chip.style.color = NEUTRAL_COLOR;
   }
 
   function render(coords) {
@@ -39,7 +41,7 @@ export function mountGpsStatusChip(container) {
     if (!coords) return;
     const good = coords.accuracy <= 20;
     chip.textContent = `${good ? '📍' : '📡'} GPS آماده (~${Math.round(coords.accuracy)} متر)`;
-    chip.style.color = good ? 'var(--patina-100)' : 'var(--amber-100)';
+    chip.style.color = good ? 'var(--patina-700)' : 'var(--amber-700)';
   }
 
   function renderError(err) {
@@ -55,7 +57,7 @@ export function mountGpsStatusChip(container) {
     } else {
       chip.textContent = '⚠️ GPS فعال نشد — برای تلاش دوباره ضربه بزنید';
     }
-    chip.style.color = 'var(--rust-100)';
+    chip.style.color = 'var(--rust-600)';
   }
 
   function armStuckTimer() {

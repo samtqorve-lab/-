@@ -28,9 +28,10 @@ let toastTimer = null;
 export function showToast(message) {
   let box = document.getElementById('toastBox');
   if (!box) {
+    // بالاتر از تب‌بار پایین (۵۴ پیکسل + safe-area) نمایش داده می‌شود تا روی آن نیفتد
     box = el('div', {
       id: 'toastBox',
-      style: 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:999;background:var(--ink-900);color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;box-shadow:var(--shadow-lg);opacity:0;transition:opacity .2s',
+      style: 'position:fixed;bottom:calc(72px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:999;background:#262626;color:#fff;padding:10px 18px;border-radius:12px;font-size:13px;box-shadow:var(--shadow-lg);opacity:0;transition:opacity .2s;max-width:90vw;text-align:center',
     });
     document.body.append(box);
   }
@@ -75,21 +76,21 @@ export function passwordFieldWithToggle(attrs = {}) {
 }
 
 /**
- * یک مودال ساده (overlay + کارت) می‌سازد و به body اضافه می‌کند.
+ * یک مودال (شیت پایین‌آمدنی به سبک اینستاگرام؛ روی صفحه‌ی عریض وسط صفحه) می‌سازد و به body اضافه می‌کند.
+ * ظاهرش در کلاس‌های .ig-overlay / .ig-sheet داخل components.css تعریف شده.
  * @returns {{ overlay: HTMLElement, body: HTMLElement, close: () => void }}
  */
 export function openModal({ title, width = '480px' }) {
   const overlay = el('div', {
-    style: 'position:fixed;inset:0;background:rgba(28,27,23,.5);display:flex;align-items:center;justify-content:center;z-index:450;padding:20px',
+    class: 'ig-overlay',
     onclick: (e) => { if (e.target === overlay) close(); },
   });
   const body = el('div', { class: 'modal-body' });
-  const card = el('div', {
-    style: `width:100%;max-width:${width};max-height:88vh;overflow-y:auto;background:#fff;border-radius:var(--radius-lg);padding:var(--space-5);box-shadow:var(--shadow-lg)`,
-  }, [
-    el('div', { style: 'display:flex;justify-content:space-between;align-items:center;margin-bottom:14px' }, [
+  const card = el('div', { class: 'ig-sheet', style: `max-width:${width}` }, [
+    el('div', { class: 'ig-sheet-grab' }),
+    el('div', { class: 'ig-sheet-head' }, [
       el('h3', {}, title || ''),
-      el('button', { class: 'btn-sm', style: 'background:var(--stone-100);color:var(--ink-700)', onclick: () => close() }, '✖'),
+      el('button', { class: 'ig-icon-btn', type: 'button', 'aria-label': 'بستن', onclick: () => close() }, '✕'),
     ]),
     body,
   ]);
