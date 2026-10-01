@@ -12,6 +12,10 @@ const DEPARTMENT_TREE = [
   { dept: 'اصناف' },
 ];
 
+// وضعیت جمع‌شدنِ نوار کناری در دسکتاپ بین دفعات باز کردن برنامه یادش می‌ماند
+const COLLAPSE_KEY = 'samat.sidebar.collapsed';
+const isMobileViewport = () => window.matchMedia('(max-width: 860px)').matches;
+
 // label می‌تواند رشته‌ی ثابت باشد یا تابعی که بخش فعال را می‌گیرد و عنوان مخصوص همان بخش را
 // می‌سازد — قبلاً «نقشه معادن»/«فهرست معادن» برای همه‌ی بخش‌ها (حتی صنعت/اکتشاف/...) ثابت بود.
 const NAV_ITEMS = [
@@ -69,16 +73,28 @@ export function mountShell(root, { userLabel, renderContent }) {
 
   function openSidebar() { sidebar.classList.add('open'); backdrop.classList.add('open'); }
   function closeSidebar() { sidebar.classList.remove('open'); backdrop.classList.remove('open'); }
-  function toggleSidebar() { sidebar.classList.contains('open') ? closeSidebar() : openSidebar(); }
+  function setCollapsed(v) {
+    sidebar.classList.toggle('collapsed', v);
+    try { localStorage.setItem(COLLAPSE_KEY, v ? '1' : '0'); } catch { /* حافظه‌ی مرورگر در دسترس نیست — فقط یادآوری نمی‌شود */ }
+  }
+  // موبایل: کشوی روی صفحه؛ دسکتاپ: جمع/باز شدن به ستون آیکنی
+  function toggleSidebar() {
+    if (isMobileViewport()) {
+      if (sidebar.classList.contains('open')) closeSidebar(); else openSidebar();
+      return;
+    }
+    setCollapsed(!sidebar.classList.contains('collapsed'));
+  }
+  try { if (localStorage.getItem(COLLAPSE_KEY) === '1') sidebar.classList.add('collapsed'); } catch { /* ignore */ }
 
   const deptSwitch = el('div', { class: 'dept-switch' });
   const navGroup = el('nav', { class: 'nav-group' });
   const footer = el('div', { class: 'sidebar-footer' }, [
-    el('div', {}, userLabel || ''),
+    el('div', { class: 'user-label' }, userLabel || ''),
     el('button', {
-      class: 'btn btn-ghost', style: 'width:100%;justify-content:center;margin-top:8px',
+      class: 'btn btn-ghost', style: 'width:100%;justify-content:center;margin-top:8px', title: 'خروج از سامانه',
       onclick: () => signOut().then(() => location.reload()),
-    }, '🚪 خروج از سامانه'),
+    }, [el('span', {}, '🚪'), el('span', { class: 'footer-btn-text' }, ' خروج از سامانه')]),
   ]);
 
   sidebar.append(header, deptSwitch, navGroup, footer);
@@ -96,17 +112,14 @@ export function mountShell(root, { userLabel, renderContent }) {
 
   function renderDeptSwitch(activeDept) {
     deptSwitch.innerHTML = '';
+    const makeBtn = (name, extraClass) => el('button', {
+      class: `dept-item${extraClass}${name === activeDept ? ' active' : ''}`,
+      title: name,
+      onclick: () => setDepartment(name),
+    }, [el('span', { class: 'dept-short' }, name.charAt(0)), el('span', { class: 'dept-full' }, name)]);
     DEPARTMENT_TREE.forEach(({ dept, children }) => {
-      deptSwitch.append(el('button', {
-        class: `dept-item${dept === activeDept ? ' active' : ''}`,
-        onclick: () => setDepartment(dept),
-      }, dept));
-      (children || []).forEach((child) => {
-        deptSwitch.append(el('button', {
-          class: `dept-item dept-item--child${child === activeDept ? ' active' : ''}`,
-          onclick: () => setDepartment(child),
-        }, child));
-      });
+      deptSwitch.append(makeBtn(dept, ''));
+      (children || []).forEach((child) => deptSwitch.append(makeBtn(child, ' dept-item--child')));
     });
   }
 
@@ -120,6 +133,7 @@ export function mountShell(root, { userLabel, renderContent }) {
     }).forEach((item) => {
       const btn = el('button', {
         class: `nav-item${item.tab === effectiveTab ? ' active' : ''}`,
+        title: navLabel(item, state.department),
         onclick: () => { setTab(item.tab); closeSidebar(); },
       }, [
         el('span', { class: 'ic' }, item.icon),
@@ -151,7 +165,7 @@ export function mountShell(root, { userLabel, renderContent }) {
     // سر معدن است و می‌خواهد با موقعیت مکانی زنده‌ی خودش گزارش ثبت کند — همان اپ مسئول فنی،
     // فقط با همین حساب واردش می‌شود.
     const fieldLink = el('a', {
-      href: '/tech-officer/', target: '_blank', rel: 'noopener',
+      href: '/tech-officer/', target: '_blank', rel: 'noopener', title: 'ثبت گزارش میدانی (GPS)',
       class: 'nav-item', style: 'text-decoration:none;margin-top:10px;border-top:1px solid var(--stone-200);padding-top:14px',
     }, [
       el('span', { class: 'ic' }, '📍'),
@@ -165,7 +179,7 @@ export function mountShell(root, { userLabel, renderContent }) {
     const title = activeItem ? navLabel(activeItem, s.department) : (s.tab === 'mineDetail' ? 'جزئیات رکورد' : '');
     topbarTitle.innerHTML = '';
     topbarTitle.append(
-      el('button', { class: 'menu-toggle-btn', onclick: () => toggleSidebar(), 'aria-label': 'باز کردن منو' }, '☰'),
+      el('button', { class: 'menu-toggle-btn', onclick: () => toggleSidebar(), 'aria-label': 'باز/بسته کردن منو', title: 'باز/بسته کردن منو' }, '☰'),
       el('div', {}, [
         el('h1', {}, title),
         el('div', { class: 'crumb' }, `بخش ${s.department}`),
