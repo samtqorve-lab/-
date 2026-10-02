@@ -4,6 +4,7 @@ import {
   listJobs, createJob, startJob, removeJob, uploadPhotos, downloadModel, saveBlob, runSelftest, mergeJobs,
 } from '../../lib/model3d.js';
 import { createOptionsPanel } from '../../lib/model3dOptions.js';
+import { getMineCorners } from '../../lib/geo.js';
 
 /**
  * نسخه‌ی ادمین: همان ساخت مدل سه‌بعدی، به‌همراه «مشاهده»، «بررسی اتصال» و دسترسی به مدل‌های همه‌ی کاربران این معدن.
@@ -77,6 +78,7 @@ export function openModel3dModal(mine, nameField) {
   const isOpen = () => document.body.contains(overlay);
 
   let busy = false;
+  let jobsCache = [];
   let files = [];
   let pollTimer = null;
   const preflightChecks = PREFLIGHT_ITEMS.map(() => false);
@@ -149,23 +151,53 @@ export function openModel3dModal(mine, nameField) {
     return btn;
   }
 
+  /**
+   * مدل‌های دیگرِ همین معدن که برای «🔥 مقایسه» مناسب‌اند: فقط پروازهای نقشه‌برداری/ادغامِ آماده (پیش‌نمایش با GPS
+   * معمولی دقت ارتفاعی کافی برای مقایسه ندارد)، به‌جز خودِ همین کار. مدل دوم فقط هنگام انتخاب کاربر دانلود می‌شود.
+   */
+  function compareOptionsFor(current) {
+    return jobsCache
+      .filter((o) => o.jobId !== current.jobId && o.status === 'done' && (o.mode === 'survey' || o.mode === 'merge')
+        && (!o.assets || !o.assets.length || o.assets.includes('model.glb')))
+      .map((o) => ({
+        id: o.jobId,
+        label: `${o.mode === 'merge' ? '🧩 ادغام' : 'نقشه‌برداری'} — ${fmtWhen(o.createdAt)}`,
+        summary: o.summary,
+        load: () => downloadModel(o.jobId, 'model.glb'),
+      }));
+  }
+
   function jobRow(j) {
     const st = STATUS[j.status] || { label: j.status, color: 'var(--stone-600)' };
     const actions = [];
     const assets = j.assets && j.assets.length ? j.assets : ['model.glb'];
     if (j.status === 'done') {
       if (assets.includes('model.glb')) {
-        const view = el('button', { class: 'btn-sm', style: 'background:var(--ink-700);color:#fff' }, '👁 مشاهده');
-        view.addEventListener('click', async () => {
-          view.disabled = true; view.textContent = '⏳ در حال دریافت...';
+        const openViewer = async (btn, label, asset) => {
+          btn.disabled = true; btn.textContent = '⏳ در حال دریافت...';
           try {
-            const blob = await downloadModel(j.jobId);
+            const blob = await downloadModel(j.jobId, asset, {
+              onStatus: (t) => { if (isOpen()) btn.textContent = `⏳ ${t}`; },
+            });
             const { openModel3dViewer } = await import('../../lib/model3dViewer.js');
-            openModel3dViewer(blob, { title: `${mineName} — ${fmtWhen(j.createdAt)}`, summary: j.summary });
+            openModel3dViewer(blob, {
+              title: `${mineName} — ${fmtWhen(j.createdAt)}${asset === 'model.glb' ? '' : ' (سبک)'}`,
+              summary: j.summary,
+              corners: getMineCorners(mine),
+              compareOptions: compareOptionsFor(j),
+            });
           } catch (err) { errBox.textContent = err.message; }
-          view.disabled = false; view.textContent = '👁 مشاهده';
-        });
+          btn.disabled = false; btn.textContent = label;
+        };
+        const view = el('button', { class: 'btn-sm', style: 'background:var(--ink-700);color:#fff' }, '👁 مشاهده');
+        view.addEventListener('click', () => openViewer(view, '👁 مشاهده', 'model.glb'));
         actions.push(view);
+        // مدل سبک (۳۵٪ مثلث) برای گوشی‌های ضعیف/اینترنت کند؛ تحلیل‌ها روی آن سریع‌ترند ولی ریزجزئیات کمتری دارد
+        if (assets.includes('model_lod1.glb')) {
+          const light = el('button', { class: 'btn-sm', style: 'background:var(--ink-700);color:#fff' }, '👁 سبک');
+          light.addEventListener('click', () => openViewer(light, '👁 سبک', 'model_lod1.glb'));
+          actions.push(light);
+        }
         actions.push(assetButton(j, 'model.glb', '⬇️ مدل', 'background:var(--patina-700);color:#fff'));
       }
       ['dsm.tif', 'stats.json', 'ortho.tif', 'pointcloud.laz', 'contours.dxf', 'report.pdf']
@@ -225,6 +257,7 @@ export function openModel3dModal(mine, nameField) {
   async function loadJobs() {
     try {
       const jobs = await listJobs(mineName);
+      jobsCache = jobs;
       jobsBox.innerHTML = '';
       if (!jobs.length) {
         jobsBox.append(el('div', { style: 'font-size:11px;color:var(--stone-500)' }, 'هنوز مدلی برای این معدن ساخته نشده'));
