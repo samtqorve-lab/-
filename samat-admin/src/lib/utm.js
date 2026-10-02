@@ -14,9 +14,13 @@ export function utmZoneForLon(lon) {
   return Math.floor((lon + 180) / 6) + 1;
 }
 
-/** طول/عرض جغرافیایی (درجه‌ی اعشاری) → UTM */
-export function latLonToUtm(lat, lon) {
-  const zone = utmZoneForLon(lon);
+/**
+ * طول/عرض جغرافیایی (درجه‌ی اعشاری) → UTM
+ * @param {number} [forceZone] اگر داده شود، به‌جای زون طبیعیِ آن طول جغرافیایی، روی همان زون محاسبه می‌شود
+ *   (برای وقتی که مدل یک پهباد در زون مشخصی ساخته شده ولی گوشه‌ی معدن کمی آن‌طرف مرز زون افتاده است)
+ */
+export function latLonToUtm(lat, lon, forceZone) {
+  const zone = Number.isInteger(forceZone) && forceZone >= 1 && forceZone <= 60 ? forceZone : utmZoneForLon(lon);
   const lonOrigin = toRad((zone - 1) * 6 - 180 + 3);
   const latR = toRad(lat);
   const lonR = toRad(lon);
