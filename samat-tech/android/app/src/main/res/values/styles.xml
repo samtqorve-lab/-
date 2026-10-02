@@ -13,6 +13,8 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!-- هدر اپ حالا سفید است: آیکن‌های نوار وضعیت باید تیره باشند (وگرنه با تم تاریک گوشی روی هدر سفید نامرئی می‌شوند) -->
+        <item name="android:windowLightStatusBar">true</item>
     </style>
 
 
