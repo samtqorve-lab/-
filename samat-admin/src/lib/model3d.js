@@ -4,6 +4,7 @@ import {
 } from './model3dCrypto.js';
 import { extractApp1Segments, patchExifSegment, injectApp1Segments } from './model3dExif.js';
 import { buildJobMeta, planPhotoNames, rewriteNames } from './model3dGeoref.js';
+import { ciphertextCache } from './model3dCache.js';
 
 /**
  * ساخت مدل سه‌بعدی از عکس‌های پهباد: عکس‌ها در همین دستگاه کوچک و رمز می‌شوند، از طریق Edge Function
@@ -52,7 +53,11 @@ export const listJobs = (mineName) => call('list', { mineName }).then((d) => d.j
 export const getJobStatus = (jobId) => call('status', { jobId });
 export const createJob = (mineName, { mode = 'preview', georef = 'exif' } = {}) => call('create', { mineName, mode, georef });
 export const startJob = (jobId, { expected, photos }) => call('start', { jobId, expected, photos });
-export const removeJob = (jobId) => call('remove', { jobId });
+export const removeJob = async (jobId) => {
+  const res = await call('remove', { jobId });
+  await ciphertextCache.removeJob(jobId); // نسخه‌ی رمزشده‌ی کش‌شده روی این دستگاه هم پاک شود
+  return res;
+};
 export const getJobKey = (jobId) => call('key', { jobId }).then((d) => d.key_b64);
 /**
  * چند پروازِ survey/done یک معدن را در یک DSM/ارتوفتو/مدل سه‌بعدیِ یکپارچه ادغام می‌کند
@@ -224,24 +229,44 @@ export const ASSET_INFO = {
   'model_lod1.glb': { label: 'مدل سه‌بعدی (سبک، ۳۵٪ مثلث)', mime: 'model/gltf-binary', file: 'model3d-lod1.glb' },
   'model_lod2.glb': { label: 'مدل سه‌بعدی (بسیار سبک، ۱۰٪ مثلث)', mime: 'model/gltf-binary', file: 'model3d-lod2.glb' },
   'dsm.tif': { label: 'DSM (مدل ارتفاعی)', mime: 'image/tiff', file: 'dsm.tif' },
-  'ortho.tif': { label: 'اورتوفوتو', mime: 'image/tiff', file: 'orthophoto.tif' },
+  'ortho.tif': { label: 'اورتوفتوی', mime: 'image/tiff', file: 'orthophoto.tif' },
   'stats.json': { label: 'گزارش دقت', mime: 'application/json', file: 'stats.json' },
   'pointcloud.laz': { label: 'ابر نقاط (LAZ)', mime: 'application/octet-stream', file: 'pointcloud.laz' },
   'contours.dxf': { label: 'خطوط تراز (DXF)', mime: 'application/dxf', file: 'contours.dxf' },
   'report.pdf': { label: 'گزارش دقت/حجم (PDF)', mime: 'application/pdf', file: 'report.pdf' },
 };
 
-/** یکی از خروجی‌های آماده را از GitHub (از طریق Edge Function) می‌گیرد و در همین دستگاه رمزگشایی می‌کند. */
-export async function downloadModel(jobId, asset = 'model.glb') {
+/**
+ * یکی از خروجی‌های آماده را می‌گیرد و در همین دستگاه رمزگشایی می‌کند. کلید همیشه با احراز هویت از سرور
+ * گرفته می‌شود؛ اما خودِ بایت‌های رمزشده (که بدون کلید بی‌مصرف‌اند) بعد از اولین دانلود روی دستگاه کش
+ * می‌شوند تا باز کردن دوباره‌ی همان مدل صدها مگابایت دانلود نکند (model3dCache.js).
+ * @param {string} jobId
+ * @param {string} [asset]
+ * @param {{ onStatus?: (text: string) => void }} [opts]
+ */
+export async function downloadModel(jobId, asset = 'model.glb', { onStatus = () => {} } = {}) {
   const info = ASSET_INFO[asset] || ASSET_INFO['model.glb'];
-  const keyB64 = await getJobKey(jobId);
-  const res = await fetch(`${FN_URL}?action=download&job_id=${jobId}&asset=${encodeURIComponent(asset)}`, { headers: await authHeaders() });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || `دریافت فایل ناموفق بود (${res.status})`);
+  const keyB64 = await getJobKey(jobId); // حتی با کش، دسترسی کاربر هر بار بررسی می‌شود
+  let encrypted = await ciphertextCache.get(jobId, asset);
+  if (encrypted) {
+    onStatus('از حافظه‌ی همین دستگاه (رمزشده)');
+  } else {
+    const res = await fetch(`${FN_URL}?action=download&job_id=${jobId}&asset=${encodeURIComponent(asset)}`, { headers: await authHeaders() });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || `دریافت فایل ناموفق بود (${res.status})`);
+    }
+    encrypted = new Uint8Array(await res.arrayBuffer());
+    ciphertextCache.put(jobId, asset, encrypted); // بدون await: کند بودن کش جلوی نمایش را نگیرد
   }
-  const encrypted = new Uint8Array(await res.arrayBuffer());
-  const plain = await decryptBytes(encrypted, await importKey(keyB64));
+  let plain;
+  try {
+    plain = await decryptBytes(encrypted, await importKey(keyB64));
+  } catch (err) {
+    // کش خراب یا ناسازگار با کلید → پاکش کن تا دفعه‌ی بعد تازه دانلود شود
+    await ciphertextCache.removeJob(jobId);
+    throw err;
+  }
   return new Blob([plain], { type: info.mime });
 }
 
