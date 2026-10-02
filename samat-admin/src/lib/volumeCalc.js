@@ -30,8 +30,10 @@ export function computeLicenseComparison(record, cutVolumeM3) {
   return result;
 }
 
-export function buildTriIndex(coordsFlat, triangles, minX, minY, maxX, maxY) {
-  const cells = 40;
+export function buildTriIndex(coordsFlat, triangles, minX, minY, maxX, maxY, cellsPerSide = 40) {
+  // cellsPerSide: برای مش‌های خیلی بزرگ (مثلاً ۳۰۰ هزار مثلث مدل پهباد) باید بیشتر از ۴۰ باشد وگرنه
+  // هر خانه هزاران مثلث دارد و interpolateZ کند می‌شود؛ مقدار پیش‌فرض برای بقیه‌ی فراخوانی‌ها همان ۴۰ است.
+  const cells = Math.max(1, Math.floor(cellsPerSide));
   const cw = (maxX - minX) / cells || 1;
   const ch = (maxY - minY) / cells || 1;
   const grid = new Map();
@@ -94,7 +96,7 @@ export function interpolateZ(idx, coordsFlat, triangles, zvals, px, py) {
  * جغرافیایی ندارد و برخلاف برآورد از روی داده‌ی ارتفاعی عمومی (که در سطح کشور فقط ~۳۰ متر
  * وضوح دارد)، از روی نقشه‌برداری واقعیِ خودِ کاربر است — قابل‌اتکاتر برای هشدار ایمنی شیب.
  *
- * ⚠️ همچنان یک ابزار غربالگری اولیه است، نه جایگزین ارزیابی مهندسی ژئوتکنیک رسمی. آستانه‌ی
+ * ⚠️ همچنان یک ابزار غربالگری اولی است، نه جایگزین ارزیابی مهندسی ژئوتکنیک رسمی. آستانه‌ی
  * پیش‌فرض (۴۵ درجه) یک قاعده‌ی سرانگشتی محافظه‌کارانه است، نه استاندارد قانونی مشخص برای همه‌ی
  * انواع سنگ/خاک — می‌تواند بسته به جنس ماده‌ی معدنی فرق کند.
  * @returns {{slopeDeg: Float64Array, maxSlopeDeg:number, steepTriIndices:number[], steepCount:number, totalTriCount:number}}
@@ -134,7 +136,7 @@ function triangleArea2D(x0, y0, x1, y1, x2, y2) {
 }
 
 /**
- * محاسبه حجم کات/فیل به روش مثلث‌بندی دلونی (TIN): هر دو سطح جداگانه مثلث‌بندی می‌شوند،
+ * محاسبه حجم کات/فیل به روش مثلث‌بندی دلونه (TIN): هر دو سطح جداگانه مثلث‌بندی می‌شوند،
  * سپس روی یک شبکه محاسباتی مشترک (اجتماع نقاط XY هر دو سطح در محدوده‌ی هم‌پوشان) ارتفاع هر دو
  * سطح میان‌یابی و حجم منشوری هر مثلث مشترک جمع زده می‌شود — دقیق‌تر از میانگین‌گیری شبکه‌ای ساده.
  */
