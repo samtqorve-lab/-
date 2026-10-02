@@ -229,7 +229,7 @@ export const ASSET_INFO = {
   'model_lod1.glb': { label: 'مدل سه‌بعدی (سبک، ۳۵٪ مثلث)', mime: 'model/gltf-binary', file: 'model3d-lod1.glb' },
   'model_lod2.glb': { label: 'مدل سه‌بعدی (بسیار سبک، ۱۰٪ مثلث)', mime: 'model/gltf-binary', file: 'model3d-lod2.glb' },
   'dsm.tif': { label: 'DSM (مدل ارتفاعی)', mime: 'image/tiff', file: 'dsm.tif' },
-  'ortho.tif': { label: 'اورتوفتوی', mime: 'image/tiff', file: 'orthophoto.tif' },
+  'ortho.tif': { label: 'اورتوفوتو', mime: 'image/tiff', file: 'orthophoto.tif' },
   'stats.json': { label: 'گزارش دقت', mime: 'application/json', file: 'stats.json' },
   'pointcloud.laz': { label: 'ابر نقاط (LAZ)', mime: 'application/octet-stream', file: 'pointcloud.laz' },
   'contours.dxf': { label: 'خطوط تراز (DXF)', mime: 'application/dxf', file: 'contours.dxf' },
