@@ -7,7 +7,8 @@ import { setMineInDept, setTab, getState, onChange } from '../../router.js';
 // قبلاً این جست‌وجو همیشه هم‌زمان در همه‌ی بخش‌ها (معدن/صنعت/اکتشاف/فرآوری/اصناف) می‌گشت —
 // یعنی وقتی کاربر داخل بخش صنعت بود، نتایج معدن هم می‌آمدند و کل تجربه به‌جای مختص‌بودن به
 // بخش فعال، سراسری به نظر می‌رسید. حالا فقط همان بخشی که کاربر الان در آن است جست‌وجو می‌شود.
-async function searchMines(query, department) {
+// (این سه تابع export شده‌اند تا پنجره‌ی جست‌وجوی سریع Ctrl+K هم از همین منطق استفاده کند.)
+export async function searchMines(query, department) {
   const nameField = DEPT_NAME_FIELD[department] || 'نام_معدن';
   const list = await fetchDeptRecords(department).catch(() => []);
   return list
@@ -16,7 +17,7 @@ async function searchMines(query, department) {
     .map((r) => ({ type: 'mine', dept: department, id: r._rowId, name: r[nameField] || '', nameField }));
 }
 
-async function searchUsers(query) {
+export async function searchUsers(query) {
   const { data } = await sb.from('user_roles').select('email, full_name, role')
     .or(`email.ilike.%${query}%,full_name.ilike.%${query}%`).limit(6);
   return (data || []).map((u) => ({
@@ -24,7 +25,7 @@ async function searchUsers(query) {
   }));
 }
 
-async function searchReports(query) {
+export async function searchReports(query) {
   const { data } = await sb.from('tech_reports').select('id, mine_name, period, note')
     .or(`mine_name.ilike.%${query}%,note.ilike.%${query}%`)
     .order('created_at', { ascending: false }).limit(6);
@@ -40,10 +41,11 @@ export function mountGlobalSearch(hostEl) {
     style: 'width:100%;max-width:360px',
   });
   const results = el('div', {
-    style: 'position:absolute;top:100%;right:0;left:0;background:#fff;border:1px solid var(--stone-200);'
+    style: 'position:absolute;top:100%;right:0;left:0;background:var(--surface);border:1px solid var(--stone-200);'
       + 'border-radius:var(--radius-md);box-shadow:var(--shadow-lg);max-height:60vh;overflow-y:auto;z-index:1100;display:none',
   });
-  const wrap = el('div', { style: 'position:relative;flex:1;max-width:360px' }, [input, results]);
+  // کلاس gs-wrap: در موبایل مخفی می‌شود (آنجا دکمه‌ی جست‌وجوی سریع جایش را می‌گیرد)
+  const wrap = el('div', { class: 'gs-wrap', style: 'position:relative;flex:1;max-width:360px' }, [input, results]);
   hostEl.append(wrap);
 
   function updatePlaceholder() {
@@ -62,7 +64,7 @@ export function mountGlobalSearch(hostEl) {
   function row(icon, title, subtitle, onClick) {
     return el('button', {
       style: 'display:flex;flex-direction:column;align-items:flex-start;width:100%;text-align:right;'
-        + 'background:none;border:none;border-bottom:1px solid var(--stone-100);padding:10px 12px;cursor:pointer',
+        + 'background:none;border:none;border-bottom:1px solid var(--stone-100);padding:10px 12px;cursor:pointer;color:var(--ink-900)',
       onclick: () => { onClick(); hide(); input.value = ''; },
     }, [
       el('div', { style: 'font-size:13px;font-weight:700' }, `${icon} ${title}`),
