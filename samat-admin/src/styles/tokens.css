@@ -7,9 +7,14 @@
   نکته‌ی نگهداری: نام متغیرها (stone / ink / slate / ochre / ...) عمداً از نسخه‌ی قبلی (پالت سنگ و
   معدن) نگه داشته شده تا همه‌ی ماژول‌هایی که از این متغیرها استفاده می‌کنند بدون تغییر کد، ظاهر جدید
   را بگیرند. یعنی «ochre» الان همان آبیِ اکشن است و «rust» قرمز اینستاگرام.
+
+  حالت تاریک: با data-theme='dark' روی <html> فعال می‌شود (پایین همین فایل). متغیر --surface رنگ
+  «سطح» کارت/نوار کناری/نوار بالا است (سفید در حالت روشن).
 */
 
 :root {
+  --surface: #FFFFFF;
+
   /* ── خنثی‌ها (پس‌زمینه / حاشیه / متن ثانویه) ── */
   --stone-50:  #FAFAFA;
   --stone-100: #EFEFEF;
@@ -107,4 +112,76 @@
   --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.18);
 
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* =============================================================
+   حالت تاریک (اختیاری — با دکمه‌ی 🌙 بالای صفحه فعال می‌شود)
+   ============================================================= */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --surface: #1A1A1A;
+
+  --stone-50:  #0F0F0F;
+  --stone-100: #262626;
+  --stone-200: #363636;
+  --stone-300: #4A4A4A;
+  --stone-400: #737373;
+  --stone-500: #8E8E8E;
+  --stone-600: #A8A8A8;
+  --stone-800: #DBDBDB;
+
+  --ink-900: #F5F5F5;
+  --ink-800: #EDEDED;
+  --ink-700: #DBDBDB;
+  --ink-500: #A8A8A8;
+
+  --ochre-700: #8CCBFF;
+  --ochre-100: #0E2E4A;
+  --ochre-50:  #0A1F33;
+
+  --patina-700: #7AD9A0;
+  --patina-100: #12331F;
+  --patina-50:  #0E2417;
+
+  --amber-700: #F0C36D;
+  --amber-100: #3A2C10;
+  --amber-50:  #2B200C;
+
+  --rust-700:  #FF8A93;
+  --rust-600:  #FF5A67;
+  --rust-100:  #3D1418;
+  --rust-50:   #2D0F12;
+
+  --schist-600: #9DB1BA;
+  --schist-100: #1F2A2F;
+
+  --clay-700: #D9B79C;
+  --clay-100: #2E221A;
+
+  --fluorite-700: #C9A0E8;
+  --fluorite-100: #2A1A38;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.7);
+}
+
+:root[data-theme='dark'] body { background: var(--stone-50); color: var(--ink-900); }
+
+/* شبکه‌ی ایمنی: بعضی ماژول‌ها رنگ سفید/خاکستری را مستقیم داخل style اینلاین نوشته‌اند (نه با متغیر) —
+   در حالت تاریک این‌ها را به رنگ‌های تم برمی‌گردانیم تا متن روشن روی زمینه‌ی سفید نیفتد. */
+:root[data-theme='dark'] [style*='background:#fff'],
+:root[data-theme='dark'] [style*='background: #fff'],
+:root[data-theme='dark'] [style*='background:#FFF'],
+:root[data-theme='dark'] [style*='background:white'],
+:root[data-theme='dark'] [style*='background: white'],
+:root[data-theme='dark'] [style*='background-color:#fff'],
+:root[data-theme='dark'] [style*='background-color: #fff'] {
+  background: var(--surface) !important;
+}
+:root[data-theme='dark'] [style*='color:#555'],
+:root[data-theme='dark'] [style*='color:#333'],
+:root[data-theme='dark'] [style*='color:#444'],
+:root[data-theme='dark'] [style*='color:#000'] {
+  color: var(--ink-700) !important;
 }
