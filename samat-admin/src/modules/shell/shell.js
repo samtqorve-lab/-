@@ -6,6 +6,7 @@ import { mountGlobalSearch } from './globalSearch.js';
 import { mountCommandPalette } from './commandPalette.js';
 import { mountNotificationCenter } from './notificationCenter.js';
 import { mountThemeToggle } from './themeToggle.js';
+import { mountMobileNav } from './mobileNav.js';
 import { enhanceTable } from '../../lib/tableTools.js';
 import { DEPT_PLURAL_LABEL } from '../../lib/sections.js';
 
@@ -15,6 +16,7 @@ const DEPARTMENT_TREE = [
   { dept: 'صنعت' },
   { dept: 'اصناف' },
 ];
+const ALL_DEPARTMENTS = DEPARTMENT_TREE.flatMap(({ dept, children }) => [dept, ...(children || [])]);
 
 // وضعیت جمع‌شدنِ نوار کناری در دسکتاپ بین دفعات باز کردن برنامه یادش می‌ماند
 const COLLAPSE_KEY = 'samat.sidebar.collapsed';
@@ -65,6 +67,12 @@ function isNavVisible(item, department) {
   return Array.isArray(item.hideForDept) ? !item.hideForDept.includes(department) : item.hideForDept !== department;
 }
 
+function visibleNavEntries(department) {
+  return NAV_ITEMS
+    .filter((item) => isNavVisible(item, department))
+    .map((item) => ({ tab: item.tab, icon: item.icon, label: navLabel(item, department) }));
+}
+
 /**
  * پوسته‌ی اصلی برنامه را می‌سازد و یک تابع برمی‌گرداند که هر بار تب/بخش فعال عوض شود،
  * محتوای مناسب را داخل ناحیه‌ی content می‌سازد (renderContent باید توسط main.js تزریق شود).
@@ -80,29 +88,26 @@ export function mountShell(root, { userLabel, renderContent }) {
     el('div', { class: 'app-name' }, 'پنل ادمین صمت'),
   ]);
 
-  function openSidebar() { sidebar.classList.add('open'); backdrop.classList.add('open'); }
   function closeSidebar() { sidebar.classList.remove('open'); backdrop.classList.remove('open'); }
   function setCollapsed(v) {
     sidebar.classList.toggle('collapsed', v);
     try { localStorage.setItem(COLLAPSE_KEY, v ? '1' : '0'); } catch { /* حافظه‌ی مرورگر در دسترس نیست — فقط یادآوری نمی‌شود */ }
   }
-  // موبایل: کشویی روی صفحه؛ دسکتاپ: جمع/باز شدن به ستون آیکنی
+  // موبایل: شیت «بیشتر» از پایین؛ دسکتاپ: جمع/باز شدن نوار کناری به ستون آیکنی
   function toggleSidebar() {
-    if (isMobileViewport()) {
-      if (sidebar.classList.contains('open')) closeSidebar(); else openSidebar();
-      return;
-    }
+    if (isMobileViewport()) { mobileNav.openSheet(); return; }
     setCollapsed(!sidebar.classList.contains('collapsed'));
   }
   try { if (localStorage.getItem(COLLAPSE_KEY) === '1') sidebar.classList.add('collapsed'); } catch { /* ignore */ }
 
   const deptSwitch = el('div', { class: 'dept-switch' });
   const navGroup = el('nav', { class: 'nav-group' });
+  const doSignOut = () => signOut().then(() => location.reload());
   const footer = el('div', { class: 'sidebar-footer' }, [
     el('div', { class: 'user-label' }, userLabel || ''),
     el('button', {
       class: 'btn btn-ghost', style: 'width:100%;justify-content:center;margin-top:8px', title: 'خروج از سامانه',
-      onclick: () => signOut().then(() => location.reload()),
+      onclick: doSignOut,
     }, [el('span', {}, '🚪'), el('span', { class: 'footer-btn-text' }, ' خروج از سامانه')]),
   ]);
 
@@ -118,16 +123,22 @@ export function mountShell(root, { userLabel, renderContent }) {
 
   root.append(sidebar, backdrop, main);
 
+  // ── تب‌بار پایین صفحه (فقط موبایل؛ آیکن‌ها پایین صفحه‌اند) ──
+  const mobileNav = mountMobileNav({
+    root,
+    getItems: (s) => visibleNavEntries(s.department),
+    departments: ALL_DEPARTMENTS,
+    onTab: (tab) => setTab(tab),
+    onDept: (name) => setDepartment(name),
+    onLogout: doSignOut,
+  });
+
   // ── نوار بالا (راست→چپ): جست‌وجو، جست‌وجوی سریع (Ctrl+K)، اعلان‌ها، تم ──
   const searchHost = el('div', { style: 'display:flex;align-items:center' });
   topbarActions.append(searchHost);
   mountGlobalSearch(searchHost);
 
-  const palette = mountCommandPalette({
-    getPages: () => NAV_ITEMS
-      .filter((item) => isNavVisible(item, getState().department))
-      .map((item) => ({ tab: item.tab, icon: item.icon, label: navLabel(item, getState().department) })),
-  });
+  const palette = mountCommandPalette({ getPages: () => visibleNavEntries(getState().department) });
   topbarActions.append(el('button', {
     class: 'top-icon-btn', type: 'button', title: 'جست‌وجوی سریع (Ctrl+K)', 'aria-label': 'جست‌وجوی سریع',
     onclick: () => palette.open(),
@@ -214,7 +225,7 @@ export function mountShell(root, { userLabel, renderContent }) {
     const title = activeItem ? navLabel(activeItem, s.department) : (s.tab === 'mineDetail' ? 'جزئیات رکورد' : '');
     topbarTitle.innerHTML = '';
     topbarTitle.append(
-      el('button', { class: 'menu-toggle-btn', onclick: () => toggleSidebar(), 'aria-label': 'باز/بسته کردن منو', title: 'باز/بسته کردن منو' }, '☰'),
+      el('button', { class: 'menu-toggle-btn', onclick: () => toggleSidebar(), 'aria-label': 'منو', title: 'منو' }, '☰'),
       el('div', {}, [
         el('h1', {}, title),
         el('div', { class: 'crumb' }, `بخش ${s.department}`),
@@ -226,6 +237,7 @@ export function mountShell(root, { userLabel, renderContent }) {
     renderDeptSwitch(s.department);
     renderNav(s);
     renderTopbar(s);
+    mobileNav.render(s);
     // صفحه‌ی نقشه تمام‌صفحه و بدون حاشیه است (پنل‌ها روی آن شناورند)
     const isMap = s.tab === 'dashboard';
     main.classList.toggle('main--map', isMap);
