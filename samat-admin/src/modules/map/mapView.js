@@ -1,12 +1,14 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
-import { el, esc, showToast } from '../../lib/dom.js';
+import { el, showToast } from '../../lib/dom.js';
+import { sb } from '../../lib/supabase.js';
 import { fetchDeptRecords, applyGeoScope } from '../../lib/records.js';
-import { DEPT_NAME_FIELD, DEPT_CAT_COLORS } from '../../lib/sections.js';
+import { DEPT_NAME_FIELD, DEPT_CAT_COLORS, DEPT_PLURAL_LABEL } from '../../lib/sections.js';
 import {
   getMineCorners, ensureNativeLocationPermission, centroid, openDirectionsTo,
 } from '../../lib/geo.js';
+import { licenseExpiryInfo } from '../../lib/jalali.js';
 import { setMine, onChange } from '../../router.js';
 import { mountMapToolbar } from './mapTools.js';
 
@@ -22,6 +24,9 @@ onChange((s) => {
   }
 });
 
+const SELECT_COLOR = '#0095F6';
+const ZWNJ = String.fromCharCode(0x200c);
+const normalize = (s) => String(s || '').replace(/ي/g, 'ی').replace(/ك/g, 'ک').split(ZWNJ).join(' ').toLowerCase();
 
 function createSatelliteLayers() {
   const subdomains = ['0', '1', '2', '3'];
@@ -49,6 +54,36 @@ function createGeologyLayer() {
   });
 }
 
+// آدرس عکس‌ها را (اگر ردیف گزارش چنین فیلدی داشته باشد) به‌صورت عمومی از مقادیر ردیف جمع می‌کند
+function collectImageUrls(row) {
+  const out = [];
+  const visit = (v) => {
+    if (out.length >= 4) return;
+    if (typeof v === 'string') {
+      const t = v.trim();
+      if (t.startsWith('http') && /[.](jpe?g|png|webp)([?]|$)/i.test(t)) out.push(t);
+    } else if (Array.isArray(v)) {
+      v.forEach(visit);
+    }
+  };
+  Object.values(row || {}).forEach(visit);
+  return out;
+}
+
+async function fetchLastReport(department, name) {
+  let res = await sb.from('tech_reports').select('*').eq('department', department).eq('mine_name', name)
+    .order('created_at', { ascending: false }).limit(1);
+  if (res.error) res = await sb.from('tech_reports').select('*').eq('mine_name', name).limit(1);
+  return res.error ? null : ((res.data && res.data[0]) || null);
+}
+
+function licenseBadge(license) {
+  if (!license) return el('span', { class: 'badge badge-schist' }, 'پروانه: نامشخص');
+  if (license.expired) return el('span', { class: 'badge badge-rust' }, `پروانه منقضی (${Math.abs(license.monthsLeft)} ماه پیش)`);
+  if (license.monthsLeft <= 3) return el('span', { class: 'badge badge-amber' }, `پروانه: ${license.monthsLeft} ماه مانده`);
+  return el('span', { class: 'badge badge-patina' }, `پروانه: ${license.monthsLeft} ماه مانده`);
+}
+
 export async function renderMap(container, state) {
   container.append(el('div', { class: 'loading-state' }, [
     el('div', { class: 'spinner' }),
@@ -65,8 +100,9 @@ export async function renderMap(container, state) {
   }
 
   container.innerHTML = '';
-  const nameField = DEPT_NAME_FIELD[state.department] || 'نام_معدن';
-  const catColors = DEPT_CAT_COLORS[state.department] || {};
+  const department = state.department;
+  const nameField = DEPT_NAME_FIELD[department] || 'نام_معدن';
+  const catColors = DEPT_CAT_COLORS[department] || {};
 
   const withBoundary = records
     .map((r) => ({ r, corners: getMineCorners(r) }))
@@ -83,44 +119,22 @@ export async function renderMap(container, state) {
     return;
   }
 
-  const mapBox = el('div', { class: 'map-box', style: 'height:65vh;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--stone-200)' });
-  const toolsHost = el('div', { class: 'card', style: 'margin-bottom:12px' });
+  // ── ساختار: نقشه‌ی تمام‌صفحه + پنل‌های شناور روی آن ──
+  const mapBox = el('div', { class: 'map-box' });
+  const stage = el('div', { class: 'map-stage' }, mapBox);
   const printInfo = el('div', { class: 'map-print-only' });
-  const printBtn = el('button', {
-    class: 'btn-sm map-print-hide', style: 'background:var(--stone-100);color:var(--ink-700);margin-bottom:8px',
-    onclick: () => {
-      printInfo.innerHTML = '';
-      const today = new Intl.DateTimeFormat('fa-IR', { dateStyle: 'full' }).format(new Date());
-      printInfo.append(
-        el('h2', {}, `نقشه‌ی معادن — بخش ${state.department}`),
-        el('div', { style: 'font-size:12px;color:#555;margin-bottom:10px' }, `اداره صنعت، معدن و تجارت قروه — تاریخ چاپ: ${today}`),
-      );
-      const legend = el('div', { class: 'map-print-legend' });
-      Object.entries(catColors).forEach(([label, c]) => {
-        legend.append(el('div', { class: 'map-print-legend-item' }, [
-          el('span', { class: 'map-print-swatch', style: `background:${c.badge}` }),
-          el('span', {}, label),
-        ]));
-      });
-      printInfo.append(legend);
-      mapBox.classList.add('map-box--printing');
-      setTimeout(() => {
-        map.invalidateSize();
-        window.print();
-        setTimeout(() => mapBox.classList.remove('map-box--printing'), 500);
-      }, 50);
-    },
-  }, '🖨️ چاپ نقشه');
-  container.append(printBtn, toolsHost, printInfo, mapBox);
+  container.append(printInfo, stage);
 
   if (mapInstance) { mapInstance.remove(); mapInstance = null; }
   const map = L.map(mapBox);
   mapInstance = map;
 
-  const cleanupToolbar = mountMapToolbar(toolsHost, map);
-  const unsubscribeToolbar = onChange((s) => {
-    if (s.tab !== 'dashboard') { cleanupToolbar(); unsubscribeToolbar(); }
-  });
+  // وقتی نوار کناری جمع/باز می‌شود پنجره resize نمی‌شود، پس خودمان به Leaflet خبر می‌دهیم
+  let resizeObserver = null;
+  if (typeof ResizeObserver !== 'undefined') {
+    resizeObserver = new ResizeObserver(() => map.invalidateSize());
+    resizeObserver.observe(stage);
+  }
 
   const layers = createSatelliteLayers();
   layers.hybrid.addTo(map);
@@ -130,8 +144,7 @@ export async function renderMap(container, state) {
   // مرورگر (navigator.geolocation) که لیفلت هم داخلی همین را صدا می‌زند (map.locate) سوار می‌شویم.
   // watch:true یعنی نقطه با حرکت کاربر (مثلاً روی گوشی، سر معدن) زنده به‌روزرسانی می‌شود.
   // عمداً به‌عنوان یک L.Control واقعی (نه یک دکمه‌ی مطلق‌موقعیت‌یافته‌ی جدا) اضافه می‌شود تا
-  // لیفلت خودش آن را زیر دکمه‌ی بزرگ‌نمایی/کوچک‌نمایی بچیند، نه روی دکمه‌ی تعویض لایه‌ها که
-  // قبلاً به‌خاطر مختصات ثابت (top:80px) گاهی رویش می‌افتاد.
+  // لیفلت خودش آن را زیر دکمه‌ی بزرگ‌نمایی/کوچک‌نمایی بچیند، نه روی دکمه‌ی تعویض لایه‌ها.
   let locateWatching = false;
   const locateBtn = el('button', {
     class: 'btn btn-ghost',
@@ -157,7 +170,7 @@ export async function renderMap(container, state) {
     '🛰️ ماهواره + عوارض (جاده/نام مکان)': layers.hybrid,
     '🛰️ ماهواره خالص': layers.pure,
     '🗺️ خیابانی': layers.street,
-  }, state.department === 'اکتشاف' ? { '⛏️ زمین‌شناسی (USGS — مقیاس منطقه‌ای)': createGeologyLayer() } : null, { position: 'topleft', collapsed: true }).addTo(map);
+  }, department === 'اکتشاف' ? { '⛏️ زمین‌شناسی (USGS — مقیاس منطقه‌ای)': createGeologyLayer() } : null, { position: 'topleft', collapsed: true }).addTo(map);
 
   let userMarker = null;
   let userAccuracyCircle = null;
@@ -179,63 +192,213 @@ export async function renderMap(container, state) {
   const unsubscribeLocate = onChange((s) => {
     if (s.tab !== 'dashboard') {
       if (locateWatching) { map.stopLocate(); locateWatching = false; }
+      if (resizeObserver) { resizeObserver.disconnect(); resizeObserver = null; }
       unsubscribeLocate();
     }
   });
 
-  const directionsLink = (lat, lon, label = '') => el('a', {
-    href: '#',
-    onclick: (e) => {
-      e.preventDefault();
-      openDirectionsTo(lat, lon, label).catch((err) => showToast(`⚠️ ${err.message}`));
-    },
-  }, '🧭 مسیریابی از موقعیت من');
-
+  // ── رکوردها روی نقشه (هر رکورد یک entry: لایه + اطلاعات برای فهرست و کارت) ──
+  const entries = [];
   const bounds = [];
+  let selected = null;
+
+  function styleFor(entry, isSelected) {
+    if (entry.kind === 'poly') {
+      return isSelected
+        ? { color: SELECT_COLOR, weight: 4, fillColor: entry.color, fillOpacity: 0.5 }
+        : { color: '#fff', weight: 2, fillColor: entry.color, fillOpacity: 0.35 };
+    }
+    return isSelected
+      ? { color: SELECT_COLOR, weight: 4, fillColor: entry.color, fillOpacity: 1 }
+      : { color: '#fff', weight: 2, fillColor: entry.color, fillOpacity: 1 };
+  }
+
   withBoundary.forEach(({ r, corners }) => {
     const cat = catColors[r['دسته']] || catColors['غیره'] || { border: '#6B6250' };
-    const name = r[nameField] || '—';
-    const mineCenter = centroid(corners);
-    const popup = el('div', {}, [
-      el('b', {}, esc(name)),
-      el('br'),
-      esc(r['دسته'] || ''),
-      el('br'),
-      el('a', { href: '#', onclick: (e) => { e.preventDefault(); setMine(r._rowId); } }, 'مشاهده جزئیات'),
-      el('br'),
-      directionsLink(mineCenter[0], mineCenter[1], name),
-    ]);
-    const poly = L.polygon(corners, { color: '#fff', weight: 2, fillColor: cat.border, fillOpacity: 0.35 }).addTo(map);
-    poly.bindPopup(popup);
+    const entry = {
+      r, name: r[nameField] || '—', cat: r['دسته'] || '', color: cat.border, kind: 'poly', center: centroid(corners),
+    };
+    entry.layer = L.polygon(corners, styleFor(entry, false)).addTo(map);
+    entry.bounds = entry.layer.getBounds();
+    entry.layer.on('click', () => select(entry, false));
+    entries.push(entry);
     corners.forEach((pt) => bounds.push(pt));
   });
   withPoint.forEach((r) => {
     const cat = catColors[r['دسته']] || catColors['غیره'] || { badge: '#6B6250' };
-    const name = r[nameField] || '—';
-    const popup = el('div', {}, [
-      el('b', {}, esc(name)),
-      el('br'),
-      esc(r['دسته'] || ''),
-      el('br'),
-      el('a', { href: '#', onclick: (e) => { e.preventDefault(); setMine(r._rowId); } }, 'مشاهده جزئیات'),
-      el('br'),
-      directionsLink(r._lat, r._lon, name),
-    ]);
-    const marker = L.circleMarker([r._lat, r._lon], {
-      radius: 8, color: '#fff', weight: 2, fillColor: cat.badge, fillOpacity: 1,
-    }).addTo(map);
-    marker.bindPopup(popup);
-    bounds.push([r._lat, r._lon]);
+    const entry = {
+      r, name: r[nameField] || '—', cat: r['دسته'] || '', color: cat.badge, kind: 'point', center: [r._lat, r._lon],
+    };
+    entry.layer = L.circleMarker(entry.center, { radius: 8, ...styleFor(entry, false) }).addTo(map);
+    entry.layer.on('click', () => select(entry, false));
+    entries.push(entry);
+    bounds.push(entry.center);
   });
 
   map.fitBounds(bounds, { padding: [30, 30] });
   setTimeout(() => map.invalidateSize(), 200);
 
+  // ── پنل شناور: فهرست رکوردها + جست‌وجو + چاپ ──
+  const listRows = el('div', { class: 'map-list-rows' });
+  const rowNodes = new Map();
+  entries.forEach((entry) => {
+    const row = el('button', { class: 'map-row', type: 'button', onclick: () => select(entry, true) }, [
+      el('span', { class: 'map-dot', style: `background:${entry.color}` }),
+      el('span', { style: 'min-width:0;display:flex;flex-direction:column' }, [
+        el('span', { style: 'font-weight:600' }, entry.name),
+        entry.cat ? el('span', { class: 'map-row-cat' }, entry.cat) : null,
+      ]),
+    ]);
+    rowNodes.set(entry, row);
+    listRows.append(row);
+  });
+
+  const searchInput = el('input', { type: 'search', placeholder: '🔎 جست‌وجو در فهرست...', 'aria-label': 'جست‌وجو در فهرست نقشه' });
+  searchInput.addEventListener('input', () => {
+    const q = normalize(searchInput.value.trim());
+    entries.forEach((entry) => {
+      rowNodes.get(entry).style.display = !q || normalize(`${entry.name} ${entry.cat}`).includes(q) ? '' : 'none';
+    });
+  });
+
+  const printBtn = el('button', {
+    class: 'top-icon-btn', type: 'button', title: 'چاپ نقشه', 'aria-label': 'چاپ نقشه',
+    onclick: () => {
+      printInfo.innerHTML = '';
+      const today = new Intl.DateTimeFormat('fa-IR', { dateStyle: 'full' }).format(new Date());
+      printInfo.append(
+        el('h2', {}, `نقشه‌ی معادن — بخش ${department}`),
+        el('div', { style: 'font-size:12px;color:#555;margin-bottom:10px' }, `اداره صنعت، معدن و تجارت قروه — تاریخ چاپ: ${today}`),
+      );
+      const legend = el('div', { class: 'map-print-legend' });
+      Object.entries(catColors).forEach(([label, c]) => {
+        legend.append(el('div', { class: 'map-print-legend-item' }, [
+          el('span', { class: 'map-print-swatch', style: `background:${c.badge}` }),
+          el('span', {}, label),
+        ]));
+      });
+      printInfo.append(legend);
+      mapBox.classList.add('map-box--printing');
+      setTimeout(() => {
+        map.invalidateSize();
+        window.print();
+        setTimeout(() => mapBox.classList.remove('map-box--printing'), 500);
+      }, 50);
+    },
+  }, '🖨️');
+
+  const collapseBtn = el('button', { class: 'top-icon-btn', type: 'button', 'aria-label': 'جمع/باز کردن فهرست' }, '▾');
   const noLocationCount = records.length - withBoundary.length - withPoint.length;
-  if (noLocationCount > 0) {
-    container.append(el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-top:8px' },
-      `${noLocationCount} رکورد دیگر مختصات محدوده یا موقعیت ندارد و روی نقشه نشان داده نشده.`));
+  const listPanel = el('div', { class: 'map-float map-list map-print-hide' }, [
+    el('div', { class: 'map-list-head' }, [
+      el('strong', { style: 'font-size:var(--text-sm)' }, `${DEPT_PLURAL_LABEL[department] || 'معادن'} (${entries.length})`),
+      el('div', { style: 'display:flex;gap:2px' }, [printBtn, collapseBtn]),
+    ]),
+    el('div', { class: 'map-list-body' }, [
+      el('div', { class: 'map-list-search' }, searchInput),
+      listRows,
+      noLocationCount > 0
+        ? el('div', { class: 'map-list-foot' }, `${noLocationCount} رکورد دیگر مختصات ندارد و روی نقشه نیست.`)
+        : null,
+    ]),
+  ]);
+  collapseBtn.addEventListener('click', () => {
+    const c = listPanel.classList.toggle('collapsed');
+    collapseBtn.textContent = c ? '▸' : '▾';
+  });
+  if (window.matchMedia('(max-width: 860px)').matches) { listPanel.classList.add('collapsed'); collapseBtn.textContent = '▸'; }
+
+  // ── پنل شناور: ابزارهای نقشه (پیش‌فرض بسته تا نقشه تمیز بماند) ──
+  const toolsHost = el('div', { class: 'map-tools-body' });
+  const toolsToggle = el('button', { class: 'map-tools-head', type: 'button' }, '🧰 ابزارهای نقشه ▸');
+  const toolsPanel = el('div', { class: 'map-float map-tools map-print-hide collapsed' }, [toolsToggle, toolsHost]);
+  toolsToggle.addEventListener('click', () => {
+    const c = toolsPanel.classList.toggle('collapsed');
+    toolsToggle.textContent = c ? '🧰 ابزارهای نقشه ▸' : '🧰 ابزارهای نقشه ▾';
+    setTimeout(() => map.invalidateSize(), 50);
+  });
+  const cleanupToolbar = mountMapToolbar(toolsHost, map);
+  const unsubscribeToolbar = onChange((s) => {
+    if (s.tab !== 'dashboard') { cleanupToolbar(); unsubscribeToolbar(); }
+  });
+
+  // ── کارت شناور اطلاعات رکورد انتخاب‌شده ──
+  const infoBox = el('div', { class: 'map-float map-info map-print-hide', style: 'display:none' });
+  let infoToken = 0;
+
+  function clearSelection() {
+    if (!selected) return;
+    selected.layer.setStyle(styleFor(selected, false));
+    rowNodes.get(selected).classList.remove('active');
+    selected = null;
   }
+  function hideInfo() {
+    infoToken += 1;
+    infoBox.style.display = 'none';
+    clearSelection();
+  }
+
+  function showInfo(entry) {
+    const token = ++infoToken;
+    const { r, name, center } = entry;
+    const reportLine = el('div', { class: 'map-info-line' }, '⏳ در حال بررسی آخرین گزارش...');
+    const photos = el('div', { class: 'map-info-photos' });
+    infoBox.innerHTML = '';
+    infoBox.append(
+      el('div', { class: 'map-info-head' }, [
+        el('div', { style: 'min-width:0' }, [
+          el('div', { class: 'map-info-title' }, name),
+          entry.cat ? el('div', { class: 'map-info-sub' }, entry.cat) : null,
+        ]),
+        el('button', { class: 'top-icon-btn', type: 'button', 'aria-label': 'بستن', onclick: hideInfo }, '✕'),
+      ]),
+      el('div', { class: 'map-info-badges' }, licenseBadge(licenseExpiryInfo(r, department))),
+      reportLine,
+      photos,
+      el('div', { class: 'map-info-actions' }, [
+        el('button', { class: 'btn btn-primary', type: 'button', onclick: () => setMine(r._rowId) }, 'مشاهده جزئیات'),
+        el('button', {
+          class: 'btn btn-ghost', type: 'button',
+          onclick: () => openDirectionsTo(center[0], center[1], name).catch((err) => showToast(`⚠️ ${err.message}`)),
+        }, '🧭 مسیریابی'),
+      ]),
+    );
+    infoBox.style.display = 'block';
+
+    fetchLastReport(department, name).then((rep) => {
+      if (token !== infoToken) return; // کاربر رکورد دیگری را انتخاب کرده یا کارت را بسته
+      if (!rep) { reportLine.textContent = '📤 هنوز گزارش دوره‌ای ثبت نشده'; return; }
+      const days = rep.created_at ? Math.floor((Date.now() - new Date(rep.created_at).getTime()) / 86400000) : null;
+      const stale = days !== null && days > 45;
+      reportLine.textContent = `📤 آخرین گزارش: ${days !== null ? `${days} روز پیش` : 'تاریخ نامشخص'}${rep.period ? ` (${rep.period})` : ''}`;
+      if (stale) reportLine.style.color = 'var(--amber-700)';
+      collectImageUrls(rep).forEach((url) => {
+        photos.append(el('a', { href: url, target: '_blank', rel: 'noopener' }, el('img', { src: url, alt: 'عکس گزارش', loading: 'lazy' })));
+      });
+    }).catch(() => { if (token === infoToken) reportLine.textContent = ''; });
+  }
+
+  function select(entry, fly) {
+    clearSelection();
+    selected = entry;
+    entry.layer.setStyle(styleFor(entry, true));
+    if (entry.layer.bringToFront) entry.layer.bringToFront();
+    const row = rowNodes.get(entry);
+    row.classList.add('active');
+    row.scrollIntoView({ block: 'nearest' });
+    if (fly) {
+      if (entry.kind === 'poly') map.fitBounds(entry.bounds, { padding: [70, 70], maxZoom: 17 });
+      else map.setView(entry.center, Math.max(map.getZoom(), 15));
+    }
+    showInfo(entry);
+  }
+
+  // کلیک/کشیدن/اسکرول روی پنل‌ها نباید به نقشه‌ی زیرشان برسد
+  [listPanel, toolsPanel, infoBox].forEach((node) => {
+    L.DomEvent.disableClickPropagation(node);
+    L.DomEvent.disableScrollPropagation(node);
+  });
+  stage.append(listPanel, toolsPanel, infoBox);
 
   // توجه: باکس «مدل سه‌بعدی توپوگرافی» که قبلاً اینجا زیر نقشه بود، به یک تب/صفحه‌ی جدا
   // منتقل شد (ببینید terrain3dPage.js) — این صفحه فقط خودِ نقشه‌ی معادن را نشان می‌دهد.
