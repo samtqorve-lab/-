@@ -6,7 +6,7 @@
 .sidebar {
   width: var(--sidebar-w);
   flex-shrink: 0;
-  background: #fff;
+  background: var(--surface);
   color: var(--ink-900);
   border-inline-end: 1px solid var(--stone-200);
   display: flex;
@@ -101,7 +101,7 @@
 .topbar {
   display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap;
   padding: var(--space-3) var(--space-6);
-  background: #fff;
+  background: var(--surface);
   border-bottom: 1px solid var(--stone-200);
 }
 .topbar h1 { font-size: var(--text-lg); }
@@ -109,11 +109,148 @@
 
 .content { padding: var(--space-6); overflow-y: auto; flex: 1; }
 
-.data-table { border-collapse: collapse; background: #fff; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--stone-200); }
+.data-table { border-collapse: collapse; background: var(--surface); border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--stone-200); }
 .data-table th { text-align: right; font-size: var(--text-xs); color: var(--stone-600); font-weight: 600; padding: 10px 14px; background: var(--stone-50); border-bottom: 1px solid var(--stone-200); user-select: none; }
 .data-table td { padding: 10px 14px; font-size: var(--text-sm); border-bottom: 1px solid var(--stone-100); }
 .data-table tbody tr:hover { background: var(--stone-50); }
 .data-table tbody tr:last-child td { border-bottom: none; }
+
+/* ── ابزار جدول (فیلتر / مرتب‌سازی / اکسل) — از tableTools.js ── */
+.table-tools { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+.table-tools input { flex: 1; min-width: 180px; max-width: 320px; }
+.table-tools .tt-count { font-size: var(--text-xs); color: var(--stone-600); }
+.table-tools .btn { padding: 7px 12px; }
+.data-table th.sortable { cursor: pointer; }
+.data-table th.sortable:hover { color: var(--ink-900); }
+.data-table th[data-sort='asc']::after { content: ' ▲'; font-size: 9px; }
+.data-table th[data-sort='desc']::after { content: ' ▼'; font-size: 9px; }
+
+/* =============================================================
+   دکمه‌های آیکنی نوار بالا + زنگ اعلان
+   ============================================================= */
+.topbar-actions { display: flex; align-items: center; gap: 4px; }
+.top-icon-btn {
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex: 0 0 auto; width: 38px; height: 38px; padding: 0;
+  border-radius: 50%; border: none; background: none;
+  color: var(--ink-900); font-size: 18px; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.top-icon-btn:hover, .top-icon-btn:active { background: var(--stone-100); }
+.bell-badge {
+  position: absolute; top: 2px; left: 2px;
+  min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px;
+  background: var(--rust-600); color: #fff;
+  font-size: 10px; font-weight: 700; line-height: 1;
+  display: none; align-items: center; justify-content: center;
+}
+.notif-panel {
+  display: none; position: fixed; top: 60px; left: 12px; z-index: 1900;
+  width: min(380px, calc(100vw - 24px)); max-height: 70vh; overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--stone-200);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
+}
+.notif-panel.open { display: block; }
+.notif-head { padding: 12px 14px; font-weight: 800; border-bottom: 1px solid var(--stone-200); }
+.notif-sec { font-size: var(--text-xs); color: var(--stone-500); padding: 10px 14px 4px; }
+.notif-item {
+  display: flex; align-items: flex-start; gap: 10px; width: 100%; padding: 10px 14px;
+  background: none; border: none; border-bottom: 1px solid var(--stone-100);
+  text-align: right; color: var(--ink-900);
+}
+button.notif-item { cursor: pointer; }
+button.notif-item:hover { background: var(--stone-50); }
+.notif-item.unread { background: var(--ochre-50); }
+.notif-item .ni-ico { flex: 0 0 auto; font-size: 14px; margin-top: 2px; }
+.notif-item .ni-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.notif-item .nt { font-size: var(--text-sm); font-weight: 700; }
+.notif-item .nb { font-size: var(--text-xs); color: var(--stone-600); }
+.notif-item .nd { font-size: 10px; color: var(--stone-500); }
+.notif-empty { padding: 28px 16px; text-align: center; color: var(--stone-600); font-size: var(--text-sm); }
+
+/* =============================================================
+   پنجره‌ی جست‌وجوی سریع (Ctrl+K)
+   ============================================================= */
+.cmdk-overlay {
+  position: fixed; inset: 0; z-index: 2000; background: rgba(0, 0, 0, 0.5);
+  display: flex; align-items: flex-start; justify-content: center; padding: 12vh 16px 16px;
+}
+.cmdk-card {
+  width: 100%; max-width: 580px; max-height: 70vh; display: flex; flex-direction: column; overflow: hidden;
+  background: var(--surface); border: 1px solid var(--stone-200);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
+}
+.cmdk-card .cmdk-input {
+  border: none; border-bottom: 1px solid var(--stone-200); border-radius: 0;
+  background: transparent; padding: 16px 18px; font-size: var(--text-md);
+}
+.cmdk-card .cmdk-input:focus { background: transparent; }
+.cmdk-list { overflow-y: auto; padding: 6px; flex: 1; }
+.cmdk-sec { font-size: var(--text-xs); color: var(--stone-500); padding: 10px 10px 4px; }
+.cmdk-item {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px;
+  background: none; border: none; border-radius: var(--radius-sm);
+  text-align: right; cursor: pointer; color: var(--ink-900);
+}
+.cmdk-item.active { background: var(--stone-100); }
+.cmdk-ico { width: 26px; text-align: center; font-size: 16px; flex: 0 0 auto; }
+.cmdk-txt { display: flex; flex-direction: column; min-width: 0; }
+.cmdk-title { font-size: var(--text-sm); font-weight: 600; }
+.cmdk-sub { font-size: var(--text-xs); color: var(--stone-600); }
+.cmdk-empty { padding: 24px; text-align: center; color: var(--stone-600); font-size: var(--text-sm); }
+.cmdk-hint { padding: 8px 14px; border-top: 1px solid var(--stone-200); font-size: var(--text-xs); color: var(--stone-500); }
+
+/* =============================================================
+   نقشه‌ی تمام‌صفحه + پنل‌های شناور
+   ============================================================= */
+.main--map { height: 100vh; }
+.content--map { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+.map-stage { position: relative; flex: 1; min-height: 420px; }
+.map-stage .map-box { position: absolute; top: 0; right: 0; bottom: 0; left: 0; border: none; border-radius: 0; }
+
+.map-float {
+  position: absolute; z-index: 1010;
+  background: var(--surface); border: 1px solid var(--stone-200);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
+}
+.map-list { top: 12px; right: 12px; width: min(320px, calc(100% - 24px)); max-height: calc(100% - 48px); display: flex; flex-direction: column; }
+.map-list-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 6px 6px 12px; }
+.map-list-body { display: flex; flex-direction: column; min-height: 0; border-top: 1px solid var(--stone-200); }
+.map-list.collapsed .map-list-body { display: none; }
+.map-list-search { padding: 8px 10px; }
+.map-list-rows { overflow-y: auto; flex: 1; padding: 0 6px 8px; }
+.map-list-foot { padding: 8px 12px; font-size: var(--text-xs); color: var(--stone-600); border-top: 1px solid var(--stone-200); }
+.map-row {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px;
+  background: none; border: none; border-radius: var(--radius-sm);
+  text-align: right; cursor: pointer; font-size: var(--text-sm); color: var(--ink-900);
+}
+.map-row:hover, .map-row.active { background: var(--stone-100); }
+.map-dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+.map-row-cat { font-size: var(--text-xs); color: var(--stone-600); font-weight: 400; }
+
+.map-tools { bottom: 24px; right: 12px; width: min(340px, calc(100% - 24px)); max-height: 60%; display: flex; flex-direction: column; }
+.map-tools-head {
+  width: 100%; padding: 10px 14px; background: none; border: none; text-align: right;
+  font-size: var(--text-sm); font-weight: 700; color: var(--ink-900); cursor: pointer;
+}
+.map-tools-body { overflow-y: auto; padding: 0 12px 12px; }
+.map-tools.collapsed .map-tools-body { display: none; }
+
+.map-info {
+  bottom: 24px; left: 50%; transform: translateX(-50%);
+  width: min(440px, calc(100% - 24px)); padding: 14px; max-height: 70%; overflow-y: auto;
+}
+.map-info-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.map-info-title { font-size: var(--text-md); font-weight: 800; }
+.map-info-sub { font-size: var(--text-xs); color: var(--stone-600); margin-top: 2px; }
+.map-info-badges { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 6px; }
+.map-info-line { font-size: var(--text-sm); color: var(--ink-700); margin-bottom: 8px; }
+.map-info-photos { display: flex; gap: 6px; flex-wrap: wrap; }
+.map-info-photos img { width: 64px; height: 64px; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--stone-200); display: block; }
+.map-info-actions { display: flex; gap: 8px; margin-top: 12px; }
+.map-info-actions .btn { flex: 1; justify-content: center; }
 
 /* =============================================================
    چاپ نقشه — فقط عنوان/راهنما/خود نقشه چاپ شود، نه سایدبار/نوار ابزار/بقیه‌ی صفحه
@@ -129,6 +266,10 @@
   .map-print-only { display: block !important; }
   .content { padding: 0; overflow: visible; }
   .main { display: block; }
+  .main--map { height: auto; }
+  .content--map { display: block; overflow: visible; }
+  .map-stage { position: static; min-height: 0; }
+  .map-stage .map-box { position: static; height: 90vh; }
   .map-box { page-break-inside: avoid; }
 
   /* برگه‌ی چاپ QR ورود: فقط خود کارت QR چاپ شود، بدون نیاز به دانستن دقیق ساختار مودال */
@@ -158,7 +299,7 @@
    کارت‌ها
    ============================================================= */
 .card {
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--stone-200);
   border-radius: var(--radius-md);
   padding: var(--space-5);
@@ -171,7 +312,7 @@
   overflow: hidden;
   border-radius: var(--radius-md);
   padding: var(--space-4);
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--stone-200);
   border-inline-start: 4px solid var(--kpi-accent, var(--ochre-600));
 }
@@ -216,7 +357,7 @@ input, select, textarea {
   background: var(--stone-50); color: var(--ink-900);
   transition: border-color 0.15s var(--ease), background 0.15s var(--ease);
 }
-input:focus, select:focus, textarea:focus { border-color: var(--stone-400); background: #fff; outline: none; }
+input:focus, select:focus, textarea:focus { border-color: var(--stone-400); background: var(--surface); outline: none; }
 
 /* =============================================================
    لیست/جدول معادن
@@ -229,7 +370,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--stone-400); back
 .mine-row {
   display: flex; align-items: center; gap: var(--space-4);
   padding: 14px var(--space-4);
-  background: #fff; border: 1px solid var(--stone-200); border-radius: var(--radius-md);
+  background: var(--surface); border: 1px solid var(--stone-200); border-radius: var(--radius-md);
   margin-bottom: 8px; cursor: pointer;
   border-inline-start: 4px solid var(--row-accent, var(--stone-300));
   transition: box-shadow 0.15s var(--ease), transform 0.1s var(--ease);
@@ -260,7 +401,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--stone-400); back
   padding: 32px 20px;
 }
 .login-card {
-  width: 100%; max-width: 380px; margin: auto; background: #fff;
+  width: 100%; max-width: 380px; margin: auto; background: var(--surface);
   border: 1px solid var(--stone-200); border-radius: var(--radius-md);
   padding: var(--space-6);
 }
@@ -320,6 +461,13 @@ input:focus, select:focus, textarea:focus { border-color: var(--stone-400); back
   .sidebar { position: fixed; inset-inline-start: 0; top: 0; bottom: 0; z-index: 1250; transform: translateX(100%); transition: transform 0.2s var(--ease); }
   .sidebar.open { transform: translateX(0); }
   .content { padding: var(--space-4); }
+  .content--map { padding: 0; }
+  .topbar { padding: var(--space-2) var(--space-3); }
+  .gs-wrap { display: none !important; }
+  /* روی موبایل: فهرست بالا، ابزارها زیر آن (کارت اطلاعات پایین نقشه می‌نشیند) */
+  .map-tools { top: 64px; bottom: auto; right: 12px; }
+  .map-info { bottom: 12px; }
+  .notif-panel { top: 56px; }
 }
 
 .sidebar-backdrop {
