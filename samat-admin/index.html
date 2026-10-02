@@ -11,6 +11,10 @@
          DNS/TLS این دامنه از قبل برقرار شده باشد (چند صد میلی‌ثانیه در اولین بار بارگذاری) -->
     <link rel="preconnect" href="https://khhurfxqxkuphksglgqi.supabase.co" crossorigin />
     <link rel="dns-prefetch" href="https://khhurfxqxkuphksglgqi.supabase.co" />
+    <!-- تم تاریک (اختیاری، با دکمه‌ی 🌙 بالای صفحه) — قبل از رندر اعمال می‌شود تا چشمک‌زدن سفید نداشته باشیم -->
+    <script>
+      try { if (localStorage.getItem('samat.theme') === 'dark') document.documentElement.setAttribute('data-theme', 'dark'); } catch (e) { /* ignore */ }
+    </script>
     <title>پنل ادمین صمت — اداره صنعت، معدن و تجارت قروه</title>
   </head>
   <body>
