@@ -1,0 +1,65 @@
+/* تب‌بار پایین صفحه + شیت «بیشتر» — فقط در موبایل/عرض کم (دسکتاپ همان نوار کناری را دارد) */
+
+.mobile-nav, .mn-overlay { display: none; }
+
+@media (max-width: 860px) {
+  .mobile-nav {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 1200;
+    display: flex; background: var(--surface); border-top: 1px solid var(--stone-200);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .mn-item {
+    flex: 1; height: 56px; padding: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    background: none; border: none; cursor: pointer; color: var(--stone-500);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mn-item:active { opacity: 0.55; }
+  .mn-item svg { display: block; }
+  .mn-item .mn-label { font-size: 10px; max-width: 68px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mn-item.active { color: var(--ochre-600); }
+  .mn-item.active .mn-label { font-weight: 700; }
+
+  /* نقشه و صفحه‌ها بالای تب‌بار تمام شوند، نه زیر آن */
+  .main--map { height: calc(100vh - 56px - env(safe-area-inset-bottom)); }
+  .content:not(.content--map) { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+  #toastBox { bottom: calc(76px + env(safe-area-inset-bottom)) !important; }
+
+  .mn-overlay.open {
+    display: flex; position: fixed; inset: 0; z-index: 1300;
+    background: rgba(0, 0, 0, 0.55); align-items: flex-end;
+  }
+  .mn-sheet {
+    width: 100%; max-height: 85vh; overflow-y: auto;
+    background: var(--surface); border-radius: 20px 20px 0 0;
+    padding: 6px 16px calc(16px + env(safe-area-inset-bottom));
+    animation: mn-up 0.2s var(--ease);
+  }
+  .mn-grab { width: 38px; height: 4px; border-radius: 2px; background: var(--stone-200); margin: 4px auto 8px; }
+  .mn-head { display: flex; align-items: center; justify-content: space-between; font-weight: 800; font-size: var(--text-md); }
+  .mn-depts { display: flex; gap: 10px; overflow-x: auto; padding: 10px 0 14px; border-bottom: 1px solid var(--stone-200); scrollbar-width: none; }
+  .mn-depts::-webkit-scrollbar { display: none; }
+  .mn-dept { flex: 0 0 auto; width: 62px; padding: 0; text-align: center; background: none; border: none; font-size: 11px; color: var(--ink-900); cursor: pointer; }
+  .mn-dept .mn-dot {
+    width: 50px; height: 50px; margin: 0 auto 4px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--stone-100); color: var(--ink-700); font-size: 18px; font-weight: 700;
+  }
+  .mn-dept.active .mn-dot { background: var(--ig-gradient); color: #fff; }
+  .mn-dept.active { font-weight: 700; }
+  .mn-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 14px 0; }
+  .mn-cell {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    min-height: 82px; padding: 10px 4px; border-radius: 14px;
+    background: var(--stone-50); border: 1px solid var(--stone-200);
+    font-size: 11px; line-height: 1.5; text-align: center; color: var(--ink-900); cursor: pointer;
+  }
+  .mn-cell:active { background: var(--stone-100); }
+  .mn-cell.active { border-color: var(--ochre-600); font-weight: 700; }
+  .mn-cell .mn-ico { font-size: 22px; line-height: 1; }
+  .mn-logout { width: 100%; justify-content: center; }
+}
+
+@keyframes mn-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+@media print { .mobile-nav, .mn-overlay { display: none !important; } }
