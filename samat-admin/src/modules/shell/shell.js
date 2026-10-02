@@ -3,6 +3,10 @@ import { getState, setTab, setDepartment, onChange } from '../../router.js';
 import { signOut } from '../../lib/auth.js';
 import { fetchPendingIdentityCount, fetchPendingBoundaryCount } from '../../lib/identity.js';
 import { mountGlobalSearch } from './globalSearch.js';
+import { mountCommandPalette } from './commandPalette.js';
+import { mountNotificationCenter } from './notificationCenter.js';
+import { mountThemeToggle } from './themeToggle.js';
+import { enhanceTable } from '../../lib/tableTools.js';
 import { DEPT_PLURAL_LABEL } from '../../lib/sections.js';
 
 // اکتشاف و فرآوری زیرمجموعه‌ی معدن‌اند (پیش از استخراج و پس از آن)، نه بخش‌های هم‌تراز با صنعت/اصناف
@@ -56,6 +60,11 @@ function navLabel(item, department) {
   return typeof item.label === 'function' ? item.label(department) : item.label;
 }
 
+function isNavVisible(item, department) {
+  if (!item.hideForDept) return true;
+  return Array.isArray(item.hideForDept) ? !item.hideForDept.includes(department) : item.hideForDept !== department;
+}
+
 /**
  * پوسته‌ی اصلی برنامه را می‌سازد و یک تابع برمی‌گرداند که هر بار تب/بخش فعال عوض شود،
  * محتوای مناسب را داخل ناحیه‌ی content می‌سازد (renderContent باید توسط main.js تزریق شود).
@@ -77,7 +86,7 @@ export function mountShell(root, { userLabel, renderContent }) {
     sidebar.classList.toggle('collapsed', v);
     try { localStorage.setItem(COLLAPSE_KEY, v ? '1' : '0'); } catch { /* حافظه‌ی مرورگر در دسترس نیست — فقط یادآوری نمی‌شود */ }
   }
-  // موبایل: کشوی روی صفحه؛ دسکتاپ: جمع/باز شدن به ستون آیکنی
+  // موبایل: کشویی روی صفحه؛ دسکتاپ: جمع/باز شدن به ستون آیکنی
   function toggleSidebar() {
     if (isMobileViewport()) {
       if (sidebar.classList.contains('open')) closeSidebar(); else openSidebar();
@@ -103,12 +112,41 @@ export function mountShell(root, { userLabel, renderContent }) {
   const topbar = el('div', { class: 'topbar' });
   const content = el('div', { class: 'content' });
   const topbarTitle = el('div', { style: 'display:flex;align-items:center;gap:10px;flex:1' });
-  const topbarSearch = el('div', { style: 'display:flex;align-items:center' });
-  topbar.append(topbarTitle, topbarSearch);
+  const topbarActions = el('div', { class: 'topbar-actions' });
+  topbar.append(topbarTitle, topbarActions);
   main.append(topbar, content);
 
   root.append(sidebar, backdrop, main);
-  mountGlobalSearch(topbarSearch);
+
+  // ── نوار بالا (راست→چپ): جست‌وجو، جست‌وجوی سریع (Ctrl+K)، اعلان‌ها، تم ──
+  const searchHost = el('div', { style: 'display:flex;align-items:center' });
+  topbarActions.append(searchHost);
+  mountGlobalSearch(searchHost);
+
+  const palette = mountCommandPalette({
+    getPages: () => NAV_ITEMS
+      .filter((item) => isNavVisible(item, getState().department))
+      .map((item) => ({ tab: item.tab, icon: item.icon, label: navLabel(item, getState().department) })),
+  });
+  topbarActions.append(el('button', {
+    class: 'top-icon-btn', type: 'button', title: 'جست‌وجوی سریع (Ctrl+K)', 'aria-label': 'جست‌وجوی سریع',
+    onclick: () => palette.open(),
+  }, '⌘'));
+  mountNotificationCenter(topbarActions);
+  mountThemeToggle(topbarActions);
+
+  // ── ابزار خودکار جدول‌ها (فیلتر/مرتب‌سازی/اکسل) برای هر جدول `.data-table` که در محتوا ظاهر شود ──
+  let scanQueued = false;
+  function scanTables() {
+    scanQueued = false;
+    const all = Array.from(content.querySelectorAll('table.data-table'));
+    all.forEach((table, i) => {
+      if (!table.dataset.enhanced) enhanceTable(table, `${getState().tab}:${i}`);
+    });
+  }
+  new MutationObserver(() => {
+    if (!scanQueued) { scanQueued = true; requestAnimationFrame(scanTables); }
+  }).observe(content, { childList: true, subtree: true });
 
   function renderDeptSwitch(activeDept) {
     deptSwitch.innerHTML = '';
@@ -127,10 +165,7 @@ export function mountShell(root, { userLabel, renderContent }) {
     navGroup.innerHTML = '';
     navGroup.append(el('div', { class: 'nav-label' }, 'بخش‌ها'));
     const effectiveTab = state.tab === 'mineDetail' ? 'mines' : state.tab;
-    NAV_ITEMS.filter((item) => {
-      if (!item.hideForDept) return true;
-      return Array.isArray(item.hideForDept) ? !item.hideForDept.includes(state.department) : item.hideForDept !== state.department;
-    }).forEach((item) => {
+    NAV_ITEMS.filter((item) => isNavVisible(item, state.department)).forEach((item) => {
       const btn = el('button', {
         class: `nav-item${item.tab === effectiveTab ? ' active' : ''}`,
         title: navLabel(item, state.department),
@@ -191,6 +226,10 @@ export function mountShell(root, { userLabel, renderContent }) {
     renderDeptSwitch(s.department);
     renderNav(s);
     renderTopbar(s);
+    // صفحه‌ی نقشه تمام‌صفحه و بدون حاشیه است (پنل‌ها روی آن شناورند)
+    const isMap = s.tab === 'dashboard';
+    main.classList.toggle('main--map', isMap);
+    content.classList.toggle('content--map', isMap);
     content.innerHTML = '';
     renderContent(content, s);
   }
