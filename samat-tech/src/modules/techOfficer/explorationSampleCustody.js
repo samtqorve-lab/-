@@ -31,10 +31,14 @@ async function sendSampleRegisterPayload(payload) {
 registerSender('explorationSampleRegister', sendSampleRegisterPayload);
 
 async function sendSampleStatusUpdatePayload(payload) {
-  const { error } = await sb.from('exploration_sample_custody')
+  const { data, error } = await sb.from('exploration_sample_custody')
     .update({ status: payload.status, lab_name: payload.labName, status_note: payload.statusNote, updated_at: new Date().toISOString() })
-    .eq('id', payload.id);
+    .eq('id', payload.id)
+    .select('id');
   if (error) throw new Error(error.message);
+  // اگر سیاست دسترسی اجازه‌ی تغییر آن ردیف را ندهد (مثلاً نمونه را مسئول دیگری ثبت کرده)، Supabase خطا
+  // نمی‌دهد و فقط صفر ردیف تغییر می‌کند — قبلاً در این حالت به کاربر «تغییر کرد» نشان داده می‌شد.
+  if (!data || !data.length) throw new Error('تغییر وضعیت اعمال نشد (دسترسی ندارید یا نمونه حذف شده است)');
 }
 registerSender('explorationSampleStatusUpdate', sendSampleStatusUpdatePayload);
 
