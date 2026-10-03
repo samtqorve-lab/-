@@ -3,6 +3,8 @@
 // (Blob) در IndexedDB ذخیره می‌شود و به‌محض اتصال دوباره، خودکار برای ارسال تلاش می‌شود.
 // کاربر هیچ‌وقت «خطا در اینترنت» نمی‌بیند — همیشه «ذخیره شد، به‌محض اتصال ارسال می‌شود».
 
+import { logClientError } from './errorLog.js';
+
 const DB_NAME = 'tech-officer-offline-v1';
 const STORE = 'pending-submissions';
 
@@ -76,6 +78,16 @@ export function isLikelyNetworkError(err) {
   return !navigator.onLine || m.includes('failed to fetch') || m.includes('network') || m.includes('timeout') || m.includes('load failed');
 }
 
+/**
+ * نشست منقضی/نامعتبر (نه رد شدن واقعی توسط سرور): با ورود دوباره درست می‌شود، پس نباید شمارنده‌ی
+ * «ناموفق دائمی» را بالا ببرد — وگرنه چند بار باز کردن اپ با نشست منقضی، گزارش سالم را برای همیشه
+ * «ناموفق» علامت می‌زد.
+ */
+export function isAuthExpiredError(err) {
+  const m = ((err && err.message) || String(err || '')).toLowerCase();
+  return (err && err.status === 401) || m.includes('jwt') || m.includes('not authenticated') || m.includes('refresh token') || m.includes('invalid claim');
+}
+
 export function newQueueId(prefix) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -122,11 +134,15 @@ export async function trySyncQueuedItems(manual, showToastFn) {
         await deleteQueuedSubmission(item.id);
         okCount++;
       } catch (err) {
-        // این یکی هنوز ناموفق بود — اگر دلیلش قطعی شبکه است، همین که وصل شد خودکار دوباره
-        // امتحان می‌شود بدون اینکه شمارنده‌اش زیاد شود؛ اگر دلیل دیگری دارد (مثلاً سرور رد کرد)،
-        // شمارنده بالا می‌رود و بعد از MAX_RETRIES بار، دیگر خودکار امتحان نمی‌شود.
+        // این یکی هنوز ناموفق بود — اگر دلیلش قطعی شبکه یا نشست منقضی است، همین که وصل شد/دوباره وارد
+        // شد خودکار دوباره امتحان می‌شود بدون اینکه شمارنده‌اش زیاد شود؛ اگر دلیل دیگری دارد (مثلاً
+        // سرور رد کرد)، شمارنده بالا می‌رود و بعد از MAX_RETRIES بار، دیگر خودکار امتحان نمی‌شود.
         console.warn('offline sync item failed, will retry later', err);
-        const retryCount = isLikelyNetworkError(err) ? (item.retryCount || 0) : (item.retryCount || 0) + 1;
+        const transient = isLikelyNetworkError(err) || isAuthExpiredError(err);
+        const retryCount = transient ? (item.retryCount || 0) : (item.retryCount || 0) + 1;
+        if (!isLikelyNetworkError(err)) {
+          logClientError(`offlineQueue:${item.type}`, err, { retryCount, itemId: item.id, queuedAt: item.queuedAt });
+        }
         // eslint-disable-next-line no-await-in-loop
         await putQueuedSubmission({ ...item, retryCount, failed: retryCount >= MAX_RETRIES, lastError: err.message || String(err) });
       }
