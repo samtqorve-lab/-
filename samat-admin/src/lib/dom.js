@@ -28,9 +28,10 @@ let toastTimer = null;
 export function showToast(message) {
   let box = document.getElementById('toastBox');
   if (!box) {
+    // z-index بالاتر از تب‌بار پایین موبایل (۱۲۰۰) و شیت «بیشتر» (۱۳۰۰) تا زیر آن‌ها گم نشود
     box = el('div', {
       id: 'toastBox',
-      style: 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:999;background:var(--ink-900);color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;box-shadow:var(--shadow-lg);opacity:0;transition:opacity .2s',
+      style: 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:1500;background:var(--ochre-600);color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;box-shadow:var(--shadow-lg);opacity:0;transition:opacity .2s',
     });
     document.body.append(box);
   }
@@ -83,16 +84,18 @@ export function simpleDateStatus(dateStr, warnDays = 60) {
 
 /**
  * یک مودال ساده (overlay + کارت) می‌سازد و به body اضافه می‌کند.
+ * z-index عمداً بالاتر از تب‌بار پایین (۱۲۰۰)، کشوی موبایل (۱۲۵۰) و شیت «بیشتر» (۱۳۰۰) است — قبلاً ۱۰۰ بود
+ * و مودال‌ها (از جمله جزئیات اعلان) زیر تب‌بار و پنل‌های نقشه گم می‌شدند و «باز نمی‌شدند».
  * @returns {{ overlay: HTMLElement, body: HTMLElement, close: () => void }}
  */
 export function openModal({ title, width = '480px' }) {
   const overlay = el('div', {
-    style: 'position:fixed;inset:0;background:rgba(28,27,23,.5);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px',
+    style: 'position:fixed;inset:0;background:rgba(91,112,131,.5);display:flex;align-items:center;justify-content:center;z-index:1400;padding:20px',
     onclick: (e) => { if (e.target === overlay) close(); },
   });
   const body = el('div', { class: 'modal-body' });
   const card = el('div', {
-    style: `width:100%;max-width:${width};max-height:88vh;overflow-y:auto;background:#fff;border-radius:var(--radius-lg);padding:var(--space-5);box-shadow:var(--shadow-lg)`,
+    style: `width:100%;max-width:${width};max-height:88vh;overflow-y:auto;background:var(--surface);color:var(--ink-900);border-radius:var(--radius-md);padding:var(--space-5);box-shadow:var(--shadow-lg)`,
   }, [
     el('div', { style: 'display:flex;justify-content:space-between;align-items:center;margin-bottom:14px' }, [
       el('h3', {}, title || ''),
