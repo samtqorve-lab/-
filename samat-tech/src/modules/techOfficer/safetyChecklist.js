@@ -59,7 +59,10 @@ export function openSafetyChecklistModal(mine, nameField, department) {
   }
 
   (async () => {
-    const { data, error } = await sb.from('safety_checklist_items').select('item_text').eq('department', department).eq('active', true).order('sort_order');
+    // فقط آیتم‌های «مسئول فنی»: برای بخش معدن، آیتم‌های مسئول ایمنی و بهداشت حرفه‌ای هم در همین جدول
+    // هستند و قبلاً (بدون فیلتر role) با آیتم‌های مسئول فنی قاطی داخل همین چک‌لیست نمایش داده می‌شدند.
+    const { data, error } = await sb.from('safety_checklist_items').select('item_text')
+      .eq('department', department).eq('role', 'tech_officer').eq('active', true).order('sort_order');
     if (error || !data || !data.length) {
       itemsBox.innerHTML = '';
       itemsBox.append(el('div', { style: 'color:var(--rust-600);font-size:var(--text-xs)' }, '⚠️ آیتم‌های چک‌لیست بارگذاری نشد. اتصال اینترنت را بررسی کنید.'));
