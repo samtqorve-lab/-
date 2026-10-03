@@ -1,82 +1,82 @@
 /*
-  سیستم طراحی SAMAT — نسخه‌ی «سبک اینستاگرام» (هماهنگ با اپ مسئول فنی)
+  سیستم طراحی SAMAT (پنل ادمین) — نسخه‌ی «سبک ایکس (X / توییتر سابق)»، هماهنگ با اپ مسئول فنی
   ---------------------------------------------------------------------------
-  پس‌زمینه‌ی سفید/خاکستری خیلی روشن، حاشیه‌ی ۱ پیکسلی ظریف، رنگ اکشن آبی و حلقه‌ی گرادیانی برای
-  آیتم‌های کلیدی.
+  روشن: سفید + متن مشکی + آبی #1D9BF0. تاریک («Lights out»): مشکی خالص + متن #E7E9EA + همان آبی.
+  حالت تاریک با data-theme='dark' روی <html> فعال می‌شود: به‌طور پیش‌فرض از تنظیم سیستم می‌آید و با
+  دکمه‌ی 🌙/☀️ بالای صفحه قابل تغییر دستی است (اسکریپت زودهنگام در index.html).
 
-  نکته‌ی نگهداری: نام متغیرها (stone / ink / slate / ochre / ...) عمداً از نسخه‌ی قبلی (پالت سنگ و
-  معدن) نگه داشته شده تا همه‌ی ماژول‌هایی که از این متغیرها استفاده می‌کنند بدون تغییر کد، ظاهر جدید
-  را بگیرند. یعنی «ochre» الان همان آبیِ اکشن است و «rust» قرمز اینستاگرام.
-
-  حالت تاریک: با data-theme='dark' روی <html> فعال می‌شود (پایین همین فایل). متغیر --surface رنگ
-  «سطح» کارت/نوار کناری/نوار بالا است (سفید در حالت روشن).
+  نکته‌ی نگهداری: نام متغیرها (stone / ink / slate / ochre / rust / ...) عمداً از نسخه‌های قبلی
+  نگه داشته شده تا همه‌ی ماژول‌ها بدون تغییر کد ظاهر جدید را بگیرند. «ochre» الان آبی ایکس است،
+  «rust» قرمز و «patina» سبز ایکس. --ig-gradient (نام قدیمی) الان یک رنگ ساده‌ی آبی است.
 */
 
 :root {
+  color-scheme: light;
   --surface: #FFFFFF;
+  --glass: rgba(255, 255, 255, 0.86);
 
-  /* ── خنثی‌ها (پس‌زمینه / حاشیه / متن ثانویه) ── */
-  --stone-50:  #FAFAFA;
-  --stone-100: #EFEFEF;
-  --stone-200: #DBDBDB;
-  --stone-300: #C7C7C7;
-  --stone-400: #A8A8A8;
-  --stone-500: #8E8E8E;
-  --stone-600: #737373;
-  --stone-800: #363636;
+  /* ── خنثی‌ها ── */
+  --stone-50:  #F7F9F9;
+  --stone-100: #EFF3F4;
+  --stone-200: #E3E9EC;
+  --stone-300: #CFD9DE;
+  --stone-400: #A3B0B8;
+  --stone-500: #71767B;
+  --stone-600: #536471;
+  --stone-800: #0F1419;
 
   /* ── متن ── */
-  --ink-900: #1A1A1A;
-  --ink-800: #262626;
-  --ink-700: #363636;
-  --ink-500: #737373;
+  --ink-900: #0F1419;
+  --ink-800: #0F1419;
+  --ink-700: #2A3640;
+  --ink-500: #536471;
 
-  /* ── لایه‌های تیره (جاهایی که هنوز پس‌زمینه‌ی تیره می‌خواهند، مثل بعضی پنل‌های روی نقشه) ── */
-  --slate-900: #262626;
-  --slate-800: #363636;
-  --slate-700: #4A4A4A;
-  --slate-500: #737373;
-  --slate-300: #A8A8A8;
+  /* ── لایه‌های تیره ── */
+  --slate-900: #0F1419;
+  --slate-800: #16181C;
+  --slate-700: #2F3336;
+  --slate-500: #71767B;
+  --slate-300: #CFD9DE;
 
-  /* ── رنگ اصلی/اکشن (آبی اینستاگرام) ── */
-  --ochre-700: #00376B;
-  --ochre-600: #0095F6;
-  --ochre-500: #3AA9FF;
-  --ochre-100: #D9EEFF;
-  --ochre-50:  #F0F8FF;
+  /* ── رنگ اصلی/اکشن (آبی ایکس) ── */
+  --ochre-700: #0A6CB0;
+  --ochre-600: #1D9BF0;
+  --ochre-500: #4DB3F5;
+  --ochre-100: #E8F5FD;
+  --ochre-50:  #F3FAFE;
 
-  /* ── موفقیت/تایید ── */
-  --patina-700: #1E6B3A;
-  --patina-600: #2E9E5B;
-  --patina-100: #DDF3E5;
-  --patina-50:  #F0FAF3;
+  /* ── موفقیت ── */
+  --patina-700: #007A52;
+  --patina-600: #00BA7C;
+  --patina-100: #D9F5EA;
+  --patina-50:  #EEFAF5;
 
   /* ── هشدار ── */
-  --amber-700: #8A5A16;
-  --amber-600: #C98A2C;
-  --amber-100: #F6E7CC;
-  --amber-50:  #FBF3E3;
+  --amber-700: #8A6A00;
+  --amber-600: #E0A800;
+  --amber-100: #FFF1BF;
+  --amber-50:  #FFF9E0;
 
-  /* ── خطر/بحرانی ── */
-  --rust-700:  #B3202E;
-  --rust-600:  #E5303F;
-  --rust-100:  #FFE3E6;
-  --rust-50:   #FFF1F2;
+  /* ── خطر ── */
+  --rust-700:  #C21A25;
+  --rust-600:  #F4212E;
+  --rust-100:  #FDE3E5;
+  --rust-50:   #FEF1F2;
 
   /* ── خنثی/اطلاعاتی ── */
-  --schist-600: #5B6B72;
-  --schist-100: #E8EEF1;
+  --schist-600: #536471;
+  --schist-100: #EFF3F4;
 
   /* ── رس (نمای ساختمانی/سنگ لاشه) ── */
   --clay-700: #5C4433;
   --clay-100: #EFE6DD;
 
-  /* ── ویژگی‌های خاص ── */
-  --fluorite-700: #6A2A8F;
-  --fluorite-100: #F0E6F7;
+  /* ── بنفش ایکس ── */
+  --fluorite-700: #5B3FD6;
+  --fluorite-100: #ECE8FF;
 
-  /* ── حلقه‌ی گرادیانی ── */
-  --ig-gradient: linear-gradient(45deg, #feda75, #fa7e1e, #d62976, #962fbf, #4f5bd5);
+  /* ── نام قدیمی «گرادیان»: الان یک رنگ ساده (ایکس گرادیان ندارد) ── */
+  --ig-gradient: #1D9BF0;
 
   /* ── تایپوگرافی ── */
   --font-ui: 'Vazirmatn', 'Segoe UI', Tahoma, sans-serif;
@@ -101,75 +101,73 @@
 
   /* ── هندسه ── */
   --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 22px;
-  --sidebar-w: 256px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --sidebar-w: 264px;
   --sidebar-w-collapsed: 76px;
 
-  /* ── سایه ── */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.18);
+  /* ── سایه (ایکس تقریباً سایه ندارد) ── */
+  --shadow-sm: none;
+  --shadow-md: 0 2px 10px rgba(15, 20, 25, 0.12);
+  --shadow-lg: 0 8px 28px rgba(15, 20, 25, 0.28);
 
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
 /* =============================================================
-   حالت تاریک (اختیاری — با دکمه‌ی 🌙 بالای صفحه فعال می‌شود)
+   حالت تاریک «Lights out»
    ============================================================= */
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --surface: #1A1A1A;
+  --surface: #000000;
+  --glass: rgba(0, 0, 0, 0.72);
 
-  --stone-50:  #0F0F0F;
-  --stone-100: #262626;
-  --stone-200: #363636;
-  --stone-300: #4A4A4A;
-  --stone-400: #737373;
-  --stone-500: #8E8E8E;
-  --stone-600: #A8A8A8;
-  --stone-800: #DBDBDB;
+  --stone-50:  #16181C;
+  --stone-100: #202327;
+  --stone-200: #2F3336;
+  --stone-300: #3E4144;
+  --stone-400: #536471;
+  --stone-500: #71767B;
+  --stone-600: #8B98A5;
+  --stone-800: #E7E9EA;
 
-  --ink-900: #F5F5F5;
-  --ink-800: #EDEDED;
-  --ink-700: #DBDBDB;
-  --ink-500: #A8A8A8;
+  --ink-900: #E7E9EA;
+  --ink-800: #E7E9EA;
+  --ink-700: #CFD9DE;
+  --ink-500: #8B98A5;
 
-  --ochre-700: #8CCBFF;
-  --ochre-100: #0E2E4A;
-  --ochre-50:  #0A1F33;
+  --ochre-700: #8ECDF8;
+  --ochre-100: #0F2A3D;
+  --ochre-50:  #0A1C29;
 
-  --patina-700: #7AD9A0;
-  --patina-100: #12331F;
-  --patina-50:  #0E2417;
+  --patina-700: #5EDDB0;
+  --patina-100: #0B2E22;
+  --patina-50:  #08241A;
 
-  --amber-700: #F0C36D;
-  --amber-100: #3A2C10;
-  --amber-50:  #2B200C;
+  --amber-700: #FFD54A;
+  --amber-100: #3A3000;
+  --amber-50:  #2A2300;
 
-  --rust-700:  #FF8A93;
-  --rust-600:  #FF5A67;
-  --rust-100:  #3D1418;
-  --rust-50:   #2D0F12;
+  --rust-700:  #FF7A85;
+  --rust-100:  #3A1216;
+  --rust-50:   #2B0D10;
 
-  --schist-600: #9DB1BA;
-  --schist-100: #1F2A2F;
+  --schist-600: #8B98A5;
+  --schist-100: #1B2328;
 
   --clay-700: #D9B79C;
   --clay-100: #2E221A;
 
-  --fluorite-700: #C9A0E8;
-  --fluorite-100: #2A1A38;
+  --fluorite-700: #B8A5FF;
+  --fluorite-100: #231B45;
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.7);
+  --shadow-md: 0 2px 10px rgba(255, 255, 255, 0.08);
+  --shadow-lg: 0 8px 28px rgba(0, 0, 0, 0.8);
 }
 
-:root[data-theme='dark'] body { background: var(--stone-50); color: var(--ink-900); }
+:root[data-theme='dark'] body { background: var(--surface); color: var(--ink-900); }
 
-/* شبکه‌ی ایمنی: بعضی ماژول‌ها رنگ سفید/خاکستری را مستقیم داخل style اینلاین نوشته‌اند (نه با متغیر) —
-   در حالت تاریک این‌ها را به رنگ‌های تم برمی‌گردانیم تا متن روشن روی زمینه‌ی سفید نیفتد. */
+/* شبکه‌ی ایمنی: ماژول‌هایی که سفید/خاکستری را مستقیم داخل style اینلاین نوشته‌اند */
 :root[data-theme='dark'] [style*='background:#fff'],
 :root[data-theme='dark'] [style*='background: #fff'],
 :root[data-theme='dark'] [style*='background:#FFF'],
