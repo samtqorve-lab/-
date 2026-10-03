@@ -1,7 +1,25 @@
 import { sb } from './supabase.js';
 
+// هش کوتاه و پایدار (djb2) — برای اینکه نام‌های فارسی مختلف بعد از حذف حروف غیرلاتین به یک پوشه‌ی
+// مشترک نروند.
+function shortHash(s) {
+  let h = 5381;
+  for (let i = 0; i < s.length; i += 1) h = (((h << 5) + h) + s.charCodeAt(i)) >>> 0;
+  return h.toString(36).padStart(6, '0').slice(-6);
+}
+
+/**
+ * مسیر ذخیره‌سازی فقط ASCII مجاز است؛ قبلاً هر حرف فارسی (مثلاً نام معدن یا دوره) به «_» تبدیل می‌شد و
+ * عکس/فایل همه‌ی معدن‌ها در یک پوشه‌ی «_» می‌ریخت. حالا اگر نام شامل حرف غیر ASCII (یا فاصله و علامت)
+ * باشد، یک هش کوتاه از نام اصلی به انتهای بخش ASCII اضافه می‌شود تا هر معدن/دوره پوشه‌ی جدای خودش را
+ * داشته باشد. نام‌های کاملاً ASCII دست‌نخورده می‌مانند.
+ */
 export function safeStoragePathSegment(s) {
-  return String(s || '').trim().replace(/[^\w.-]+/g, '_').replace(/_+/g, '_').slice(0, 80) || '_';
+  const raw = String(s || '').trim();
+  const ascii = raw.replace(/[^\w.-]+/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '');
+  const changed = /[^\w.-]/.test(raw);
+  const base = changed ? `${ascii.slice(0, 60)}${ascii ? '_' : ''}${shortHash(raw)}` : ascii;
+  return (base || '_').slice(0, 80);
 }
 
 export async function uploadTechFile(fileOrBlob, fileName, mineName, period, category) {
