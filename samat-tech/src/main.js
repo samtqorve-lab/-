@@ -14,6 +14,7 @@ import { fetchAssignedMines, fetchMinesByGeoScope, specialtyMeta } from './lib/r
 import { mountStaffFieldPicker } from './modules/shell/staffFieldPicker.js';
 import { checkIdentityGate, loadIdentitySettings, submitIdentityVerification } from './lib/identity.js';
 import { registerSender, initOfflineQueueWatcher } from './lib/offlineQueue.js';
+import { flushOfflineQueueAfterLogin } from './lib/offlineSenders.js';
 import { startManagedGpsPrewarm, stopGpsPrewarm, getOrCreateDeviceId, getAccurateGeoLocation, isInsideMineBoundary } from './lib/geo.js';
 import { startMineGeofenceWatcher, stopMineGeofenceWatcher } from './lib/mineGeofence.js';
 import { mountOfflineBadge } from './modules/shell/offlineBadge.js';
@@ -174,6 +175,7 @@ async function boot() {
           email, mines, identityVerifiedAt: Date.now(), roleRow: staffRow, identitySettings: { monthlyMs: Infinity, reminderMs: Infinity }, onLogout: logoutAndReload,
         });
       }
+      flushOfflineQueueAfterLogin(showToast);
     }, logoutAndReload);
     return;
   }
@@ -185,6 +187,7 @@ async function boot() {
     startManagedGpsPrewarm();
     const { mountOwnerPanel } = await import('./modules/owner/panel.js');
     await mountOwnerPanel(root, { email, mines, roleRow: row, department: specialtyMeta(row.tech_officer_specialty || 'استخراج').dept, onLogout: logoutAndReload });
+    flushOfflineQueueAfterLogin(showToast);
     return;
   }
 
@@ -244,6 +247,10 @@ async function boot() {
       email, mines, identityVerifiedAt: row.identity_verified_at, roleRow: row, identitySettings, onLogout: logoutAndReload,
     });
   }
+
+  // گزارش/عکس‌هایی که آفلاین ذخیره شده بودند (حادثه، گزارش ماهانه، چک‌لیست، عکس ماشین‌آلات و...)
+  // حالا که ورود کامل است و پنل بالا آمده، ارسال می‌شوند.
+  flushOfflineQueueAfterLogin(showToast);
 
   if (shouldShowOnboarding()) mountOnboarding(document.body, () => {});
 }
