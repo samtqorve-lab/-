@@ -9,7 +9,12 @@ export async function submitIdentityVerification({ email, mineName, kind, blob, 
     mine_name_in: mineName, kind_in: kind, photo_url_in: path,
     lat_in: lat, lon_in: lon, inside_boundary_in: insideBoundary, device_id_in: deviceId,
   });
-  if (rpcErr) throw new Error(rpcErr.message);
+  if (rpcErr) {
+    // ثبت درخواست در سرور رد شد (مثلاً چک مستقل محدوده) — عکسِ آپلودشده بدون ردیف، یتیم می‌ماند
+    // و ادمین هرگز نمی‌بیندش؛ پاکش می‌کنیم (سیاست باکت فقط حذف عکس‌های بدون ردیف را اجازه می‌دهد).
+    try { await sb.storage.from('identity-photos').remove([path]); } catch { /* پاک‌نشدن نباید پیام خطای اصلی را بپوشاند */ }
+    throw new Error(rpcErr.message);
+  }
 }
 
 export async function fetchLastRejectReason(email, kind) {
