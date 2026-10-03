@@ -194,6 +194,12 @@ export async function renderIdentity(container, state, ctx) {
         ? el('a', { href: '#', style: 'color:var(--ochre-600);font-size:var(--text-xs)', onclick: (e) => { e.preventDefault(); window.open(`https://www.google.com/maps?q=${r.lat},${r.lon}`, '_blank'); } }, '📍 مشاهده لوکیشن عکس روی نقشه')
         : null;
 
+      // inside_boundary حالا مقدار واقعیِ چک سرور است؛ false فقط برای مسئول فنیِ معاف‌شده (با تایید سوپرادمین) ممکن است
+      const outside = r.inside_boundary === false;
+      const boundaryLine = outside
+        ? el('div', { style: 'margin-top:4px;color:var(--amber-700);font-size:var(--text-xs)' }, '⚠️ خارج از محدوده معدن (معافیت ثبت‌شده توسط سوپرادمین)')
+        : el('div', { style: 'margin-top:4px;color:var(--patina-700);font-size:var(--text-xs)' }, '✅ داخل محدوده معدن (بررسی مستقل سرور)');
+
       listBox.append(el('div', { style: `display:flex;gap:12px;flex-wrap:wrap;padding:12px 14px;margin-bottom:8px;border-radius:10px;background:${sm.bg}` }, [
         el('img', {
           src: imgUrl, style: 'width:90px;height:90px;object-fit:cover;border-radius:8px;cursor:pointer;flex-shrink:0;background:var(--stone-200)',
@@ -206,7 +212,7 @@ export async function renderIdentity(container, state, ctx) {
           ]),
           el('div', { style: 'color:var(--stone-600);margin-top:2px;font-size:var(--text-xs)' },
             `${KIND_META[r.kind] || r.kind} | ${r.email || '—'}${r.membership_no ? ` | عضویت: ${r.membership_no}` : ''} | ${fmtDate(r.created_at)}`),
-          el('div', { style: 'margin-top:4px;color:var(--patina-700);font-size:var(--text-xs)' }, '✅ داخل محدوده معدن (بررسی مستقل سرور)'),
+          boundaryLine,
           mapLink ? el('div', { style: 'margin-top:4px' }, mapLink) : null,
           r.reject_reason ? el('div', { style: 'margin-top:4px;color:var(--rust-600);font-size:var(--text-xs)' }, `دلیل رد: ${esc(r.reject_reason)}`) : null,
           el('div', {}, [approveBtn, rejectBtn, resetBtn]),
