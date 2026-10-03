@@ -15,6 +15,7 @@ import { mountStaffFieldPicker } from './modules/shell/staffFieldPicker.js';
 import { checkIdentityGate, loadIdentitySettings, submitIdentityVerification } from './lib/identity.js';
 import { registerSender, initOfflineQueueWatcher } from './lib/offlineQueue.js';
 import { flushOfflineQueueAfterLogin } from './lib/offlineSenders.js';
+import { installGlobalErrorLogging } from './lib/errorLog.js';
 import { startManagedGpsPrewarm, stopGpsPrewarm, getOrCreateDeviceId, getAccurateGeoLocation, isInsideMineBoundary } from './lib/geo.js';
 import { startMineGeofenceWatcher, stopMineGeofenceWatcher } from './lib/mineGeofence.js';
 import { mountOfflineBadge } from './modules/shell/offlineBadge.js';
@@ -28,6 +29,7 @@ const OFFICER_ROLES = ['tech_officer', 'safety_officer', 'health_officer'];
 // یک گزارش با موقعیت مکانی زنده ثبت کنند — بدون این‌که نقش ثابتشان در جدول کاربران عوض شود.
 const STAFF_FIELD_ROLES = ['admin', 'superadmin', 'inspector'];
 
+installGlobalErrorLogging();
 registerSender('identityVerification', submitIdentityVerification);
 mountOfflineBadge();
 mountUpdateBadge();
