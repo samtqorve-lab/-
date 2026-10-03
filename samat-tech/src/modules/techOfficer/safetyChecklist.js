@@ -1,18 +1,27 @@
 import { el, showToast, openModal } from '../../lib/dom.js';
 import { sb } from '../../lib/supabase.js';
 import { queueOfflineSubmission, newQueueId, isLikelyNetworkError, registerSender } from '../../lib/offlineQueue.js';
+import { logClientError } from '../../lib/errorLog.js';
 
 function todayStr() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+// چک‌لیست اصلی که ثبت شد، دیگر هرگز به‌خاطر شکست «اقدام اصلاحی» رد/تکرار نمی‌شود (تکرار از صف آفلاین
+// چک‌لیست را دوبار ثبت می‌کرد)؛ ولی شکست اقدام اصلاحی قبلاً کاملاً بی‌صدا بود. حالا ثبت می‌شود و به
+// کاربر گفته می‌شود.
 async function sendChecklistPayload(payload) {
   const { error } = await sb.from('safety_checklists').insert([payload.checklistRow]);
   if (error) throw error;
   if (payload.correctiveRows.length) {
-    await sb.from('corrective_actions').insert(payload.correctiveRows);
+    const { error: corrErr } = await sb.from('corrective_actions').insert(payload.correctiveRows);
+    if (corrErr) {
+      logClientError('safetyChecklist:corrective_actions', corrErr, { rows: payload.correctiveRows.length });
+      return { correctiveFailed: true };
+    }
   }
+  return { correctiveFailed: false };
 }
 registerSender('safetyChecklist', sendChecklistPayload);
 
@@ -95,8 +104,12 @@ export function openSafetyChecklistModal(mine, nameField, department) {
     };
     try {
       if (!navigator.onLine) throw new Error('OFFLINE');
-      await sendChecklistPayload(payload);
-      showToast(issueItems.length ? `⚠️ چک‌لیست ثبت شد — ${issueItems.length} مورد نیازمند پیگیری` : '✅ چک‌لیست سالم ثبت شد');
+      const result = await sendChecklistPayload(payload);
+      if (result && result.correctiveFailed) {
+        showToast(`⚠️ چک‌لیست ثبت شد ولی ثبت ${issueItems.length} اقدام اصلاحی ناموفق بود — به مدیر اطلاع دهید`);
+      } else {
+        showToast(issueItems.length ? `⚠️ چک‌لیست ثبت شد — ${issueItems.length} مورد نیازمند پیگیری` : '✅ چک‌لیست سالم ثبت شد');
+      }
       close();
     } catch (err) {
       if (err.message === 'OFFLINE' || isLikelyNetworkError(err)) {
