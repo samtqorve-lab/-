@@ -2,6 +2,7 @@ import { el } from '../../lib/dom.js';
 import { sb } from '../../lib/supabase.js';
 import { getSession } from '../../lib/auth.js';
 import { fetchPendingIdentityCount, fetchPendingBoundaryCount } from '../../lib/identity.js';
+import { openNotificationDetail } from '../../lib/notificationRoute.js';
 import { getState, setTab, onChange } from '../../router.js';
 
 const SEEN_KEY = 'samat.notif.seenAt';
@@ -14,9 +15,39 @@ function writeSeen(iso) {
   try { localStorage.setItem(SEEN_KEY, iso); } catch { /* ignore */ }
 }
 
+let nativeTapAttached = false;
+/**
+ * لمس روی اعلان سیستمی اندروید (Push یا اعلان محلی): قبلاً فقط «تایید ورود» پردازش می‌شد و لمس بقیه‌ی
+ * اعلان‌ها اپ را باز می‌کرد ولی هیچ‌چیز نشان نمی‌داد. حالا جزئیات اعلان باز می‌شود.
+ * (اگر اپ با لمس اعلان از حالت بسته باز شده باشد، Capacitor رویداد را تا اضافه‌شدن شنونده نگه می‌دارد.)
+ */
+async function attachNativeTapHandlers() {
+  if (nativeTapAttached) return;
+  nativeTapAttached = true;
+  try {
+    const { Capacitor } = await import('@capacitor/core');
+    if (!Capacitor.isNativePlatform()) return;
+    const { PushNotifications } = await import('@capacitor/push-notifications');
+    PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+      const n = action.notification || {};
+      const data = n.data || {};
+      if (data.type === 'login-approval') return; // این یکی را pushNative.js پردازش می‌کند
+      openNotificationDetail({ title: n.title, body: n.body, data, created_at: new Date().toISOString() });
+    });
+    const { LocalNotifications } = await import('@capacitor/local-notifications');
+    LocalNotifications.addListener('localNotificationActionPerformed', (event) => {
+      const n = event.notification || {};
+      const data = n.extra || {};
+      if (data.type === 'login-approval') return;
+      openNotificationDetail({ title: n.title, body: n.body, data, created_at: new Date().toISOString() });
+    });
+  } catch { nativeTapAttached = false; }
+}
+
 /**
  * مرکز اعلان‌ها (زنگ بالای صفحه): کارهای منتظر اقدام (احراز هویت و پایش مرزی) + آخرین اعلان‌های
- * جدول notifications برای همین کاربر (با Realtime). «خوانده‌شده» فقط سمت دستگاه ذخیره می‌شود.
+ * جدول notifications برای همین کاربر (با Realtime). با لمس هر اعلان، جزئیات کامل آن (و دکمه‌ی رفتن
+ * به صفحه‌ی مربوط) باز می‌شود. «خوانده‌شده» فقط سمت دستگاه ذخیره می‌شود.
  */
 export function mountNotificationCenter(host) {
   const badge = el('span', { class: 'bell-badge' });
@@ -63,11 +94,15 @@ export function mountNotificationCenter(host) {
       panel.append(el('div', { class: 'notif-sec' }, 'اعلان‌های اخیر'));
       items.forEach((n) => {
         const unread = n.created_at && (!seenAt || n.created_at > seenAt);
-        panel.append(el('div', { class: `notif-item${unread ? ' unread' : ''}` }, [
+        // دکمه‌ی واقعی (نه div) تا لمس/کلیک کار کند: جزئیات کامل اعلان در یک مودال باز می‌شود
+        panel.append(el('button', {
+          class: `notif-item${unread ? ' unread' : ''}`, type: 'button',
+          onclick: () => { close(); openNotificationDetail(n); },
+        }, [
           el('span', { class: 'ni-ico' }, unread ? '🔵' : '▫️'),
           el('span', { class: 'ni-txt' }, [
             el('span', { class: 'nt' }, n.title || 'اعلان'),
-            n.body ? el('span', { class: 'nb' }, n.body) : null,
+            n.body ? el('span', { class: 'nb' }, String(n.body).length > 90 ? `${String(n.body).slice(0, 90)}…` : n.body) : null,
             n.created_at ? el('span', { class: 'nd' }, fmtTime(n.created_at)) : null,
           ]),
         ]));
@@ -117,6 +152,7 @@ export function mountNotificationCenter(host) {
   }
 
   async function init() {
+    attachNativeTapHandlers();
     try {
       const session = await getSession();
       email = session?.user?.email || '';
