@@ -96,7 +96,7 @@ describe('collectEnuMesh', () => {
     const world = enuToScene(THREE, holder, 'z', 4, 6, 2);
     const back = sceneToEnu(THREE, holder, 'z', world);
     expect(back[0]).toBeCloseTo(4, 5); expect(back[1]).toBeCloseTo(6, 5); expect(back[2]).toBeCloseTo(2, 5);
-    // با چرخش −۹۰° حول Xqu، بالا = Y صحنه است: ارتفاع ۲ باید در y ظاهر شود
+    // با چرخش −۹۰° حول X، بالا = Y صحنه است: ارتفاع ۲ باید در y ظاهر شود
     expect(world.y).toBeCloseTo(2 + holder.position.y, 5);
   });
   it('مدل بدون مش یا خیلی سنگین خطای فارسی می‌دهد', () => {
