@@ -50,7 +50,10 @@ export function enuToScene(THREE, holder, upAxis, e, n, u) {
 export function collectEnuMesh(THREE, holder, upAxis) {
   holder.updateMatrixWorld(true);
   const meshes = [];
-  holder.traverse((o) => { if (o.isMesh && o.geometry && o.geometry.attributes.position) meshes.push(o); });
+  // لایه‌های کمکی (مثل تصویر ماهواره‌ای زیر مدل) با userData.excludeFromAnalysis علامت می‌خورند و جزو سطح تحلیل نیستند
+  holder.traverse((o) => {
+    if (o.isMesh && !o.userData.excludeFromAnalysis && o.geometry && o.geometry.attributes.position) meshes.push(o);
+  });
   if (!meshes.length) throw new Error('مدل هیچ مشی ندارد');
 
   let totalV = 0; let totalI = 0;
