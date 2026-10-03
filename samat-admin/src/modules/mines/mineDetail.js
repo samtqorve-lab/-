@@ -77,6 +77,12 @@ export async function renderMineDetail(container, state, ctx) {
   const wrap = el('div', {});
   container.append(wrap);
 
+  // «پروفایل فعالیت» همین معدن (شاخص‌ها + اطلاعیه‌های اختصاصی + گزارش اکسل فقط برای همین معدن).
+  // یک‌بار ساخته می‌شود و با هر draw() (مثلاً رفتن به حالت ویرایش) دوباره به صفحه چسبانده می‌شود،
+  // تا هر بار از نو کوئری نزند.
+  const profileHost = el('div', { style: 'margin-bottom:16px' });
+  let profileMounted = false;
+
   function draw() {
     wrap.innerHTML = '';
     const cat = catColors[record['دسته']] || catColors['غیره'] || { bg: '#F1EEE6', badge: '#6B6250', border: '#6B6250' };
@@ -151,6 +157,20 @@ export async function renderMineDetail(container, state, ctx) {
       ]),
     ]);
     wrap.append(header);
+
+    // ── پروفایل فعالیت همین معدن (شاخص‌ها، اطلاعیه‌های اختصاصی، گزارش اکسل) ──
+    if (['معدن', 'اکتشاف', 'فرآوری'].includes(state.department) && record[nameField]) {
+      wrap.append(profileHost);
+      if (!profileMounted) {
+        profileMounted = true;
+        import('./mineProfile.js')
+          .then(({ mountMineProfile }) => mountMineProfile(profileHost, { department: state.department, mineName: record[nameField], isAdminRole }))
+          .catch((err) => {
+            profileMounted = false;
+            profileHost.append(el('div', { style: 'font-size:var(--text-xs);color:var(--rust-600)' }, `خطا در بارگذاری پروفایل فعالیت: ${err.message}`));
+          });
+      }
+    }
 
     sections.forEach((sec) => {
       const fieldsGrid = el('div', { style: 'display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px' });
