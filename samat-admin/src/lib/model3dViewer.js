@@ -8,8 +8,11 @@ import {
   VOLUME_BASES,
 } from './model3dAnalysis.js';
 import {
-  detectUpAxis, sceneToEnu, collectEnuMesh, drapedLine, createColorLayer,
+  detectUpAxis, sceneToEnu, localFromEnu, collectEnuMesh, drapedLine, createColorLayer,
 } from './model3dScene.js';
+import {
+  planSatellite, buildSatelliteGrid, loadSatelliteTiles, DETAIL_LEVELS, SATELLITE_TILE_URL, SATELLITE_ATTRIBUTION, TILE_SIZE,
+} from './model3dSatellite.js';
 
 const FA = (n, d = 1) => (Number.isFinite(n) ? n.toLocaleString('fa-IR', { maximumFractionDigits: d, minimumFractionDigits: d }) : '—');
 const BASE_LABELS = {
@@ -36,7 +39,8 @@ const nextPaint = () => new Promise((resolve) => { requestAnimationFrame(() => {
  *   ابزارها مختصات UTM/طول و عرض نشان می‌دهند و «🗺 محدوده» پروانه‌ی معدن را روی مدل می‌چسباند؛ اگر نباشد، فقط
  *   مختصات محلی و بدون ادعای موقعیت.
  * - ابزارها (فقط یکی فعال): 📏 فاصله، 📍 مختصات، ⬠ مساحت/حجم (سطح مبنا قابل انتخاب)، 📈 مقطع (CSV/DXF).
- *   لایه‌ها: ⛰ شیب (غربالگری اولیه)، 🗺 محدوده‌ی پروانه، 🔥 مقایسه با پرواز دیگر (نقشه‌ی برداشت/افزوده).
+ *   لایه‌ها: ⛰ شیب (غربالگری اولیه)، 🗺 محدوده‌ی پروانه، 🔥 مقایسه با پرواز دیگر (نقشه‌ی برداشت/افزوده)،
+ *   🛰 تصویر ماهواره‌ای (Esri World Imagery) به‌صورت صفحه‌ی تخت زیر مدل برای مکان‌یابی و زمینه (نیازمند موقعیت جغرافیایی مدل).
  *   📋 خروجی همه‌ی نتایج را CSV می‌کند. چرخاندن/بازنشانی دید، نتایجِ ترسیم‌شده روی مدل را پاک می‌کند (نشانگرها در
  *   فضای صحنه‌اند)؛ پیش از آن «📋 خروجی» بگیرید.
  * ⚠️ همه‌ی اعداد برآورد اولیه از روی مدل فتوگرامتری‌اند و جایگزین نقشه‌برداری رسمی نیستند.
@@ -95,6 +99,7 @@ export function openModel3dViewer(blob, {
     slope: mkBtn('⛰ شیب', () => {}),
     boundary: mkBtn('🗺 محدوده', () => {}),
     compare: mkBtn('🔥 مقایسه', () => {}),
+    satellite: mkBtn('🛰 ماهواره', () => {}),
   };
   const exportBtn = mkBtn('📋 خروجی', () => {});
   const toolRow = el('div', {
@@ -106,6 +111,13 @@ export function openModel3dViewer(blob, {
   const areaUndoBtn = mkSmall('↩ حذف آخرین', () => {});
   const areaCtl = el('span', { style: 'display:none;gap:6px' }, [areaFinishBtn, areaUndoBtn]);
   const hintBar = el('div', { style: 'font-size:11px;color:#e0a339;display:none;align-items:center;gap:8px;flex-wrap:wrap;padding:4px 10px;border-bottom:1px solid #2b2a24;flex:0 0 auto' }, [toolHint, areaCtl]);
+
+  const satStatus = el('span', { style: 'flex:1 1 220px;min-width:0' });
+  const satDetailSel = el('select', { style: selStyle }, Object.entries(DETAIL_LEVELS).map(([k, v]) => el('option', k === 'medium' ? { value: k, selected: '' } : { value: k }, v.label)));
+  const satOpacity = el('input', { type: 'range', min: '0.2', max: '1', step: '0.05', value: '1', style: 'width:90px' });
+  const satRow = el('div', { style: 'font-size:11px;color:#9fc7e8;display:none;align-items:center;gap:8px;flex-wrap:wrap;padding:4px 10px;border-bottom:1px solid #2b2a24;flex:0 0 auto' }, [
+    satStatus, el('span', {}, 'جزئیات'), satDetailSel, el('span', {}, 'شفافیت'), satOpacity,
+  ]);
 
   const resultsList = el('div', { style: 'display:flex;flex-direction:column;gap:2px' });
   const clearAllBtn = el('button', { style: 'font-size:10px;background:none;border:none;color:#e0a339;cursor:pointer;text-decoration:underline;padding:0' }, 'پاک کردن همه');
@@ -131,6 +143,7 @@ export function openModel3dViewer(blob, {
     ]),
     toolRow,
     hintBar,
+    satRow,
     stage,
     el('div', { style: 'padding:6px 10px;font-size:11px;color:#8d8775;border-top:1px solid #2b2a24;flex:0 0 auto' }, 'یک انگشت: چرخش — دو انگشت: بزرگ‌نمایی و جابه‌جایی (ماوس: چپ چرخش، راست جابه‌جایی، چرخ زوم) — اعداد برآورد اولیه‌اند و جایگزین نقشه‌برداری رسمی نیستند'),
   ]);
@@ -841,6 +854,143 @@ export function openModel3dViewer(blob, {
     }
     layerBtns.compare.onclick = () => { try { openComparePicker(); } catch (err) { flash(err.message || String(err)); } };
 
+    // ── لایه: تصویر ماهواره‌ای زیر مدل ──
+    // صفحه‌ی تختِ زیر پایین‌ترین نقطه‌ی مدل، فرزندِ holder است تا با چرخش دید همراه شود؛ از تحلیل‌ها و انتخاب نقطه کنار
+    // گذاشته می‌شود (userData.excludeFromAnalysis + raycast خالی) تا اندازه‌گیری روی تصویر تخت اشتباه نخورد.
+    let satObj = null;
+    let satOn = false;
+    let satToken = 0;
+    let satAbort = { aborted: false };
+    let satCtl = null;
+    const bboxFlat = bboxEnuRaw;
+    const baseElevation = upAxis === 'z' ? preBox.min.z : preBox.min.y;
+
+    function disposeSatelliteMesh() {
+      if (!satObj) return;
+      holder.remove(satObj);
+      satObj.geometry.dispose();
+      if (satObj.material.map) satObj.material.map.dispose();
+      satObj.material.dispose();
+      satObj = null;
+    }
+    function disposeSatellite() {
+      satAbort.aborted = true;
+      if (satCtl) satCtl.abort();
+      disposeSatelliteMesh();
+    }
+    state.disposers.push(disposeSatellite);
+
+    async function fetchSatTile(tile, signal) {
+      const res = await fetch(tile.url, { mode: 'cors', signal });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return createImageBitmap(await res.blob());
+    }
+
+    async function buildSatellite() {
+      const myToken = (satToken += 1);
+      satAbort.aborted = true; // دانلود قبلی (اگر بود) متوقف شود
+      if (satCtl) satCtl.abort();
+      const abortCtl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      satCtl = abortCtl;
+      satAbort = { aborted: false };
+      const myAbort = satAbort;
+      const stale = () => state.closed || myToken !== satToken || myAbort.aborted;
+      satStatus.style.color = '#9fc7e8';
+      satStatus.textContent = '⏳ در حال دریافت تصویر ماهواره‌ای...';
+      let plan;
+      try {
+        plan = planSatellite(bboxFlat, (e, n) => enuToLatLon(georef, e, n), { maxTiles: DETAIL_LEVELS[satDetailSel.value].maxTiles });
+      } catch (err) {
+        satStatus.style.color = '#f0a08a';
+        satStatus.textContent = `❌ ${err.message}`;
+        return;
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = plan.widthPx;
+      canvas.height = plan.heightPx;
+      const ctx = canvas.getContext && canvas.getContext('2d');
+      if (!ctx) {
+        satStatus.style.color = '#f0a08a';
+        satStatus.textContent = '❌ این مرورگر امکان ساخت بوم تصویر را ندارد';
+        return;
+      }
+      ctx.fillStyle = '#3a3a34';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const result = await loadSatelliteTiles(
+        plan,
+        (tile) => fetchSatTile(tile, abortCtl && abortCtl.signal),
+        (img, col, row) => {
+          ctx.drawImage(img, col * TILE_SIZE, row * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+          if (img.close) img.close();
+        },
+        {
+          template: SATELLITE_TILE_URL,
+          signal: myAbort,
+          onProgress: (d, t) => { if (!stale()) satStatus.textContent = `⏳ دریافت تصویر ماهواره‌ای: ${d.toLocaleString('fa-IR')} از ${t.toLocaleString('fa-IR')} کاشی`; },
+        },
+      );
+      if (abortCtl && stale()) abortCtl.abort();
+      if (stale()) return;
+      if (!result.ok) {
+        satOn = false;
+        highlight(layerBtns.satellite, false);
+        satRow.style.display = 'none';
+        flash('هیچ کاشی ماهواره‌ای دریافت نشد — اینترنت یا دسترسی به سرویس Esri را بررسی کنید (از بعضی شبکه‌ها در دسترس نیست)');
+        return;
+      }
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.anisotropy = renderer.capabilities && renderer.capabilities.getMaxAnisotropy ? renderer.capabilities.getMaxAnisotropy() : 1;
+      const margin = Math.max(0.3, 0.005 * Math.max(bboxFlat.maxE - bboxFlat.minE, bboxFlat.maxN - bboxFlat.minN));
+      const grid = buildSatelliteGrid(plan, (e, n) => enuToLatLon(georef, e, n), baseElevation - margin, 24);
+      const localPos = new Float32Array(grid.positions.length);
+      for (let i = 0; i < grid.positions.length; i += 3) {
+        const [x, y, z] = localFromEnu(upAxis, grid.positions[i], grid.positions[i + 1], grid.positions[i + 2]);
+        localPos[i] = x; localPos[i + 1] = y; localPos[i + 2] = z;
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(localPos, 3));
+      geo.setAttribute('uv', new THREE.BufferAttribute(grid.uvs, 2));
+      geo.setIndex(new THREE.BufferAttribute(grid.indices, 1));
+      const opacity = parseFloat(satOpacity.value) || 1;
+      const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+        map: texture, side: THREE.DoubleSide, transparent: opacity < 1, opacity,
+      }));
+      mesh.userData.excludeFromAnalysis = true;
+      mesh.raycast = () => {};
+      mesh.renderOrder = -1;
+      disposeSatelliteMesh();
+      satObj = mesh;
+      holder.add(mesh);
+      satStatus.style.color = result.failed ? '#e0a339' : '#9fc7e8';
+      satStatus.textContent = `🛰 زوم ${plan.z.toLocaleString('fa-IR')} · ${result.ok.toLocaleString('fa-IR')} از ${result.total.toLocaleString('fa-IR')} کاشی${result.failed ? ' (کاشی‌های ناموفق خاکستری‌اند)' : ''} · ${SATELLITE_ATTRIBUTION} — صفحه‌ی تخت زیر مدل؛ وضوح متری و تاریخ تصویر نامعلوم؛ اگر بخشی خاکستری «داده در دسترس نیست» بود، جزئیات را کمتر کنید.`;
+    }
+
+    async function toggleSatellite() {
+      if (satOn) {
+        satOn = false;
+        satToken += 1;
+        disposeSatellite();
+        highlight(layerBtns.satellite, false);
+        satRow.style.display = 'none';
+        return;
+      }
+      if (!georef) { flash('برای تصویر ماهواره‌ای، موقعیت جغرافیایی مدل لازم است (این مدل آن را ندارد)'); return; }
+      satOn = true;
+      highlight(layerBtns.satellite, true);
+      satRow.style.display = 'flex';
+      await buildSatellite();
+    }
+    layerBtns.satellite.onclick = () => { toggleSatellite().catch((err) => flash(err.message || String(err))); };
+    satDetailSel.addEventListener('change', () => { if (satOn) buildSatellite().catch((err) => flash(err.message || String(err))); });
+    satOpacity.addEventListener('input', () => {
+      if (!satObj) return;
+      const o = parseFloat(satOpacity.value) || 1;
+      satObj.material.opacity = o;
+      satObj.material.transparent = o < 1;
+      satObj.material.needsUpdate = true;
+    });
+
     // ── خروجی CSV ──
     function buildExport() {
       const q = (v) => `"${String(v).replace(/"/g, '""')}"`;
@@ -876,7 +1026,7 @@ export function openModel3dViewer(blob, {
       ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(ndc, camera);
-      const hits = raycaster.intersectObject(holder, true);
+      const hits = raycaster.intersectObject(gltf.scene, true); // صفحه‌ی ماهواره‌ای قابل انتخاب نیست (تخت و زیر مدل است)
       if (hits.length) onPick(hits[0].point.clone());
     }
     renderer.domElement.addEventListener('pointerdown', onPointerDown);
@@ -898,11 +1048,11 @@ export function openModel3dViewer(blob, {
       holder.rotation.set(ROTATIONS[rotIndex], 0, 0);
       holder.position.set(0, 0, 0);
       holder.updateMatrixWorld(true);
-      box.setFromObject(holder);
+      box.setFromObject(gltf.scene); // فقط خودِ مدل؛ صفحه‌ی ماهواره‌ای نباید قاب‌بندی و مرکزسازی را عوض کند
       box.getCenter(center);
       holder.position.sub(center);
       holder.updateMatrixWorld(true);
-      box.setFromObject(holder);
+      box.setFromObject(gltf.scene); // فقط خودِ مدل؛ صفحه‌ی ماهواره‌ای نباید قاب‌بندی و مرکزسازی را عوض کند
       box.getSize(size);
       const maxDim = Math.max(size.x, size.y, size.z) || 1;
       modelDiag = size.length() || 1;
