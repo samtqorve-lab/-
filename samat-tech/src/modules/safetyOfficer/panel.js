@@ -9,6 +9,7 @@ import { mountPushLoginToggle } from '../shell/pushLoginToggle.js';
 import { mountGpsStatusChip } from '../shell/gpsStatusChip.js';
 import { mountSafetyCheckin } from '../shell/safetyCheckinWidget.js';
 import { mountNotificationToggle } from '../shell/notificationToggle.js';
+import { mountMineNotices } from '../shell/mineNotices.js';
 import { checkAndNotify } from '../../lib/localNotifications.js';
 
 const ROLE_META = {
@@ -57,6 +58,11 @@ export async function mountSafetyOfficerPanel(root, { email, mines, identityVeri
     : [el('option', { value: '' }, '— موردی اختصاص نیافته —')]);
 
   function currentMine() { return mines.find((m) => m['نام_معدن'] === mineSelect.value); }
+
+  // اطلاعیه‌ها فقط برای معدنِ انتخاب‌شده (+ عمومی‌ها) — با عوض شدن معدن همین‌جا عوض می‌شود
+  const noticesBox = el('div');
+  const mineNotices = mountMineNotices(noticesBox, { getMineName: () => mineSelect.value, department });
+  mineSelect.addEventListener('change', () => mineNotices.onMineChange());
 
   const historyBox = el('div');
   async function loadHistory() {
@@ -112,6 +118,10 @@ export async function mountSafetyOfficerPanel(root, { email, mines, identityVeri
         }, '🚨 اعلام حادثه'),
       ]),
       el('div', { class: 'card' }, [
+        el('h3', {}, '📢 اطلاعیه‌های همین معدن'),
+        noticesBox,
+      ]),
+      el('div', { class: 'card' }, [
         el('h3', {}, '🦺 چک‌این ایمنی کارگر تنها'),
         checkinBox,
       ]),
@@ -136,4 +146,5 @@ export async function mountSafetyOfficerPanel(root, { email, mines, identityVeri
   mountSafetyCheckin(checkinBox, { email, getMineName: () => currentMine()?.['نام_معدن'] || '', department });
   mountNotificationToggle(notifToggleBox);
   loadHistory();
+  mineNotices.refresh();
 }

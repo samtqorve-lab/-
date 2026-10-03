@@ -10,6 +10,7 @@ import { mountPushLoginToggle } from '../shell/pushLoginToggle.js';
 import { mountGpsStatusChip } from '../shell/gpsStatusChip.js';
 import { mountSafetyCheckin } from '../shell/safetyCheckinWidget.js';
 import { mountNotificationToggle } from '../shell/notificationToggle.js';
+import { mountMineNotices } from '../shell/mineNotices.js';
 import { checkAndNotify } from '../../lib/localNotifications.js';
 import { mountMultiMineOverview } from './multiMineOverview.js';
 // نکته‌ی کارایی: بقیه‌ی ماژول‌ها (چک‌لیست‌ها، گزارش‌ها، نقشه‌ی استیک‌اوت با Leaflet، و...) عمداً
@@ -70,6 +71,12 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
       fn(mine);
     };
   }
+
+  // اطلاعیه‌ها فقط برای معدن/محدوده/واحدِ انتخاب‌شده (+ عمومی‌های بخش) — با عوض شدن انتخاب همین‌جا عوض می‌شود
+  const noticesBox = el('div');
+  const mineNotices = mountMineNotices(noticesBox, { getMineName: () => mineSelect.value, department: meta.dept });
+  mineSelect.addEventListener('change', () => mineNotices.onMineChange());
+  const unitWord = meta.dept === 'معدن' ? 'معدن' : meta.dept === 'اکتشاف' ? 'محدوده' : 'واحد';
 
   const gpsChipBox = el('div', { style: 'margin-top:4px' });
   const multiMineBox = el('div', { style: 'margin-top:10px' });
@@ -426,6 +433,10 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
         }, '🎯 پیاده کردن نقاط پروانه (استیک‌اوت GPS)'),
       ]),
       el('div', { class: 'card' }, [
+        el('h3', {}, `📢 اطلاعیه‌های همین ${unitWord}`),
+        noticesBox,
+      ]),
+      el('div', { class: 'card' }, [
         el('h3', {}, '📷 عکس سینه‌کار و ماشین‌آلات'),
         captureBox,
         el('div', { style: 'height:1px;background:var(--stone-200);margin:14px 0' }),
@@ -443,5 +454,6 @@ export async function mountTechOfficerPanel(root, { email, mines, identityVerifi
   ]);
   root.append(shell);
   mountGpsStatusChip(gpsChipBox);
-  mountMultiMineOverview(multiMineBox, mines, nameField, (name) => { mineSelect.value = name; });
+  mountMultiMineOverview(multiMineBox, mines, nameField, (name) => { mineSelect.value = name; mineNotices.onMineChange(); });
+  mineNotices.refresh();
 }

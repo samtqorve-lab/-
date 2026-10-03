@@ -1,6 +1,6 @@
 import { el, esc, showToast, fmtDate } from '../../lib/dom.js';
 import { sb } from '../../lib/supabase.js';
-import { fetchNoticesForUser } from '../../lib/notices.js';
+import { mountMineNotices } from '../shell/mineNotices.js';
 import { queueOfflineSubmission, newQueueId, isLikelyNetworkError, registerSender } from '../../lib/offlineQueue.js';
 import { getGeoLocation } from '../../lib/geo.js';
 import { mountGpsStatusChip } from '../shell/gpsStatusChip.js';
@@ -57,32 +57,25 @@ export async function mountOwnerPanel(root, { email, mines, roleRow, department,
 
   async function drawBody() {
     body.innerHTML = '';
-    if (activeTab === 'notices') { await drawNotices(); } else { await drawReportForm(); }
+    if (activeTab === 'notices') { drawNotices(); } else { await drawReportForm(); }
   }
 
-  async function drawNotices() {
-    body.append(el('div', { class: 'loading-state' }, 'در حال بارگذاری اطلاعیه‌ها...'));
-    let notices;
-    try {
-      notices = await fetchNoticesForUser(department);
-    } catch (err) {
-      body.innerHTML = '';
-      body.append(el('div', { style: 'color:var(--rust-600);font-size:var(--text-xs)' }, `خطا: ${err.message}`));
-      return;
-    }
+  // انتخاب‌شده‌ی آخر بین دو بار باز شدن تب اطلاعیه‌ها حفظ می‌شود
+  let noticesMine = mines[0][nameField];
+
+  function drawNotices() {
     body.innerHTML = '';
-    if (!notices.length) {
-      body.append(el('div', { class: 'empty-state' }, 'اطلاعیه‌ای برای شما ثبت نشده'));
-      return;
+    // اطلاعیه‌ی هر معدن جدا نمایش داده می‌شود (نه همه‌ی معدن‌های بهره‌بردار با هم)
+    const noticesBox = el('div');
+    const mineNotices = mountMineNotices(noticesBox, { getMineName: () => noticesMine, department });
+    if (mines.length > 1) {
+      const mineSelect = el('select', { style: 'margin-bottom:12px' }, mines.map((m) => el('option', { value: m[nameField] }, m[nameField])));
+      mineSelect.value = noticesMine;
+      mineSelect.addEventListener('change', () => { noticesMine = mineSelect.value; mineNotices.onMineChange(); });
+      body.append(el('label', {}, 'اطلاعیه‌های کدام معدن؟'), mineSelect);
     }
-    notices.forEach((n) => {
-      body.append(el('div', { class: 'card', style: 'margin-bottom:10px' }, [
-        el('div', { style: 'font-weight:700;font-size:var(--text-sm)' }, n.title),
-        el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin:2px 0 8px' },
-          `${n.mine_name || '📢 عمومی'} · ${fmtDate(n.created_at)}`),
-        el('div', { style: 'font-size:var(--text-sm);white-space:pre-wrap' }, n.body),
-      ]));
-    });
+    body.append(noticesBox);
+    mineNotices.refresh();
   }
 
   async function drawReportForm() {
