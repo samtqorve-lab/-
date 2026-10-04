@@ -5,8 +5,9 @@ import {
 } from './model3dGeo.js';
 import {
   polygonVolume, profileAlong, profileToCsv, profileToDxf, slopeVertexColors, compareSurfaces, diffVertexColors,
-  VOLUME_BASES,
+  VOLUME_BASES, heightAt,
 } from './model3dAnalysis.js';
+import { buildHeightfield, unionExtent } from './model3dTerrainField.js';
 import {
   detectUpAxis, sceneToEnu, localFromEnu, collectEnuMesh, drapedLine, createColorLayer,
 } from './model3dScene.js';
@@ -40,10 +41,11 @@ const nextPaint = () => new Promise((resolve) => { requestAnimationFrame(() => {
  *   مختصات محلی و بدون ادعای موقعیت.
  * - ابزارها (فقط یکی فعال): 📏 فاصله، 📍 مختصات، ⬠ مساحت/حجم (سطح مبنا قابل انتخاب)، 📈 مقطع (CSV/DXF).
  *   لایه‌ها: ⛰ شیب (غربالگری اولیه)، 🗺 محدوده‌ی پروانه، 🔥 مقایسه با پرواز دیگر (نقشه‌ی برداشت/افزوده)،
- *   🛰 تصویر ماهواره‌ای (Esri World Imagery) به‌صورت صفحه‌ی تخت زیر مدل برای مکان‌یابی و زمینه (نیازمند موقعیت جغرافیایی مدل).
+ *   🛰 تصویر ماهواره‌ای (Esri World Imagery) روی سطحی پیوسته و هم‌ارتفاع با مدل (بیرون از پوشش مدل برون‌یابی‌شده) برای
+ *   مکان‌یابی و زمینه؛ نیازمند موقعیت جغرافیایی مدل. محدوده‌ی پروانه هم کامل رسم می‌شود، حتی بیرون از پوشش مدل.
  *   📋 خروجی همه‌ی نتایج را CSV می‌کند. چرخاندن/بازنشانی دید، نتایجِ ترسیم‌شده روی مدل را پاک می‌کند (نشانگرها در
  *   فضای صحنه‌اند)؛ پیش از آن «📋 خروجی» بگیرید.
- * ⚠️ همه‌ی اعداد برآورد اولیه از روی مدل فتوگرامتری‌اند و جایگزین نقشه‌برداری رسمی نیستند.
+ * ⚠️ همه‌ی اعداد برآورد اولیه از روی مدل فتوگرامتری‌اند و جایگزین نقشهبرداری رسمی نیستند.
  * @param {Blob} blob فایل GLB رمزگشایی‌شده
  * @param {{ title?: string, summary?: object, corners?: Array<[number,number]>,
  *           compareOptions?: Array<{ id: string, label: string, summary?: object, load: () => Promise<Blob> }> }} [opts]
@@ -367,13 +369,13 @@ export function openModel3dViewer(blob, {
     const toEnu = (worldPoint) => sceneToEnu(THREE, holder, upAxis, worldPoint);
 
     /** چسباندن یک مسیر ENU روی سطح مدل (نیازمند analysis) */
-    function drape(path, { closed = false, color = 0xff3b30 } = {}) {
+    function drape(path, { closed = false, color = 0xff3b30, heightFn = null } = {}) {
       if (!analysis) return null;
       let len = 0;
       for (let i = 1; i < path.length; i += 1) len += Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]);
       if (closed && path.length > 1) len += Math.hypot(path[0][0] - path[path.length - 1][0], path[0][1] - path[path.length - 1][1]);
       const line = drapedLine(THREE, holder, upAxis, analysis.surface, path, {
-        closed, color, step: Math.max(len / 2500, 0.1), lift: Math.max(0.05, modelDiag / 3000),
+        closed, color, step: Math.max(len / 2500, 0.1), lift: Math.max(0.05, modelDiag / 3000), heightFn,
       });
       if (line) scene.add(line);
       return line;
@@ -665,10 +667,24 @@ export function openModel3dViewer(blob, {
     }
 
     // ── لایه: محدوده‌ی پروانه ──
+    // وقتی برداشت پهباد کوچک‌تر از محدوده‌ی معدن است، بخشی از محیط پروانه بیرون از مدل می‌افتد. آن بخش‌ها هم رسم می‌شوند:
+    // روی خودِ مدل با ارتفاع واقعی، و بیرون از آن روی سطح برون‌یابی‌شده (model3dTerrainField.js؛ افقی دقیق، قائم تقریبی).
+    let boundaryField = null;
     function rebuildBoundary() {
       if (boundaryObj) { disposeObj(boundaryObj); boundaryObj = null; }
       if (!boundaryOn || !analysis || !georef) return;
-      boundaryObj = drape(cornersToEnu(georef, validCorners), { closed: true, color: 0xff3b30 });
+      const enu = cornersToEnu(georef, validCorners);
+      if (!boundaryField) {
+        boundaryField = buildHeightfield(analysis.surface, unionExtent(bboxEnuRaw, enu, 0.05), { nx: 128, ny: 128 });
+      }
+      const field = boundaryField;
+      const heightFn = field
+        ? (e, n) => {
+          const z = heightAt(analysis.surface, e, n);
+          return Number.isFinite(z) ? z : field.sample(e, n);
+        }
+        : null;
+      boundaryObj = drape(enu, { closed: true, color: 0xff3b30, heightFn });
     }
     async function toggleBoundary() {
       if (boundaryOn) {
@@ -685,12 +701,19 @@ export function openModel3dViewer(blob, {
       rebuildBoundary();
       if (!boundaryObj) {
         boundaryOn = false;
-        flash('محدوده‌ی پروانه با این مدل هم‌پوشانی ندارد — احتمالاً زون یا موقعیت مدل درست نیست');
+        flash('رسم محدوده‌ی پروانه ممکن نشد');
         return;
       }
       highlight(layerBtns.boundary, true);
-      const cov = boundaryObj.userData.coverage;
-      flash(`محدوده‌ی پروانه روی مدل رسم شد (${FA(cov * 100, 0)}٪ از محیط روی مدل است)`, true);
+      const onModel = boundaryObj.userData.onModel;
+      const chk = checkGeorefConsistency(georef, bboxEnuRaw, validCorners);
+      if (chk && chk.status === 'bad') {
+        flash(`محدوده رسم شد ولی مرکز مدل ${FA(chk.distance / 1000, 1)} کیلومتر با پروانه فاصله دارد — زون یا موقعیت مدل را بررسی کنید`);
+      } else if (onModel < 0.999) {
+        flash(`محدوده‌ی کامل پروانه رسم شد — ${FA(onModel * 100, 0)}٪ محیط روی مدل است و بقیه (برداشت کوچک‌تر از محدوده) روی سطح برون‌یابی‌شده با ارتفاع تقریبی`, true);
+      } else {
+        flash('محدوده‌ی پروانه روی مدل رسم شد', true);
+      }
     }
     layerBtns.boundary.onclick = () => { toggleBoundary().catch((err) => flash(err.message || String(err))); };
 
@@ -855,8 +878,8 @@ export function openModel3dViewer(blob, {
     layerBtns.compare.onclick = () => { try { openComparePicker(); } catch (err) { flash(err.message || String(err)); } };
 
     // ── لایه: تصویر ماهواره‌ای زیر مدل ──
-    // صفحه‌ی تختِ زیر پایین‌ترین نقطه‌ی مدل، فرزندِ holder است تا با چرخش دید همراه شود؛ از تحلیل‌ها و انتخاب نقطه کنار
-    // گذاشته می‌شود (userData.excludeFromAnalysis + raycast خالی) تا اندازه‌گیری روی تصویر تخت اشتباه نخورد.
+    // سطحِ تصویر (هم‌ارتفاع با مدل، کمی زیر آن)، فرزندِ holder است تا با چرخش دید همراه شود؛ از تحلیل‌ها و انتخاب نقطه کنار
+    // گذاشته می‌شود (userData.excludeFromAnalysis + raycast خالی) تا اندازه‌گیری روی تصویر ماهواره اشتباه نخورد.
     let satObj = null;
     let satOn = false;
     let satToken = 0;
@@ -896,10 +919,19 @@ export function openModel3dViewer(blob, {
       const myAbort = satAbort;
       const stale = () => state.closed || myToken !== satToken || myAbort.aborted;
       satStatus.style.color = '#9fc7e8';
+      satStatus.textContent = '⏳ در حال آماده‌سازی سطح مدل...';
+      // سطح مدل برای هم‌ارتفاع نشاندن تصویر لازم است؛ اگر مدل برای تحلیل روی این دستگاه خیلی سنگین بود
+      // (ensureAnalysis خودش پیام می‌دهد)، به صفحه‌ی تخت برمی‌گردیم.
+      const a = await ensureAnalysis();
+      if (state.closed) return;
       satStatus.textContent = '⏳ در حال دریافت تصویر ماهواره‌ای...';
       let plan;
       try {
-        plan = planSatellite(bboxFlat, (e, n) => enuToLatLon(georef, e, n), { maxTiles: DETAIL_LEVELS[satDetailSel.value].maxTiles });
+        // محدوده‌ی تصویر = مدل ∪ محدوده‌ی پروانه (برداشت ممکن است کوچک‌تر از معدن باشد)
+        const planBox = validCorners.length >= 3
+          ? unionExtent(bboxFlat, cornersToEnu(georef, validCorners), 0)
+          : bboxFlat;
+        plan = planSatellite(planBox, (e, n) => enuToLatLon(georef, e, n), { maxTiles: DETAIL_LEVELS[satDetailSel.value].maxTiles });
       } catch (err) {
         satStatus.style.color = '#f0a08a';
         satStatus.textContent = `❌ ${err.message}`;
@@ -941,11 +973,17 @@ export function openModel3dViewer(blob, {
       const texture = new THREE.CanvasTexture(canvas);
       texture.colorSpace = THREE.SRGBColorSpace;
       texture.anisotropy = renderer.capabilities && renderer.capabilities.getMaxAnisotropy ? renderer.capabilities.getMaxAnisotropy() : 1;
-      const margin = Math.max(0.3, 0.005 * Math.max(bboxFlat.maxE - bboxFlat.minE, bboxFlat.maxN - bboxFlat.minN));
-      const grid = buildSatelliteGrid(plan, (e, n) => enuToLatLon(georef, e, n), baseElevation - margin, 24);
+      const modelSpan = Math.max(bboxFlat.maxE - bboxFlat.minE, bboxFlat.maxN - bboxFlat.minN);
+      // سطح پیوسته‌ی هم‌ارتفاع با مدل: داخل پوشش مدل، کمی (drop) زیر ارتفاع واقعی؛ بیرون از آن برون‌یابی‌شده.
+      // «lower» سطح را روی کمینه‌ی همسایگی می‌نشاند تا شبکه‌ی درشت هیچ‌جا از مدل بیرون نزند.
+      const field = a ? buildHeightfield(a.surface, plan.extentEnu, { nx: 128, ny: 128, lower: true }) : null;
+      const drop = Math.max(0.3, 0.003 * modelSpan);
+      const flatElevation = baseElevation - Math.max(0.3, 0.005 * modelSpan);
+      const elevationAt = field ? (e, n) => field.sample(e, n) - drop : () => flatElevation;
+      const grid = buildSatelliteGrid(plan, (e, n) => enuToLatLon(georef, e, n), 0, 128);
       const localPos = new Float32Array(grid.positions.length);
       for (let i = 0; i < grid.positions.length; i += 3) {
-        const [x, y, z] = localFromEnu(upAxis, grid.positions[i], grid.positions[i + 1], grid.positions[i + 2]);
+        const [x, y, z] = localFromEnu(upAxis, grid.positions[i], grid.positions[i + 1], elevationAt(grid.positions[i], grid.positions[i + 1]));
         localPos[i] = x; localPos[i + 1] = y; localPos[i + 2] = z;
       }
       const geo = new THREE.BufferGeometry();
@@ -963,7 +1001,10 @@ export function openModel3dViewer(blob, {
       satObj = mesh;
       holder.add(mesh);
       satStatus.style.color = result.failed ? '#e0a339' : '#9fc7e8';
-      satStatus.textContent = `🛰 زوم ${plan.z.toLocaleString('fa-IR')} · ${result.ok.toLocaleString('fa-IR')} از ${result.total.toLocaleString('fa-IR')} کاشی${result.failed ? ' (کاشی‌های ناموفق خاکستری‌اند)' : ''} · ${SATELLITE_ATTRIBUTION} — صفحه‌ی تخت زیر مدل؛ وضوح متری و تاریخ تصویر نامعلوم؛ اگر بخشی خاکستری «داده در دسترس نیست» بود، جزئیات را کمتر کنید.`;
+      const surfaceNote = field
+        ? 'روی سطح پیوسته‌ی هم‌ارتفاع با مدل (بیرون از پوشش مدل ارتفاع برون‌یابی‌شده)'
+        : 'صفحه‌ی تخت زیر مدل (مدل برای ساخت سطح هم‌ارتفاع روی این دستگاه خیلی سنگین است؛ مدل سبک را باز کنید)';
+      satStatus.textContent = `🛰 زوم ${plan.z.toLocaleString('fa-IR')} · ${result.ok.toLocaleString('fa-IR')} از ${result.total.toLocaleString('fa-IR')} کاشی${result.failed ? ' (کاشی‌های ناموفق خاکستری‌اند)' : ''} · ${SATELLITE_ATTRIBUTION} — ${surfaceNote}؛ وضوح متری و تاریخ تصویر نامعلوم؛ اگر بخشی خاکستری «داده در دسترس نیست» بود، جزئیات را کمتر کنید.`;
     }
 
     async function toggleSatellite() {
