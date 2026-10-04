@@ -869,6 +869,7 @@ export function openModel3dViewer(blob, {
     // وقتی صفحه‌ی ماهواره‌ای از خود مدل خیلی بزرگ‌تر است (مدل کوچک در محدوده‌ی بزرگ)، دوربین باید بتواند به‌اندازه‌ی
     // آن عقب برود؛ وگرنه بقیه‌ی محدوده هیچ‌وقت دیده نمی‌شود. fit() این مقدار را در حدود زوم/برش دوربین لحاظ می‌کند.
     let satReach = 0;
+    let autoFrameNext = false; // وقتی لایه‌ی ماهواره‌ای خودکار (به‌خاطر کوچک بودن مدل) روشن شد، بعد از ساخت کل محدوده قاب می‌شود
 
     function disposeSatelliteMesh() {
       if (!satObj) return;
@@ -958,6 +959,7 @@ export function openModel3dViewer(blob, {
       if (stale()) return;
       if (!result.ok) {
         satOn = false;
+        autoFrameNext = false;
         highlight(layerBtns.satellite, false);
         satRow.style.display = 'none';
         flash('هیچ کاشی ماهواره‌ای دریافت نشد (نه از گوگل، نه از Esri) — اینترنت را بررسی کنید؛ از بعضی شبکه‌ها در دسترس نیست');
@@ -1018,6 +1020,7 @@ export function openModel3dViewer(blob, {
         : (validCorners.length >= 3 && georef ? 'گوشه‌های پروانه با موقعیت مدل نمی‌خوانند، فقط اطراف مدل پوشانده شد' : 'فقط اطراف مدل پوشانده شد (گوشه‌ی پروانه ثبت نشده)');
       satStatus.style.color = result.failed ? '#e0a339' : '#9fc7e8';
       satStatus.textContent = `🛰 ${provider.label} · زوم ${plan.z.toLocaleString('fa-IR')} · ${result.ok.toLocaleString('fa-IR')} از ${result.total.toLocaleString('fa-IR')} کاشی${result.failed ? ' (کاشی‌های ناموفق خاکستری‌اند)' : ''}${provider.id === 'esri' ? ' (گوگل در دسترس نبود)' : ''} · ${provider.attribution} — ${coverNote}. صفحه‌ی تخت زیر مدل؛ وضوح متری و تاریخ تصویر نامعلوم.`;
+      if (autoFrameNext) { autoFrameNext = false; frameSatellite(); }
     }
 
     /** دوربین را طوری می‌برد که کل صفحه‌ی ماهواره‌ای (کل محدوده) دیده شود */
@@ -1150,6 +1153,21 @@ export function openModel3dViewer(blob, {
     fit();
 
     status.style.display = 'none';
+
+    // مدل کوچک در محدوده‌ی بزرگ‌تر: خودکار تصویر ماهواره‌ای کل محدوده را (با خط پروانه) نشان بده و دوربین را روی کل
+    // محدوده ببر؛ با «🎯 بازنشانی» به خودِ مدل برمی‌گردد و با «🛰 ماهواره» قابل خاموش شدن است.
+    (function autoSatelliteForSmallModel() {
+      if (!georef || validCorners.length < 3) return;
+      const cov = cornersToEnu(georef, validCorners);
+      if (!cov.length || cov.some((q) => !Number.isFinite(q[0]) || !Number.isFinite(q[1]))) return;
+      const es = cov.map((q) => q[0]);
+      const ns = cov.map((q) => q[1]);
+      const mineSpan = Math.max(Math.max(...es) - Math.min(...es), Math.max(...ns) - Math.min(...ns));
+      const modelSpan = Math.max(bboxFlat.maxE - bboxFlat.minE, bboxFlat.maxN - bboxFlat.minN);
+      if (!(mineSpan > 0) || modelSpan >= mineSpan * 0.5 || satOn) return;
+      autoFrameNext = true;
+      toggleSatellite().catch(() => { autoFrameNext = false; });
+    }());
 
     let wire = false;
     wireBtn.onclick = () => { wire = !wire; basics.forEach((m) => { m.wireframe = wire; }); };
