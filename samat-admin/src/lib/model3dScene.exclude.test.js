@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
-import { collectEnuMesh } from './model3dScene.js';
+import { collectEnuMesh, drapedLine } from './model3dScene.js';
 import { heightAt } from './model3dAnalysis.js';
 
 /** مش شبکه‌ای ۰..size (x شرق، y شمال، z بالا) */
@@ -40,5 +40,35 @@ describe('لایه‌های کمکی جزو سطح تحلیل نیستند', () 
     holder.add(gridMesh(60, 10, () => -5));
     const { parts } = collectEnuMesh(THREE, holder, 'z');
     expect(parts).toHaveLength(2);
+  });
+});
+
+describe('drapedLine با heightFn: محدوده‌ی کامل حتی بیرون از پوشش مدل', () => {
+  it('بدون heightFn بیرون مدل قطع می‌شود؛ با heightFn کل مسیر رسم می‌شود و onModel سهم روی مدل است', () => {
+    const holder = new THREE.Group();
+    holder.add(gridMesh(20, 1, () => 2)); // مدل فقط ۰..۲۰
+    const { surface } = collectEnuMesh(THREE, holder, 'z');
+    const path = [[-30, -30], [50, -30], [50, 50], [-30, 50]]; // محدوده‌ی بزرگ‌تر از مدل
+    const cut = drapedLine(THREE, holder, 'z', surface, path, { closed: true, step: 2, lift: 0 });
+    expect(cut).toBeNull(); // هیچ‌جای این مسیر روی مدل نیست
+    const full = drapedLine(THREE, holder, 'z', surface, path, {
+      closed: true, step: 2, lift: 0, heightFn: () => 7,
+    });
+    expect(full).not.toBeNull();
+    expect(full.userData.coverage).toBeCloseTo(1, 6);
+    expect(full.userData.onModel).toBe(0);
+    const p = full.geometry.attributes.position;
+    for (let i = 0; i < p.count; i += 5) expect(p.getZ(i)).toBeCloseTo(7, 4);
+  });
+  it('مسیری که نیمی روی مدل است: onModel بین ۰ و ۱ و روی مدل ارتفاع خودِ مدل', () => {
+    const holder = new THREE.Group();
+    holder.add(gridMesh(20, 1, () => 2));
+    const { surface } = collectEnuMesh(THREE, holder, 'z');
+    const line = drapedLine(THREE, holder, 'z', surface, [[10, 10], [50, 10]], {
+      step: 1, lift: 0, heightFn: (e, n) => (e <= 20 ? 2 : 9) + 0 * n,
+    });
+    expect(line.userData.onModel).toBeGreaterThan(0.2);
+    expect(line.userData.onModel).toBeLessThan(0.6);
+    expect(line.userData.coverage).toBeCloseTo(1, 6);
   });
 });

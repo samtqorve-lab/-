@@ -106,10 +106,14 @@ export function collectEnuMesh(THREE, holder, upAxis) {
  * @returns {object|null} THREE.LineSegments، یا null اگر هیچ بخشی از مسیر روی مدل نبود
  */
 export function drapedLine(THREE, holder, upAxis, surface, pathEnu, {
-  closed = false, color = 0xff3b30, step = 1, lift = 0.2,
+  closed = false, color = 0xff3b30, step = 1, lift = 0.2, heightFn = null,
 } = {}) {
   const pts = densifyPath(pathEnu, step, closed);
-  const heights = pts.map(([e, n]) => heightAt(surface, e, n));
+  // heightFn (اختیاری): ارتفاعِ دلخواه برای هر نقطه، مثلاً سطح برون‌یابی‌شده بیرون از پوشش مدل؛ بدون آن، مسیر فقط
+  // روی خودِ مدل رسم می‌شود و بیرون از آن قطع می‌شود.
+  const hOf = heightFn || ((e, n) => heightAt(surface, e, n));
+  const heights = pts.map(([e, n]) => hOf(e, n));
+  const onModelCount = heightFn ? pts.filter(([e, n]) => Number.isFinite(heightAt(surface, e, n))).length : null;
   const positions = [];
   const seg = (i, j) => {
     [i, j].forEach((k) => {
@@ -132,7 +136,9 @@ export function drapedLine(THREE, holder, upAxis, surface, pathEnu, {
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   const line = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color, depthTest: false }));
   line.renderOrder = 997;
-  line.userData.coverage = total ? valid / total : 0; // سهمی از مسیر که واقعاً روی مدل افتاده است
+  line.userData.coverage = total ? valid / total : 0; // سهمی از مسیر که رسم شده است
+  // سهم نقاط مسیر که واقعاً روی خودِ مدل‌اند (بقیه با heightFn روی سطح برون‌یابی‌شده رسم شده‌اند)
+  line.userData.onModel = onModelCount === null ? line.userData.coverage : onModelCount / pts.length;
   return line;
 }
 
