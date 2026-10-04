@@ -11,7 +11,7 @@ import {
   detectUpAxis, sceneToEnu, localFromEnu, collectEnuMesh, drapedLine, createColorLayer,
 } from './model3dScene.js';
 import {
-  planSatellite, buildSatelliteGrid, loadSatelliteTiles, DETAIL_LEVELS, SATELLITE_TILE_URL, SATELLITE_ATTRIBUTION, TILE_SIZE,
+  planSatellite, buildSatelliteGrid, loadSatelliteTiles, latLonToCanvas, DETAIL_LEVELS, SATELLITE_PROVIDERS, TILE_SIZE,
 } from './model3dSatellite.js';
 
 const FA = (n, d = 1) => (Number.isFinite(n) ? n.toLocaleString('fa-IR', { maximumFractionDigits: d, minimumFractionDigits: d }) : '—');
@@ -40,7 +40,8 @@ const nextPaint = () => new Promise((resolve) => { requestAnimationFrame(() => {
  *   مختصات محلی و بدون ادعای موقعیت.
  * - ابزارها (فقط یکی فعال): 📏 فاصله، 📍 مختصات، ⬠ مساحت/حجم (سطح مبنا قابل انتخاب)، 📈 مقطع (CSV/DXF).
  *   لایه‌ها: ⛰ شیب (غربالگری اولیه)، 🗺 محدوده‌ی پروانه، 🔥 مقایسه با پرواز دیگر (نقشه‌ی برداشت/افزوده)،
- *   🛰 تصویر ماهواره‌ای (Esri World Imagery) به‌صورت صفحه‌ی تخت زیر مدل برای مکان‌یابی و زمینه (نیازمند موقعیت جغرافیایی مدل).
+ *   🛰 تصویر ماهواره‌ای گوگل (با پشتیبان Esri) به‌صورت صفحه‌ی تخت زیر مدل برای مکان‌یابی و زمینه (نیازمند موقعیت جغرافیایی مدل).
+ *   وقتی مدل کوچک است، صفحه کل محدوده‌ی پروانه‌ی معدن را می‌پوشاند و خط محدوده روی تصویر کشیده می‌شود.
  *   📋 خروجی همه‌ی نتایج را CSV می‌کند. چرخاندن/بازنشانی دید، نتایجِ ترسیم‌شده روی مدل را پاک می‌کند (نشانگرها در
  *   فضای صحنه‌اند)؛ پیش از آن «📋 خروجی» بگیرید.
  * ⚠️ همه‌ی اعداد برآورد اولیه از روی مدل فتوگرامتری‌اند و جایگزین نقشه‌برداری رسمی نیستند.
@@ -115,8 +116,9 @@ export function openModel3dViewer(blob, {
   const satStatus = el('span', { style: 'flex:1 1 220px;min-width:0' });
   const satDetailSel = el('select', { style: selStyle }, Object.entries(DETAIL_LEVELS).map(([k, v]) => el('option', k === 'medium' ? { value: k, selected: '' } : { value: k }, v.label)));
   const satOpacity = el('input', { type: 'range', min: '0.2', max: '1', step: '0.05', value: '1', style: 'width:90px' });
+  const satFrameBtn = mkSmall('🔭 کل محدوده', () => {});
   const satRow = el('div', { style: 'font-size:11px;color:#9fc7e8;display:none;align-items:center;gap:8px;flex-wrap:wrap;padding:4px 10px;border-bottom:1px solid #2b2a24;flex:0 0 auto' }, [
-    satStatus, el('span', {}, 'جزئیات'), satDetailSel, el('span', {}, 'شفافیت'), satOpacity,
+    satStatus, satFrameBtn, el('span', {}, 'جزئیات'), satDetailSel, el('span', {}, 'شفافیت'), satOpacity,
   ]);
 
   const resultsList = el('div', { style: 'display:flex;flex-direction:column;gap:2px' });
@@ -864,6 +866,9 @@ export function openModel3dViewer(blob, {
     let satCtl = null;
     const bboxFlat = bboxEnuRaw;
     const baseElevation = upAxis === 'z' ? preBox.min.z : preBox.min.y;
+    // وقتی صفحه‌ی ماهواره‌ای از خود مدل خیلی بزرگ‌تر است (مدل کوچک در محدوده‌ی بزرگ)، دوربین باید بتواند به‌اندازه‌ی
+    // آن عقب برود؛ وگرنه بقیه‌ی محدوده هیچ‌وقت دیده نمی‌شود. fit() این مقدار را در حدود زوم/برش دوربین لحاظ می‌کند.
+    let satReach = 0;
 
     function disposeSatelliteMesh() {
       if (!satObj) return;
@@ -877,6 +882,7 @@ export function openModel3dViewer(blob, {
       satAbort.aborted = true;
       if (satCtl) satCtl.abort();
       disposeSatelliteMesh();
+      satReach = 0;
     }
     state.disposers.push(disposeSatellite);
 
@@ -897,9 +903,18 @@ export function openModel3dViewer(blob, {
       const stale = () => state.closed || myToken !== satToken || myAbort.aborted;
       satStatus.style.color = '#9fc7e8';
       satStatus.textContent = '⏳ در حال دریافت تصویر ماهواره‌ای...';
+
+      // وقتی مدل کوچک است، صفحه باید کل محدوده‌ی پروانه‌ی معدن را بپوشاند (نه فقط اطراف مدل).
+      // اگر گوشه‌های پروانه خیلی دور از مدل باشند (احتمالاً زون/موقعیت مدل اشتباه است)، نادیده گرفته می‌شوند.
+      const MAX_COVER_DIST_M = 30000;
+      const coverAll = validCorners.length >= 3 ? cornersToEnu(georef, validCorners) : [];
+      const mcx = (bboxFlat.minE + bboxFlat.maxE) / 2;
+      const mcy = (bboxFlat.minN + bboxFlat.maxN) / 2;
+      const coverOk = coverAll.length >= 3 && coverAll.every((q) => Number.isFinite(q[0]) && Number.isFinite(q[1]) && Math.hypot(q[0] - mcx, q[1] - mcy) < MAX_COVER_DIST_M);
+      const coverEnu = coverOk ? coverAll : [];
       let plan;
       try {
-        plan = planSatellite(bboxFlat, (e, n) => enuToLatLon(georef, e, n), { maxTiles: DETAIL_LEVELS[satDetailSel.value].maxTiles });
+        plan = planSatellite(bboxFlat, (e, n) => enuToLatLon(georef, e, n), { maxTiles: DETAIL_LEVELS[satDetailSel.value].maxTiles, extraEnu: coverEnu });
       } catch (err) {
         satStatus.style.color = '#f0a08a';
         satStatus.textContent = `❌ ${err.message}`;
@@ -914,30 +929,57 @@ export function openModel3dViewer(blob, {
         satStatus.textContent = '❌ این مرورگر امکان ساخت بوم تصویر را ندارد';
         return;
       }
-      ctx.fillStyle = '#3a3a34';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      const result = await loadSatelliteTiles(
-        plan,
-        (tile) => fetchSatTile(tile, abortCtl && abortCtl.signal),
-        (img, col, row) => {
-          ctx.drawImage(img, col * TILE_SIZE, row * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-          if (img.close) img.close();
-        },
-        {
-          template: SATELLITE_TILE_URL,
-          signal: myAbort,
-          onProgress: (d, t) => { if (!stale()) satStatus.textContent = `⏳ دریافت تصویر ماهواره‌ای: ${d.toLocaleString('fa-IR')} از ${t.toLocaleString('fa-IR')} کاشی`; },
-        },
-      );
+
+      // اول گوگل؛ اگر حتی یک کاشی هم نیامد (مسدود بودن سرویس یا CORS)، خودکار Esri
+      const runProvider = async (provider) => {
+        ctx.fillStyle = '#3a3a34';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        return loadSatelliteTiles(
+          plan,
+          (tile) => fetchSatTile(tile, abortCtl && abortCtl.signal),
+          (img, col, row) => {
+            ctx.drawImage(img, col * TILE_SIZE, row * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+            if (img.close) img.close();
+          },
+          {
+            template: provider.template,
+            signal: myAbort,
+            onProgress: (d, t) => { if (!stale()) satStatus.textContent = `⏳ دریافت تصویر ماهواره‌ای (${provider.label}): ${d.toLocaleString('fa-IR')} از ${t.toLocaleString('fa-IR')} کاشی`; },
+          },
+        );
+      };
+      let provider = SATELLITE_PROVIDERS.google;
+      let result = await runProvider(provider);
+      if (!stale() && !result.ok) {
+        provider = SATELLITE_PROVIDERS.esri;
+        result = await runProvider(provider);
+      }
       if (abortCtl && stale()) abortCtl.abort();
       if (stale()) return;
       if (!result.ok) {
         satOn = false;
         highlight(layerBtns.satellite, false);
         satRow.style.display = 'none';
-        flash('هیچ کاشی ماهواره‌ای دریافت نشد — اینترنت یا دسترسی به سرویس Esri را بررسی کنید (از بعضی شبکه‌ها در دسترس نیست)');
+        flash('هیچ کاشی ماهواره‌ای دریافت نشد (نه از گوگل، نه از Esri) — اینترنت را بررسی کنید؛ از بعضی شبکه‌ها در دسترس نیست');
         return;
       }
+
+      // خط محدوده‌ی پروانه روی خودِ تصویر: بقیه‌ی محدوده (بیرون از مدل کوچک) روی نقشه مشخص باشد
+      if (coverEnu.length) {
+        ctx.save();
+        ctx.lineWidth = Math.max(2, canvas.width / 450);
+        ctx.strokeStyle = '#ff3b30';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        validCorners.forEach(([lat, lon], i) => {
+          const px = latLonToCanvas(plan, lat, lon);
+          if (i === 0) ctx.moveTo(px.x, px.y); else ctx.lineTo(px.x, px.y);
+        });
+        ctx.closePath();
+        ctx.stroke();
+        ctx.restore();
+      }
+
       const texture = new THREE.CanvasTexture(canvas);
       texture.colorSpace = THREE.SRGBColorSpace;
       texture.anisotropy = renderer.capabilities && renderer.capabilities.getMaxAnisotropy ? renderer.capabilities.getMaxAnisotropy() : 1;
@@ -962,9 +1004,41 @@ export function openModel3dViewer(blob, {
       disposeSatelliteMesh();
       satObj = mesh;
       holder.add(mesh);
+
+      // دوربین بتواند به‌اندازه‌ی کل صفحه عقب برود
+      const ex = plan.extentEnu;
+      satReach = Math.max(ex.maxE - ex.minE, ex.maxN - ex.minN);
+      const modelMax = Math.max(bboxFlat.maxE - bboxFlat.minE, bboxFlat.maxN - bboxFlat.minN, 1);
+      controls.maxDistance = Math.max(controls.maxDistance, satReach * 2);
+      camera.far = Math.max(camera.far, satReach * 10);
+      camera.updateProjectionMatrix();
+
+      const coverNote = coverEnu.length
+        ? `کل محدوده‌ی پروانه (${(satReach / 1000).toLocaleString('fa-IR', { maximumFractionDigits: 1 })} کیلومتر) روی تصویر است و با خط قرمز مشخص شده${satReach > modelMax * 3 ? ' — با «🔭 کل محدوده» کل آن را ببینید' : ''}`
+        : (validCorners.length >= 3 && georef ? 'گوشه‌های پروانه با موقعیت مدل نمی‌خوانند، فقط اطراف مدل پوشانده شد' : 'فقط اطراف مدل پوشانده شد (گوشه‌ی پروانه ثبت نشده)');
       satStatus.style.color = result.failed ? '#e0a339' : '#9fc7e8';
-      satStatus.textContent = `🛰 زوم ${plan.z.toLocaleString('fa-IR')} · ${result.ok.toLocaleString('fa-IR')} از ${result.total.toLocaleString('fa-IR')} کاشی${result.failed ? ' (کاشی‌های ناموفق خاکستری‌اند)' : ''} · ${SATELLITE_ATTRIBUTION} — صفحه‌ی تخت زیر مدل؛ وضوح متری و تاریخ تصویر نامعلوم؛ اگر بخشی خاکستری «داده در دسترس نیست» بود، جزئیات را کمتر کنید.`;
+      satStatus.textContent = `🛰 ${provider.label} · زوم ${plan.z.toLocaleString('fa-IR')} · ${result.ok.toLocaleString('fa-IR')} از ${result.total.toLocaleString('fa-IR')} کاشی${result.failed ? ' (کاشی‌های ناموفق خاکستری‌اند)' : ''}${provider.id === 'esri' ? ' (گوگل در دسترس نبود)' : ''} · ${provider.attribution} — ${coverNote}. صفحه‌ی تخت زیر مدل؛ وضوح متری و تاریخ تصویر نامعلوم.`;
     }
+
+    /** دوربین را طوری می‌برد که کل صفحه‌ی ماهواره‌ای (کل محدوده) دیده شود */
+    function frameSatellite() {
+      if (!satObj) return;
+      holder.updateMatrixWorld(true);
+      const sb = new THREE.Box3().setFromObject(satObj);
+      const c = sb.getCenter(new THREE.Vector3());
+      const sz = sb.getSize(new THREE.Vector3());
+      const span = Math.max(sz.x, sz.z, 1);
+      const vFov = THREE.MathUtils.degToRad(camera.fov);
+      const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect);
+      const dist = ((span / 2) / Math.tan(Math.min(vFov, hFov) / 2)) * 1.15;
+      camera.far = Math.max(camera.far, dist * 4);
+      controls.maxDistance = Math.max(controls.maxDistance, dist * 2);
+      camera.position.copy(c).add(new THREE.Vector3(0.25, 1, 0.45).normalize().multiplyScalar(dist));
+      controls.target.copy(c);
+      camera.updateProjectionMatrix();
+      controls.update();
+    }
+    satFrameBtn.onclick = () => frameSatellite();
 
     async function toggleSatellite() {
       if (satOn) {
@@ -1063,12 +1137,12 @@ export function openModel3dViewer(blob, {
       const radius = (size.length() / 2) || 1;
       const dist = (radius / Math.sin(Math.min(vFov, hFov) / 2)) * 1.05;
       camera.near = maxDim / 1000;
-      camera.far = maxDim * 100;
+      camera.far = Math.max(maxDim * 100, satReach * 10);
       camera.position.set(0.55, 0.6, 0.9).normalize().multiplyScalar(dist);
       camera.updateProjectionMatrix();
       controls.target.set(0, 0, 0);
       controls.minDistance = maxDim / 50;
-      controls.maxDistance = maxDim * 10;
+      controls.maxDistance = Math.max(maxDim * 10, satReach * 2);
       controls.update();
       info.textContent = `${Math.round(size.x)} × ${Math.round(size.z)} × ${Math.round(size.y)} متر (طول × عرض × ارتفاع) — ${Math.round(triangles).toLocaleString('fa-IR')} مثلث`;
       rebuildBoundary(); // نسبت به holder جدید دوباره روی سطح می‌نشیند
