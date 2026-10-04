@@ -1,17 +1,39 @@
 // لایه‌ی تصویر ماهواره‌ای زیر مدل سه‌بعدی پهباد — فقط منطق خالص (بدون DOM و بدون THREE) تا جداگانه تست شود.
 //
-// روش: کاشی‌های Web-Mercator (۲۵۶ پیکسلی، همان Esri World Imagery که نقشه‌ی سه‌بعدی و حجم‌گیری اپ هم استفاده می‌کنند)
-// پوشش‌دهنده‌ی محدوده‌ی مدل (به‌علاوه‌ی حاشیه) را می‌گیریم و به یک بوم می‌چسبانیم. سپس یک صفحه‌ی شبکه‌ای در دستگاه ENU
-// (همان دستگاه تحلیل‌ها) می‌سازیم که UV هر رأسش از طول/عرض جغرافیایی واقعیِ همان رأس به پیکسل کاشی‌ها می‌رود؛
-// چون نگاشت رأس‌به‌رأس است، اختلاف شبکه‌ی UTM و مرکاتور (چرخش و کشیدگی کوچک) دقیقاً لحاظ می‌شود.
+// روش: کاشی‌های Web-Mercator (۲۵۶ پیکسلی) پوشش‌دهنده‌ی محدوده‌ی مدل (به‌علاوه‌ی حاشیه) را می‌گیریم و به یک بوم
+// می‌چسبانیم. سپس یک صفحه‌ی شبکه‌ای در دستگاه ENU (همان دستگاه تحلیل‌ها) می‌سازیم که UV هر رأسش از طول/عرض
+// جغرافیایی واقعیِ همان رأس به پیکسل کاشی‌ها می‌رود؛ چون نگاشت رأس‌به‌رأس است، اختلاف شبکه‌ی UTM و مرکاتور
+// (چرخش و کشیدگی کوچک) دقیقاً لحاظ می‌شود.
+//
+// منبع تصویر: نقشه‌ی ماهواره‌ای گوگل (همان منبعی که بقیه‌ی نقشه‌های اپ استفاده می‌کنند)؛ اگر هیچ کاشی‌ای از گوگل
+// دریافت نشد، خودکار Esri World Imagery امتحان می‌شود.
+//
+// وقتی مدل پهباد کوچک است (مثلاً چند صد متر از یک محدوده‌ی چند کیلومتری)، با گذاشتن گوشه‌های پروانه در extraEnu
+// صفحه‌ی ماهواره‌ای کل محدوده‌ی معدن را می‌پوشاند، نه فقط اطراف مدل.
 //
 // ⚠️ محدودیت‌های صادقانه: (۱) وضوح این تصویر متری است و از عکس پهباد (سانتی‌متری) خیلی کم‌جزئیات‌تر است؛ برای
-// زمینه و مکان‌یابی است نه اندازه‌گیری. (۲) تاریخ عکس‌های Esri معلوم نیست و ممکن است قدیمی‌تر از وضعیت فعلی معدن باشد.
+// زمینه و مکان‌یابی است نه اندازه‌گیری. (۲) تاریخ عکس‌ها معلوم نیست و ممکن است قدیمی‌تر از وضعیت فعلی معدن باشد.
 // (۳) صفحه‌ی ماهواره‌ای تخت و زیر پایین‌ترین نقطه‌ی مدل است، نه روی زمین واقعی. (۴) برخی مناطق در زوم‌های بالا پوشش
-// ندارند (Esri کاشی خاکستری «داده در دسترس نیست» می‌دهد)؛ با «جزئیات» کمتر امتحان کنید.
+// ندارند (کاشی خاکستری «داده در دسترس نیست»)؛ با «جزئیات» کمتر امتحان کنید. (۵) گرفتن کاشی‌های گوگل خارج از
+// API رسمی (Map Tiles API با کلید) شرایط استفاده‌ی گوگل را زیر سؤال می‌برد — اگر قرار است اپ عمومی/تجاری شود،
+// باید با کلید رسمی جایگزین شود.
 
-export const SATELLITE_TILE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-export const SATELLITE_ATTRIBUTION = '© Esri World Imagery';
+export const ESRI_TILE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+// lyrs=s فقط تصویر ماهواره‌ای (بدون برچسب)؛ روی سطح سه‌بعدی برچسب‌های نقشه ناجور می‌افتند
+export const GOOGLE_TILE_URL = 'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}';
+
+export const SATELLITE_PROVIDERS = {
+  google: {
+    id: 'google', label: 'Google', template: GOOGLE_TILE_URL, attribution: '© Google',
+  },
+  esri: {
+    id: 'esri', label: 'Esri', template: ESRI_TILE_URL, attribution: '© Esri World Imagery',
+  },
+};
+
+// پیش‌فرض: گوگل
+export const SATELLITE_TILE_URL = GOOGLE_TILE_URL;
+export const SATELLITE_ATTRIBUTION = SATELLITE_PROVIDERS.google.attribution;
 export const TILE_SIZE = 256;
 export const MAX_ZOOM = 18;
 export const MIN_ZOOM = 6;
@@ -37,8 +59,13 @@ export function lonLatToPixel(lon, lat, z) {
   };
 }
 
+/** {s} (زیردامنه‌ی گوگل: mt0..mt3) به‌صورت پایدار از روی x و y انتخاب می‌شود تا بار بین سرورها پخش شود */
 export function tileUrl(template, z, x, y) {
-  return template.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y));
+  return template
+    .replace('{s}', String((x + y) % 4))
+    .replace('{z}', String(z))
+    .replace('{x}', String(x))
+    .replace('{y}', String(y));
 }
 
 /** تعداد کاشی‌های لازم برای محدوده‌ی lat/lon در زوم z */
@@ -67,20 +94,36 @@ export function pickZoom(bounds, maxTiles, { maxZoom = MAX_ZOOM, minZoom = MIN_Z
  * برنامه‌ی کاشی‌ها برای یک مدل.
  * @param {{ minE:number, maxE:number, minN:number, maxN:number }} bboxEnu محدوده‌ی مدل (ENU محلی، متر)
  * @param {(e:number, n:number) => {lat:number, lon:number}} toLatLon تبدیل ENU محلی → طول/عرض جغرافیایی
- * @param {{ padRatio?: number, minPad?: number, maxTiles?: number, maxZoom?: number }} [opts]
+ * @param {{ padRatio?: number, minPad?: number, maxTiles?: number, maxZoom?: number,
+ *           extraEnu?: Array<[number,number]>, coverPadRatio?: number }} [opts]
+ *   extraEnu: نقاط اضافه‌ای (مثلاً گوشه‌های پروانه‌ی معدن، ENU) که صفحه باید حتماً پوشش دهد؛ وقتی داده شود،
+ *   extent اجتماعِ مدل و این نقاط است و حاشیه (coverPadRatio، پیش‌فرض ۱۰٪) نسبت به همان اجتماع حساب می‌شود.
  * @returns {{ z:number, x0:number, y0:number, nx:number, ny:number, widthPx:number, heightPx:number,
  *             tiles:Array<{x:number,y:number,col:number,row:number}>,
- *             extentEnu:{minE:number,maxE:number,minN:number,maxN:number}, bounds:object }}
+ *             extentEnu:{minE:number,maxE:number,minN:number,maxN:number}, bounds:object, coversExtra:boolean }}
  */
 export function planSatellite(bboxEnu, toLatLon, {
   padRatio = 0.6, minPad = 100, maxTiles = DETAIL_LEVELS.medium.maxTiles, maxZoom = MAX_ZOOM,
+  extraEnu = [], coverPadRatio = 0.1,
 } = {}) {
-  const dE = bboxEnu.maxE - bboxEnu.minE;
-  const dN = bboxEnu.maxN - bboxEnu.minN;
-  if (!(dE > 0) || !(dN > 0)) throw new Error('محدوده‌ی مدل نامعتبر است');
-  const pad = Math.max(minPad, padRatio * Math.max(dE, dN));
+  const dE0 = bboxEnu.maxE - bboxEnu.minE;
+  const dN0 = bboxEnu.maxN - bboxEnu.minN;
+  if (!(dE0 > 0) || !(dN0 > 0)) throw new Error('محدوده‌ی مدل نامعتبر است');
+
+  const union = { ...bboxEnu };
+  let coversExtra = false;
+  (extraEnu || []).forEach((p) => {
+    if (!Array.isArray(p) || !Number.isFinite(p[0]) || !Number.isFinite(p[1])) return;
+    coversExtra = true;
+    union.minE = Math.min(union.minE, p[0]); union.maxE = Math.max(union.maxE, p[0]);
+    union.minN = Math.min(union.minN, p[1]); union.maxN = Math.max(union.maxN, p[1]);
+  });
+
+  const dE = union.maxE - union.minE;
+  const dN = union.maxN - union.minN;
+  const pad = Math.max(minPad, (coversExtra ? coverPadRatio : padRatio) * Math.max(dE, dN));
   const extentEnu = {
-    minE: bboxEnu.minE - pad, maxE: bboxEnu.maxE + pad, minN: bboxEnu.minN - pad, maxN: bboxEnu.maxN + pad,
+    minE: union.minE - pad, maxE: union.maxE + pad, minN: union.minN - pad, maxN: union.maxN + pad,
   };
   const corners = [
     [extentEnu.minE, extentEnu.minN], [extentEnu.maxE, extentEnu.minN],
@@ -102,7 +145,7 @@ export function planSatellite(bboxEnu, toLatLon, {
     for (let col = 0; col < nx; col += 1) tiles.push({ x: x0 + col, y: y0 + row, col, row });
   }
   return {
-    z, x0, y0, nx, ny, widthPx: nx * TILE_SIZE, heightPx: ny * TILE_SIZE, tiles, extentEnu, bounds,
+    z, x0, y0, nx, ny, widthPx: nx * TILE_SIZE, heightPx: ny * TILE_SIZE, tiles, extentEnu, bounds, coversExtra,
   };
 }
 
@@ -113,6 +156,12 @@ export function latLonToUv(plan, lat, lon) {
     u: (p.x - plan.x0 * TILE_SIZE) / plan.widthPx,
     v: 1 - (p.y - plan.y0 * TILE_SIZE) / plan.heightPx,
   };
+}
+
+/** پیکسل روی بومِ خودِ برنامه (مبدأ بالا-چپ، y به سمت پایین) — برای کشیدن خط محدوده روی تصویر */
+export function latLonToCanvas(plan, lat, lon) {
+  const p = lonLatToPixel(lon, lat, plan.z);
+  return { x: p.x - plan.x0 * TILE_SIZE, y: p.y - plan.y0 * TILE_SIZE };
 }
 
 /**
