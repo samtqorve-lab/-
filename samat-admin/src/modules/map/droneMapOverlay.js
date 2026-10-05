@@ -15,7 +15,7 @@ const POLL_NOTE = 'مدل سبک (برای سرعت) — برای جزئیات �
 const registry = new WeakMap(); // map → Map(jobId → { layer, bounds, label })
 
 const fmtWhen = (iso) => { try { return new Date(iso).toLocaleString('fa-IR'); } catch { return ''; } };
-const KIND = { survey: 'نقشه‌برداری', merge: '🧩 ادغام', preview: 'پیش‌نمایش' };
+const KIND = { survey: 'نقشه‌برداری', merge: '\u{1F9E9} ادغام', preview: 'پیش‌نمایش' };
 
 function layersOf(map) {
   if (!registry.has(map)) registry.set(map, new Map());
@@ -23,7 +23,7 @@ function layersOf(map) {
 }
 
 function ensurePane(map) {
-  // بالای کاشی‌های نقشه (۲۰۰) و زیر چندضلعی‌ها/نشانگرهای معدن‌ها (۴۰۰+) تا کلیک روی معدن‌ها مسدود نشود
+  // بالای کاشی‌های نقشه (۲۰۰) و زیر چندضلعی‌ها/نشانگرهای معادن (۴۰۰+) تا کلیک روی معدن‌ها مسدود نشود
   return map.getPane(PANE) || (() => {
     const p = map.createPane(PANE);
     p.style.zIndex = '300';
@@ -97,7 +97,7 @@ async function addModelToMap({ L, map, job, mine, full, maxPx, onStatus }) {
  * @param {{ L: object, map: object, mine: object, name: string }} ctx
  */
 export async function openDroneMapPanel({ L, map, mine, name }) {
-  const { overlay, body } = openModal({ title: `🚚 مدل پهباد روی نقشه — ${name}`, width: '440px' });
+  const { overlay, body } = openModal({ title: `\u{1F6A1} مدل پهباد روی نقشه — ${name}`, width: '440px' });
   const isOpen = () => document.body.contains(overlay);
   const placed = layersOf(map);
   const msg = el('div', { style: 'font-size:var(--text-xs);color:var(--rust-700);min-height:4px;margin-top:6px' });
@@ -110,7 +110,7 @@ export async function openDroneMapPanel({ L, map, mine, name }) {
   ]);
   body.append(
     el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);line-height:1.9' },
-      'مدل پهباد از بالا رندر و دقیقاً روی مختصات واقعی روی نقشه گذاشته می‌شود (زیر چندضلعی معدن‌ها، بدون مسدودکردن کلیک). برای دیدن سه‌بعدی (چرخش، ارتفاع، حجم) «🧊 سه‌بعدی» را بزنید.'),
+      'مدل پهباد از بالا رندر و دقیقاً روی مختصات واقعی روی نقشه گذاشته می‌شود (زیر چندضلعی معدن‌ها، بدون مسدودکردن کلیک). برای دیدن سه‌بعدی (چرخش، ارتفاع، حجم) «\u{1F9CA} سه‌بعدی» را بزنید.'),
     el('label', { style: 'display:flex;align-items:center;font-size:11px;margin-top:8px;cursor:pointer' }, [fullChk, `کیفیت کامل مدل (سنگین‌تر) — ${POLL_NOTE}`]),
     qualitySel, msg, list,
   );
@@ -131,11 +131,11 @@ export async function openDroneMapPanel({ L, map, mine, name }) {
       slider.addEventListener('input', () => on.layer.setOpacity(parseFloat(slider.value)));
       const rm = el('button', { class: 'btn-sm', style: 'background:var(--rust-100);color:var(--rust-700)' }, '✕ حذف از نقشه');
       rm.addEventListener('click', () => { map.removeLayer(on.layer); placed.delete(job.jobId); render(); });
-      const zoom = el('button', { class: 'btn-sm', style: 'background:var(--stone-200);color:var(--ink-700)' }, '🎯 رفتن به مدل');
+      const zoom = el('button', { class: 'btn-sm', style: 'background:var(--stone-200);color:var(--ink-700)' }, '\u{1F3AF} رفتن به مدل');
       zoom.addEventListener('click', () => map.fitBounds(on.bounds, { maxZoom: 19, padding: [30, 30] }));
       actions.append(el('span', { style: 'font-size:11px' }, '✅ روی نقشه'), zoom, el('span', { style: 'font-size:11px' }, 'شفافیت'), slider, rm);
     } else {
-      const add = el('button', { class: 'btn-sm', style: 'background:var(--patina-700);color:#fff' }, '🗺 نمایش روی نقشه');
+      const add = el('button', { class: 'btn-sm', style: 'background:var(--patina-700);color:#fff' }, '\u{1F5FA} نمایش روی نقشه');
       add.addEventListener('click', async () => {
         add.disabled = true;
         msg.textContent = '';
@@ -156,7 +156,7 @@ export async function openDroneMapPanel({ L, map, mine, name }) {
       actions.append(add);
     }
 
-    const view3d = el('button', { class: 'btn-sm', style: 'background:var(--ink-700);color:#fff' }, '🧊 سه‌بعدی');
+    const view3d = el('button', { class: 'btn-sm', style: 'background:var(--ink-700);color:#fff' }, '\u{1F9CA} سه‌بعدی');
     view3d.addEventListener('click', async () => {
       view3d.disabled = true; status.textContent = '⏳ دریافت مدل...';
       try {

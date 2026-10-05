@@ -108,7 +108,7 @@ export async function renderMap(container, state) {
     .map((r) => ({ r, corners: getMineCorners(r) }))
     .filter((x) => x.corners.length >= 3);
   // برخی بخش‌ها (مثل صنعت) به‌جای ۴ گوشه‌ی محدوده، فقط یک مختصات نقطه‌ای (_lat/_lon) دارند —
-  // قبلاً نقشه فقط پلی‌گون محدوده را می‌فهمید، پس این رکوردها اصلاً روی نقشه نشان داده نمی‌شدند
+  // قبلاً نقشه فقط پلیگون محدوده را می‌فهمید، پس این رکوردها اصلاً روی نقشه نشان داده نمی‌شدند
   // (و چون بیشتر/همه‌ی رکوردهای صنعت همین‌طورند، کل نقشه برای آن بخش خالی به نظر می‌رسید).
   const withPoint = records.filter((r) => (
     getMineCorners(r).length < 3 && typeof r._lat === 'number' && typeof r._lon === 'number'
@@ -143,7 +143,7 @@ export async function renderMap(container, state) {
   // از L.control.locate خودمان استفاده نمی‌کنیم (وابستگی اضافه)؛ مستقیم روی Geolocation API
   // مرورگر (navigator.geolocation) که لیفلت هم داخلی همین را صدا می‌زند (map.locate) سوار می‌شویم.
   // watch:true یعنی نقطه با حرکت کاربر (مثلاً روی گوشی، سر معدن) زنده به‌روزرسانی می‌شود.
-  // عمداً به‌عنوان یک L.Control واقعی (نه یک دکمه‌ی مطلق‌موقعیت‌یافته‌ی جدا) اضافه می‌شود تا
+  // عمداً به‌عنوان یک L.Control واقعی (نه یک دکمه‌ی مطلق‌موقعیتیافته‌ی جدا) اضافه می‌شود تا
   // لیفلت خودش آن را زیر دکمه‌ی بزرگ‌نمایی/کوچک‌نمایی بچیند، نه روی دکمه‌ی تعویض لایه‌ها.
   let locateWatching = false;
   const locateBtn = el('button', {
@@ -357,6 +357,13 @@ export async function renderMap(container, state) {
       photos,
       el('div', { class: 'map-info-actions' }, [
         el('button', { class: 'btn btn-primary', type: 'button', onclick: () => setMine(r._rowId) }, 'مشاهده جزئیات'),
+        el('button', {
+          class: 'btn btn-ghost',
+          type: 'button',
+          onclick: () => import('./droneMapOverlay.js')
+            .then((m) => m.openDroneMapPanel({ L, map, mine: r, name }))
+            .catch((err) => showToast(`⚠️ ${err.message}`)),
+        }, '\u{1F6A1} مدل پهباد'),
         el('button', {
           class: 'btn btn-ghost', type: 'button',
           onclick: () => openDirectionsTo(center[0], center[1], name).catch((err) => showToast(`⚠️ ${err.message}`)),
