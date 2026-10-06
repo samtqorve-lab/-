@@ -101,6 +101,19 @@ describe('buildSiteWarnings', () => {
     expect(w[0].text).toContain('هم‌سیستم');
   });
 
+  it('فاصلهٔ ایمنی از مرز: طراحیِ داخل مرز با setback کافی هشدار می‌گیرد', () => {
+    // گودال نهایی حدود ۱۰۰–۲۰۰ متر عرض دارد؛ مرز ۱۰۰۰ متری آن را در خود جا می‌دهد
+    const finalPoly = result.benches[result.benches.length - 1].polygon;
+    const xs = finalPoly.map((p) => p[0]);
+    const half = (Math.max(...xs) - Math.min(...xs)) / 2;
+    const boundary = square([300, 300], half * 2 + 40); // ۲۰ متر حاشیه هر طرف
+    expect(buildSiteWarnings({ result, boundaryPoly: boundary })).toEqual([]);
+    const w = buildSiteWarnings({ result, boundaryPoly: boundary, setbackM: 50 });
+    expect(w.length).toBe(1);
+    expect(w[0].level).toBe('bad');
+    expect(w[0].text).toContain('فاصلهٔ ایمنی');
+  });
+
   it('بدون پوشش و مرز → هیچ بررسی‌ای انجام نمی‌شود', () => {
     expect(buildSiteWarnings({ result })).toEqual([]);
   });
