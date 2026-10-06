@@ -6,6 +6,7 @@ import { getMineCorners } from '../../lib/geo.js';
 import { listJobs, downloadModel } from '../../lib/model3d.js';
 import { eligibleDroneJobs, pickDroneAsset, loadDroneTerrain } from '../../lib/pitDesignDrone.js';
 import { buildSiteWarnings, tinCoverageFn } from '../../lib/pitDesignChecks.js';
+import { rampExtraCutEstimate } from '../../lib/pitDesignRamp.js';
 import { extractPointsFromFile, getFileExt } from '../../lib/surveyParsers.js';
 import {
   buildSurface, designBenches, designRamp, computeCutVolume, rectanglePolygon,
@@ -193,11 +194,12 @@ export async function renderPitDesign(container) {
   ]);
   const rampWidth = numberField('عرض جاده (m)', 8);
   const rampGrade = numberField('شیب درخواستی جاده (%)', 10);
+  const setback = numberField('فاصلهٔ ایمنی لبهٔ گودال از مرز پروانه (m) — ۰ = بدون', 0);
 
   const formGrid = el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:10px 14px' }, [
     cx.wrap, cy.wrap, bl.wrap, bw.wrap, ba.wrap, be.wrap,
     bh.wrap, bang.wrap, catchN.wrap, targetOSA.wrap, berm.wrap, maxB.wrap, cellSize.wrap,
-    rampWidth.wrap, rampGrade.wrap,
+    rampWidth.wrap, rampGrade.wrap, setback.wrap,
   ]);
 
   function syncOsaFieldState() {
@@ -553,7 +555,7 @@ export async function renderPitDesign(container) {
       resultBox.append(el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-top:8px' }, infoLines.join(' — ')));
       // تطبیق با سایت: پوشش داده‌ی توپوگرافی روی لبهٔ نهایی گودال + بیرون‌نزدن از محدودهٔ پروانه
       buildSiteWarnings({
-        result, isCovered: terrain.isCovered || tinCoverageFn(surface), boundaryPoly,
+        result, isCovered: terrain.isCovered || tinCoverageFn(surface), boundaryPoly, setbackM: Math.max(0, parseFloat(setback.input.value) || 0),
       }).forEach((w) => {
         resultBox.append(el('div', { style: `font-size:var(--text-xs);margin-top:6px;color:${w.level === 'bad' ? 'var(--rust-700)' : 'var(--ochre-700)'}` }, `${w.level === 'bad' ? '⛔' : '⚠️'} ${w.text}`));
       });
@@ -579,6 +581,9 @@ export async function renderPitDesign(container) {
         const worst = ramp.segments.reduce((m, s) => (Number.isFinite(s.gradePercent) && s.gradePercent > m ? s.gradePercent : m), 0);
         resultBox.append(el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-top:8px' },
           `رمپ: عرض ${ramp.width} متر، شیب درخواستی ${ramp.requestedGradePercent}٪، بیشینهٔ شیب واقعیِ محاسبه‌شده در طول مسیر: ${worst.toFixed(1)}٪ (خط چین آبی در نقشه).`));
+        const rv = rampExtraCutEstimate(result, ramp);
+        resultBox.append(el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-top:4px' },
+          `برآورد تقریبی حجم اضافهٔ بریدن رمپ در دیواره: ${fmtNum(rv.volumeM3, 0)} م³ (سطح مقطع ${fmtNum(rv.crossSectionM2, 1)} م² × طول افقی ${fmtNum(rv.lengthM, 0)} م) — جدا از حجم کل بالا؛ شیب عرضی و قوس‌ها لحاظ نشده.`));
       }
 
       const view3dBtn = el('button', {
