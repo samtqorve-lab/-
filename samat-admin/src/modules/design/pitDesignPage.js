@@ -1,5 +1,11 @@
 import { el, showToast } from '../../lib/dom.js';
 import { sb } from '../../lib/supabase.js';
+import { fetchDeptRecords } from '../../lib/records.js';
+import { DEPT_NAME_FIELD } from '../../lib/sections.js';
+import { getMineCorners } from '../../lib/geo.js';
+import { listJobs, downloadModel } from '../../lib/model3d.js';
+import { eligibleDroneJobs, pickDroneAsset, loadDroneTerrain } from '../../lib/pitDesignDrone.js';
+import { buildSiteWarnings, tinCoverageFn } from '../../lib/pitDesignChecks.js';
 import { extractPointsFromFile, getFileExt } from '../../lib/surveyParsers.js';
 import {
   buildSurface, designBenches, designRamp, computeCutVolume, rectanglePolygon,
@@ -45,7 +51,7 @@ function debounce(fn, ms) {
  * رسم نمای بالا (plan view) از نقاط توپوگرافی + حلقه‌های پله + خط رمپ + گمانه‌های اکتشافی روی
  * canvas — بدون کتابخانه‌ی خارجی.
  */
-function renderPlanView(canvas, points, designResult, rampResult, boreholes) {
+function renderPlanView(canvas, points, designResult, rampResult, boreholes, boundary) {
   const ctx = canvas.getContext('2d');
   const W = canvas.width; const H = canvas.height;
   ctx.clearRect(0, 0, W, H);
@@ -54,7 +60,7 @@ function renderPlanView(canvas, points, designResult, rampResult, boreholes) {
   const finalPoly = designResult.benches[designResult.benches.length - 1].polygon;
   const boreholePts = (boreholes || []).map((b) => [b.x, b.y]);
   let minX = Infinity; let maxX = -Infinity; let minY = Infinity; let maxY = -Infinity;
-  [...points.map(([x, y]) => [x, y]), ...finalPoly, ...boreholePts].forEach(([x, y]) => {
+  [...points.map(([x, y]) => [x, y]), ...finalPoly, ...boreholePts, ...(boundary || [])].forEach(([x, y]) => {
     if (x < minX) minX = x; if (x > maxX) maxX = x;
     if (y < minY) minY = y; if (y > maxY) maxY = y;
   });
@@ -71,6 +77,18 @@ function renderPlanView(canvas, points, designResult, rampResult, boreholes) {
     ctx.arc(toX(x), toY(y), 1.2, 0, Math.PI * 2);
     ctx.fill();
   });
+
+  // محدودهٔ پروانهٔ معدن: خط‌چین قرمز
+  if (boundary && boundary.length >= 3) {
+    ctx.strokeStyle = '#b23b3b'; ctx.lineWidth = 1.5; ctx.setLineDash([8, 4]);
+    ctx.beginPath();
+    boundary.forEach(([x, y], j) => {
+      if (j === 0) ctx.moveTo(toX(x), toY(y)); else ctx.lineTo(toX(x), toY(y));
+    });
+    ctx.closePath();
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
 
   // حلقه‌های پله: کاچ‌بنچ پررنگ/ضخیم، پلهٔ میانی (بدون برم) کم‌رنگ/نازک، برون‌زد نهایی زرد
   const n = designResult.benches.length;
@@ -133,7 +151,7 @@ export async function renderPitDesign(container) {
     'طراحی پارامتریک پله‌بندی معدن روباز از روی نقاط برداشت نقشه‌برداری یا فایل توپوگرافی، با تفکیک ',
     el('b', {}, 'شیب بین‌رمپی (IRA)'), ' از ', el('b', {}, 'شیب کلی نهایی دیواره (OSA)'),
     '، پشتیبانی از کاچ‌بنچ چندتایی، پیشنهاد پارامتر از روی ماشین‌آلات موجود، بررسی پایداری از روی مکانیک سنگی، و نمایش گمانه‌های اکتشافی. ',
-    'فرمت‌های ورودی توپوگرافی: txt/csv/xyz/asc، DXF، KML، LandXML.',
+    'توپوگرافی از مدل سه‌بعدی پهپاد (samat-3d) یا فایل txt/csv/xyz/asc، DXF، KML، LandXML.',
     el('br'),
     el('b', {}, '⚠️ توجه: '),
     'این ابزار اصول هندسی متداول طراحی پله‌بندی (IRA/OSA، فرمول ریچی، کاچ‌بنچ) و یک بررسی سادهٔ پایداری (روش شیب بی‌نهایت) را پیاده می‌کند، ',
@@ -192,9 +210,121 @@ export async function renderPitDesign(container) {
   }
   syncOsaFieldState();
 
+  // ---------- منبع توپوگرافی: معدن، مدل پهپادی، محدودهٔ پروانه، گمانه‌ها ----------
+  // terrain.zone فقط وقتی مدل پهپادی انتخاب شده مشخص است (زون UTM خودِ مدل)؛ گمانه‌ها و مرز پروانه با همان زون
+  // به متر تبدیل می‌شوند تا دقیقاً با نقاط توپوگرافی هم‌راستا باشند. برای فایل آپلودی زون معلوم نیست (فرض: UTM).
+  let terrain = { kind: 'file', zone: null, isCovered: null };
+  let boundaryPoly = null;
+  const mineRecords = new Map();
+  const mineList = el('datalist', { id: 'pitDesignMines' });
+  const mineNameInput = el('input', { type: 'text', list: 'pitDesignMines', placeholder: 'نام دقیق معدن (از فهرست انتخاب کنید)' });
+  const mineField = el('div', { style: 'margin:6px 0 4px' }, [
+    el('label', {}, 'معدن (برای مدل پهپادی، محدودهٔ پروانه و گمانه‌ها)'), mineNameInput, mineList,
+  ]);
+  const currentMineRecord = () => {
+    const v = mineNameInput.value;
+    return mineRecords.get(v) || mineRecords.get(v.trim()) || null;
+  };
+
+  /** گوشه‌های پروانهٔ معدن انتخاب‌شده → چندضلعی UTM (null اگر کمتر از ۳ گوشه ثبت شده) */
+  function computeBoundary() {
+    boundaryPoly = null;
+    const rec = currentMineRecord();
+    const corners = rec ? getMineCorners(rec) : [];
+    if (corners.length < 3) return;
+    const zone = terrain.zone || (Math.floor((corners.reduce((sum, c) => sum + c[1], 0) / corners.length + 180) / 6) + 1);
+    boundaryPoly = corners.map(([lat, lon]) => { const u = latLonToUTM(lat, lon, zone); return [u.x, u.y]; });
+  }
+  mineNameInput.addEventListener('change', () => { computeBoundary(); if (points) liveRecompute(); });
+
+  // ---- مدل پهپادی (samat-3d) به‌عنوان توپوگرافی ----
+  const MODE_LABEL = { survey: 'نقشه‌برداری', merge: '🧩 ادغام چند پرواز', preview: 'پیش‌نمایش (GPS معمولی)' };
+  const fmtWhen = (iso) => { try { return new Date(iso).toLocaleString('fa-IR'); } catch { return ''; } };
+  const droneStatus = el('div', { style: 'font-size:11px;color:var(--stone-600);margin-top:6px;line-height:1.8' });
+  const droneList = el('div', { style: 'margin-top:6px' });
+  const listDroneBtn = el('button', { class: 'btn-sm' }, '🔍 فهرست مدل‌های پهپادی این معدن');
+
+  async function useDroneJob(job, btn) {
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = '⏳';
+    droneStatus.style.color = 'var(--stone-600)';
+    try {
+      droneStatus.textContent = '⏳ دریافت مدل...';
+      const blob = await downloadModel(job.jobId, pickDroneAsset(job), {
+        onStatus: (t) => { droneStatus.textContent = `⏳ دریافت مدل — ${t}`; },
+      });
+      droneStatus.textContent = '⏳ خواندن مدل و ساخت سطح طراحی (ممکن است چند ثانیه طول بکشد)...';
+      const rec = currentMineRecord();
+      const t = await loadDroneTerrain(blob, {
+        corners: rec ? getMineCorners(rec) : [],
+        crs: job.summary && job.summary.crs,
+      });
+      points = t.points;
+      terrain = { kind: 'drone', zone: t.zone, isCovered: t.isCovered };
+      computeBoundary();
+      if (boreholeRaw.length) renderBoreholes();
+      // مرکز کف گودال پیش‌فرض روی مرکز مدل می‌نشیند (مقدار قبلی مختصات فرضی بود)؛ کاربر آن را روی محل واقعی تنظیم می‌کند
+      cx.input.value = ((t.bboxUtm.minX + t.bboxUtm.maxX) / 2).toFixed(1);
+      cy.input.value = ((t.bboxUtm.minY + t.bboxUtm.maxY) / 2).toFixed(1);
+      const lines = [
+        `✅ توپوگرافی از مدل پهپادی (${MODE_LABEL[job.mode] || job.mode}، ${fmtWhen(job.createdAt)}): ${fmtNum(t.points.length, 0)} نقطه با فاصلهٔ ≈ ${fmtNum(t.spacing, 1)} متر، از ${fmtNum(t.triangleCount, 0)} مثلث مدل — پوشش شبکه ${fmtNum(t.coverageFraction * 100, 0)}٪`,
+        `ارتفاع ${fmtNum(t.bboxUtm.minZ, 1)} تا ${fmtNum(t.bboxUtm.maxZ, 1)} متر${t.zone ? ` — UTM زون ${t.zone}${t.hemisphere}` : ''}. مرکز کف گودال روی مرکز مدل گذاشته شد؛ روی محل واقعی گودال تنظیمش کنید.`,
+      ];
+      if (!job.surveyGrade || job.georef === 'exif') {
+        lines.push('ℹ️ ارتفاع‌ها از GPS معمولی‌اند (بیضوی‌وار و با خطای چند متر). برای طراحی/حجم نسبی داخل همین مدل مشکلی ندارد، ولی تراز مطلق را با نقشه‌برداری رسمی (یا GCP/RTK) تطبیق دهید.');
+      }
+      t.warnings.forEach((w) => lines.push(`⚠️ ${w}`));
+      droneStatus.textContent = lines.join('\n');
+      droneStatus.style.whiteSpace = 'pre-line';
+      fileStatus.textContent = `✅ توپوگرافی از مدل پهپادی — ${fmtNum(points.length, 0)} نقطه`;
+      runDesign();
+    } catch (err) {
+      droneStatus.style.color = 'var(--rust-700)';
+      droneStatus.textContent = `⚠️ ${err.message}`;
+    }
+    btn.disabled = false; btn.textContent = orig;
+  }
+
+  listDroneBtn.addEventListener('click', async () => {
+    const mineName = mineNameInput.value.trim();
+    if (!mineName) { showToast('⚠️ ابتدا نام معدن را وارد کنید'); return; }
+    listDroneBtn.disabled = true;
+    droneStatus.style.color = 'var(--stone-600)';
+    droneStatus.textContent = '⏳ در حال خواندن فهرست...';
+    droneList.innerHTML = '';
+    try {
+      const jobs = eligibleDroneJobs(await listJobs(mineName));
+      if (!jobs.length) {
+        droneStatus.textContent = `هیچ مدل سه‌بعدیِ آماده‌ای برای «${mineName}» نیست — از «🚁 مدل سه‌بعدی از پهپاد» در صفحهٔ معدن بسازید.`;
+      } else {
+        droneStatus.textContent = `${jobs.length} مدل آماده — یکی را انتخاب کنید (مدل سبک دانلود می‌شود؛ برای طراحی کافی است).`;
+        jobs.forEach((j) => {
+          const useBtn = el('button', { class: 'btn-sm', style: 'padding:2px 8px' }, '↩ استفاده به‌عنوان توپوگرافی');
+          useBtn.addEventListener('click', () => useDroneJob(j, useBtn));
+          droneList.append(el('div', { style: 'display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;padding:4px 0;border-bottom:1px solid var(--stone-200)' }, [
+            el('span', {}, `${MODE_LABEL[j.mode] || j.mode} — ${fmtWhen(j.createdAt)}${j.surveyGrade ? '' : ' — ⚠️ دقت ارتفاعی کم'}`),
+            useBtn,
+          ]));
+        });
+      }
+    } catch (err) {
+      droneStatus.style.color = 'var(--rust-700)';
+      droneStatus.textContent = `⚠️ خطا: ${err.message}`;
+    }
+    listDroneBtn.disabled = false;
+  });
+
+  const droneBox = el('details', { style: 'margin-top:10px;border:1px solid var(--stone-300);border-radius:8px;padding:8px 10px', open: '' }, [
+    el('summary', { style: 'font-weight:700;cursor:pointer;font-size:var(--text-xs)' }, '🚁 توپوگرافی از مدل سه‌بعدی پهپاد (به‌جای آپلود فایل)'),
+    el('div', { style: 'font-size:11px;color:var(--stone-600);margin:6px 0' }, 'مدل ساخته‌شده از عکس‌های پهپاد (samat-3d) را مستقیماً به‌عنوان سطح زمین طراحی پله‌بندی می‌گیرد؛ مختصات UTM و ارتفاع از خودِ مدل می‌آید و محدودهٔ پروانهٔ معدن هم روی نقشه و در بررسی طراحی لحاظ می‌شود. نیازمند مدل دارای موقعیت جغرافیایی (پرواز نقشه‌برداری یا ادغام).'),
+    listDroneBtn,
+    droneStatus,
+    droneList,
+  ]);
+
   // ---------- گمانه‌های اکتشافی (exploration_boreholes) ----------
   let boreholes = [];
-  const mineNameInput = el('input', { type: 'text', placeholder: 'نام دقیق معدن (طبق ثبت در بخش اکتشاف)' });
+  let boreholeRaw = [];
   const loadBoreholesBtn = el('button', { class: 'btn-sm' }, '📍 بارگذاری گمانه‌ها');
   const boreholesStatus = el('div', { style: 'font-size:11px;color:var(--stone-600);margin-top:6px' });
   const boreholesTable = el('div', { style: 'margin-top:6px;max-height:160px;overflow:auto' });
@@ -212,6 +342,23 @@ export async function renderPitDesign(container) {
     ]);
   }
 
+  /** مختصات lat/lon گمانه‌ها را به UTM می‌برد؛ اگر مدل پهپادی انتخاب شده باشد با زون خودِ مدل */
+  function renderBoreholes() {
+    boreholes = boreholeRaw.map((r) => {
+      const utm = latLonToUTM(r.lat, r.lon, terrain.zone || undefined);
+      return {
+        label: r.borehole_no || '؟', x: utm.x, y: utm.y, depthM: r.depth_m, lithology: r.lithology, zone: utm.zone,
+      };
+    });
+    boreholesTable.innerHTML = '';
+    boreholes.forEach((b) => boreholesTable.append(boreholeRow(b)));
+    if (boreholes.length) {
+      boreholesStatus.textContent = terrain.zone
+        ? `✅ ${boreholes.length} گمانه بارگذاری شد (UTM زون ${boreholes[0].zone} — همان زون مدل پهپادی)`
+        : `✅ ${boreholes.length} گمانه بارگذاری شد (تبدیل‌شده به UTM زون ${boreholes[0].zone}) — ⚠️ اگر فایل توپوگرافی شما با سیستم مختصات دیگری است، ممکن است روی نقشه هم‌راستا نباشند.`;
+    }
+  }
+
   loadBoreholesBtn.addEventListener('click', async () => {
     const mineName = mineNameInput.value.trim();
     if (!mineName) { showToast('⚠️ نام معدن را وارد کنید'); return; }
@@ -222,21 +369,13 @@ export async function renderPitDesign(container) {
         .select('borehole_no, lat, lon, depth_m, lithology')
         .eq('mine_name', mineName);
       if (error) throw new Error(error.message);
-      const withCoords = (data || []).filter((r) => typeof r.lat === 'number' && typeof r.lon === 'number');
-      boreholes = withCoords.map((r) => {
-        const utm = latLonToUTM(r.lat, r.lon);
-        return {
-          label: r.borehole_no || '؟', x: utm.x, y: utm.y, depthM: r.depth_m, lithology: r.lithology, zone: utm.zone,
-        };
-      });
-      boreholesTable.innerHTML = '';
-      if (!boreholes.length) {
+      boreholeRaw = (data || []).filter((r) => typeof r.lat === 'number' && typeof r.lon === 'number');
+      renderBoreholes();
+      if (!boreholeRaw.length) {
+        boreholesTable.innerHTML = '';
         boreholesStatus.textContent = data && data.length
           ? `⚠️ ${data.length} گمانه برای «${mineName}» پیدا شد اما هیچ‌کدام مختصات lat/lon ثبت‌شده ندارند`
           : `هیچ گمانه‌ای برای «${mineName}» ثبت نشده`;
-      } else {
-        boreholesStatus.textContent = `✅ ${boreholes.length} گمانه بارگذاری شد (تبدیل‌شده به UTM زون ${boreholes[0].zone}) — ⚠️ اگر فایل توپوگرافی شما با سیستم مختصات دیگری است، ممکن است روی نقشه هم‌راستا نباشند.`;
-        boreholes.forEach((b) => boreholesTable.append(boreholeRow(b)));
       }
       liveRecompute();
     } catch (err) {
@@ -247,11 +386,8 @@ export async function renderPitDesign(container) {
 
   const boreholesBox = el('details', { style: 'margin-top:10px;border:1px solid var(--stone-300);border-radius:8px;padding:8px 10px' }, [
     el('summary', { style: 'font-weight:700;cursor:pointer;font-size:var(--text-xs)' }, '📍 گمانه‌های اکتشافی این معدن'),
-    el('div', { style: 'font-size:11px;color:var(--stone-600);margin:6px 0' }, 'گمانه‌های ثبت‌شده در بخش اکتشاف را روی نقشهٔ طراحی نشان می‌دهد و امکان استفاده از موقعیت هرکدام به‌عنوان مرکز کف گودال را می‌دهد.'),
-    el('div', { style: 'display:flex;gap:8px;align-items:end' }, [
-      el('div', { style: 'flex:1' }, [el('label', {}, 'نام معدن'), mineNameInput]),
-      loadBoreholesBtn,
-    ]),
+    el('div', { style: 'font-size:11px;color:var(--stone-600);margin:6px 0' }, 'گمانه‌های ثبت‌شده در بخش اکتشاف (برای معدنِ انتخاب‌شده در بالا) را روی نقشهٔ طراحی نشان می‌دهد و امکان استفاده از موقعیت هرکدام به‌عنوان مرکز کف گودال را می‌دهد.'),
+    loadBoreholesBtn,
     boreholesStatus,
     boreholesTable,
   ]);
@@ -414,8 +550,15 @@ export async function renderPitDesign(container) {
       if (fsResult && fsResult.fs < 1.3) {
         infoLines.push(`⚠️ ضریب اطمینان شیب (${fsResult.fs.toFixed(2)}) کمتر از حد متداول ایمنی (۱.۳ برای شرایط استاتیک) است — شیب را کم‌تر کنید، برم/کاچ‌بنچ بیشتر بگیرید، یا با مهندس ژئوتکنیک بررسی کنید.`);
       }
-      resultBox.append(el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-top:8px' }, infoLines.join(' — ')), canvas);
-      renderPlanView(canvas, points, result, ramp, boreholes);
+      resultBox.append(el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-top:8px' }, infoLines.join(' — ')));
+      // تطبیق با سایت: پوشش داده‌ی توپوگرافی روی لبهٔ نهایی گودال + بیرون‌نزدن از محدودهٔ پروانه
+      buildSiteWarnings({
+        result, isCovered: terrain.isCovered || tinCoverageFn(surface), boundaryPoly,
+      }).forEach((w) => {
+        resultBox.append(el('div', { style: `font-size:var(--text-xs);margin-top:6px;color:${w.level === 'bad' ? 'var(--rust-700)' : 'var(--ochre-700)'}` }, `${w.level === 'bad' ? '⛔' : '⚠️'} ${w.text}`));
+      });
+      resultBox.append(canvas);
+      renderPlanView(canvas, points, result, ramp, boreholes, boundaryPoly);
 
       const table = el('table', { class: 'data-table', style: 'width:100%;margin-top:10px;font-size:var(--text-xs)' });
       table.append(el('thead', {}, el('tr', {}, ['پله', 'تراز (m)', 'مساحت (m²)', 'کاچ‌بنچ؟', 'برون‌زد؟'].map((h) => el('th', {}, h)))));
@@ -485,6 +628,9 @@ export async function renderPitDesign(container) {
     try {
       points = await extractPointsFromFile(f);
       if (points.length < 10) throw new Error('تعداد نقاط استخراج‌شده خیلی کم است');
+      terrain = { kind: 'file', zone: null, isCovered: null };
+      computeBoundary();
+      if (boreholeRaw.length) renderBoreholes();
       fileStatus.textContent = `✅ ${points.length.toLocaleString('fa-IR')} نقطه یافت شد`;
       runDesign();
     } catch (err) {
@@ -498,7 +644,9 @@ export async function renderPitDesign(container) {
   container.append(el('div', { class: 'card' }, [
     el('h3', {}, '⛰ طراحی پله‌بندی معدن روباز + رمپ دسترسی'),
     intro,
-    el('label', {}, 'فایل توپوگرافی'), fileInput, fileStatus,
+    mineField,
+    droneBox,
+    el('label', { style: 'margin-top:10px;display:block' }, 'یا فایل توپوگرافی'), fileInput, fileStatus,
     formGrid,
     osaModeWrap,
     bermAutoWrap,
@@ -510,4 +658,15 @@ export async function renderPitDesign(container) {
     liveHint,
     resultBox,
   ]));
+
+  // فهرست معدن‌ها برای انتخاب نام دقیق (و گرفتن گوشه‌های پروانه)؛ ناموفق بودنش مانع کار با فایل نیست
+  fetchDeptRecords('معدن').then((list) => {
+    const nameField = DEPT_NAME_FIELD['معدن'] || 'نام_معدن';
+    list.forEach((r) => {
+      const name = r[nameField];
+      if (!name) return;
+      mineRecords.set(name, r);
+      mineList.append(el('option', { value: name }));
+    });
+  }).catch(() => {});
 }
