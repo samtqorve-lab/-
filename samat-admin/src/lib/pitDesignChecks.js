@@ -5,11 +5,11 @@
 //     (یا فایل توپوگرافی) کوچک‌تر از لبه‌ی نهایی گودال باشد، تشخیص «برون‌زد» و حجم خاک‌برداری آن بخش اندازه‌گیری
 //     نیست بلکه برون‌یابی است — باید صریحاً گزارش شود.
 //  2) محدوده‌ی پروانه: لبه‌ی نهایی گودال (بیرونی‌ترین حلقه‌ی طراحی) نباید از مرز قانونی معدن بیرون بزند.
-//     ⚠️ فاصله‌ی ایمنی/حریم قانونی از مرز اینجا اعمال نمی‌شود (مقدارش به مقرره‌ی حاکم بستگی دارد)؛ فقط «داخل/بیرون» بودن
-//     نسبت به خودِ مرز سنجیده می‌شود.
+//     فاصله‌ی ایمنی/حریم قانونی از مرز مقدارش به مقرره‌ی حاکم بستگی دارد؛ پیش‌فرض ۰ است و کاربر عدد آن را
+//     با setbackM می‌دهد (مرز به اندازه‌ی آن به داخل آفست می‌شود).
 
 import { interpolateZ } from './volumeCalc.js';
-import { pointInPolygon } from './pitDesign.js';
+import { pointInPolygon, offsetPolygonOutward } from './pitDesign.js';
 
 /** نقاطی روی محیط چندضلعی بسته که فاصله‌ی پیاپی‌شان از step بیشتر نشود (رأس‌ها هم می‌آیند) */
 export function densifyClosedPolygon(poly, step = 5) {
@@ -93,12 +93,17 @@ const faNum = (n, d = 0) => Number(n).toLocaleString('fa-IR', { maximumFractionD
 /**
  * هشدارهای تطبیق طراحی با سایت، به‌صورت متن فارسی آماده‌ی نمایش.
  * @param {{ result: object, isCovered?: (x:number,y:number)=>boolean, boundaryPoly?: number[][]|null,
- *           coverageThreshold?: number }} src result خروجی designBenches
+ *           coverageThreshold?: number, setbackM?: number }} src result خروجی designBenches
  * @returns {Array<{ level: 'warn'|'bad', text: string }>}
  */
 export function buildSiteWarnings({
-  result, isCovered, boundaryPoly = null, coverageThreshold = 0.98,
+  result, isCovered, boundaryPoly: rawBoundary = null, coverageThreshold = 0.98, setbackM = 0,
 }) {
+  // فاصلهٔ ایمنی از مرز: مرز به‌اندازهٔ setbackM به داخل آفست می‌شود (مقدار را کاربر/مقرره تعیین می‌کند؛ پیش‌فرض ۰).
+  // ⚠️ آفست لبه‌به‌لبه برای مرز محدب/تقریباً محدب درست است.
+  const boundaryPoly = rawBoundary && rawBoundary.length >= 3 && setbackM > 0
+    ? offsetPolygonOutward(rawBoundary, -setbackM)
+    : rawBoundary;
   const warnings = [];
   const finalPoly = result.benches[result.benches.length - 1].polygon;
 
@@ -124,7 +129,7 @@ export function buildSiteWarnings({
     } else if (ex.outside > 0) {
       warnings.push({
         level: 'bad',
-        text: `لبهٔ نهایی گودال در ${faNum(ex.outsideFraction * 100)}٪ محیطش از محدودهٔ پروانه بیرون می‌زند (بیشینه ${faNum(ex.maxOutsideM, 1)} متر). کف یا شیب را طوری تغییر دهید که طراحی داخل مرز بماند. (فاصلهٔ ایمنی/حریم از مرز در این بررسی اعمال نشده؛ طبق مقرره‌ی حاکم تطبیق دهید.)`,
+        text: `لبهٔ نهایی گودال در ${faNum(ex.outsideFraction * 100)}٪ محیطش از محدودهٔ پروانه${setbackM > 0 ? ` (با فاصلهٔ ایمنی ${faNum(setbackM, 1)} متر)` : ''} بیرون می‌زند (بیشینه ${faNum(ex.maxOutsideM, 1)} متر). کف یا شیب را طوری تغییر دهید که طراحی داخل مرز بماند. ${setbackM > 0 ? '' : '(فاصلهٔ ایمنی/حریم از مرز اعمال نشده؛ در صورت لزوم عدد آن را طبق مقررهٔ حاکم وارد کنید.)'}`,
       });
     }
   }
