@@ -76,7 +76,7 @@ function summaryText(j) {
 
 export function openModel3dModal(mine, nameField) {
   const mineName = mine[nameField];
-  const { overlay, body, close: closeModal } = openModal({ title: `🚚! مدل سه‌بعدی از پهباد — ${mineName}`, width: '440px' });
+  const { overlay, body, close: closeModal } = openModal({ title: `🚡 مدل سه‌بعدی از پهباد — ${mineName}`, width: '440px' });
   const isOpen = () => document.body.contains(overlay);
 
   let busy = false;
@@ -152,4 +152,237 @@ export function openModel3dModal(mine, nameField) {
     });
     return btn;
   }
+
+  /**
+   * مدل‌های دیگرِ همین معدن که برای «🔥 مقایسه» مناسب‌اند: فقط پروازهای نقشه‌برداری/ادغامِ آماده (پیش‌نمایش با GPS
+   * معمولی دقت ارتفاعی کافی برای مقایسه ندارد)، به‌جز خودِ همین کار. مدل دوم فقط هنگام انتخاب کاربر دانلود می‌شود.
+   */
+  function compareOptionsFor(current) {
+    return jobsCache
+      .filter((o) => o.jobId !== current.jobId && o.status === 'done' && (o.mode === 'survey' || o.mode === 'merge')
+        && (!o.assets || !o.assets.length || o.assets.includes('model.glb')))
+      .map((o) => ({
+        id: o.jobId,
+        label: `${o.mode === 'merge' ? '🧩 ادغام' : 'نقشه‌برداری'} — ${fmtWhen(o.createdAt)}`,
+        summary: o.summary,
+        load: () => downloadModel(o.jobId, 'model.glb'),
+      }));
+  }
+
+  function jobRow(j) {
+    const st = STATUS[j.status] || { label: j.status, color: 'var(--stone-600)' };
+    const actions = [];
+    const assets = j.assets && j.assets.length ? j.assets : ['model.glb'];
+    if (j.status === 'done') {
+      if (assets.includes('model.glb')) {
+        const openViewer = async (btn, label, asset) => {
+          btn.disabled = true; btn.textContent = '⏳ در حال دریافت...';
+          try {
+            const blob = await downloadModel(j.jobId, asset, {
+              onStatus: (t) => { if (isOpen()) btn.textContent = `⏳ ${t}`; },
+            });
+            const { openModel3dViewer } = await import('../../lib/model3dViewer.js');
+            openModel3dViewer(blob, {
+              title: `${mineName} — ${fmtWhen(j.createdAt)}${asset === 'model.glb' ? '' : ' (سبک)'}`,
+              summary: j.summary,
+              corners: getMineCorners(mine),
+              compareOptions: compareOptionsFor(j),
+            });
+          } catch (err) { errBox.textContent = err.message; }
+          btn.disabled = false; btn.textContent = label;
+        };
+        const view = el('button', { class: 'btn-sm', style: 'background:var(--ink-700);color:#fff' }, '👁 مشاهده');
+        view.addEventListener('click', () => openViewer(view, '👁 مشاهده', 'model.glb'));
+        actions.push(view);
+        // مدل سبک (۳۵٪ مثلث) برای گوشی‌های ضعیف/اینترنت کند؛ تحلیل‌ها روی آن سریع‌ترند ولی ریزجزئیات کمتری دارد
+        if (assets.includes('model_lod1.glb')) {
+          const light = el('button', { class: 'btn-sm', style: 'background:var(--ink-700);color:#fff' }, '👁 سبک');
+          light.addEventListener('click', () => openViewer(light, '👁 سبک', 'model_lod1.glb'));
+          actions.push(light);
+        }
+        // ذخیرهٔ این مدل به‌عنوان توپوگرافی طراحی و رفتن به صفحهٔ طراحی پله‌بندی (آنجا خودکار بارگذاری می‌شود)
+        const design = el('button', { class: 'btn-sm', style: 'background:var(--ochre-600);color:#fff' }, '📐 طراحی پله‌بندی');
+        design.addEventListener('click', () => {
+          if (!saveHandoff(localStorage, { mineName, jobId: j.jobId })) {
+            errBox.textContent = 'ذخیرهٔ انتخاب ممکن نشد (حافظهٔ مرورگر در دسترس نیست). از داخل صفحهٔ طراحی پله‌بندی مدل را انتخاب کنید.';
+            return;
+          }
+          closeModal();
+          setTab('pitDesign');
+        });
+        actions.push(design);
+        actions.push(assetButton(j, 'model.glb', '⬇️ مدل', 'background:var(--patina-700);color:#fff'));
+      }
+      ['dsm.tif', 'stats.json', 'ortho.tif', 'pointcloud.laz', 'contours.dxf', 'report.pdf']
+        .filter((a) => assets.includes(a)).forEach((a) => {
+          actions.push(assetButton(j, a, `⬇️ ${ASSET_SHORT[a]}`, 'background:var(--stone-200);color:var(--ink-700)'));
+        });
+    }
+    if (j.status === 'failed') {
+      const retry = el('button', { class: 'btn-sm', style: 'background:var(--stone-200);color:var(--ink-700)' }, '🔁 تلاش مجدد');
+      retry.addEventListener('click', async () => {
+        retry.disabled = true;
+        try { await startJob(j.jobId, {}); showToast('دوباره در صف قرار گرفت'); } catch (err) { errBox.textContent = err.message; }
+        loadJobs();
+      });
+      actions.push(retry);
+    }
+    if (j.status !== 'queued') {
+      const del = el('button', { class: 'btn-sm', style: 'background:var(--rust-100);color:var(--rust-700)' }, '🗑');
+      del.addEventListener('click', async () => {
+        // eslint-disable-next-line no-alert
+        if (!window.confirm('این مدل و عکس‌های آن برای همیشه حذف شود؟')) return;
+        del.disabled = true;
+        try { await removeJob(j.jobId); } catch (err) { errBox.textContent = err.message; }
+        loadJobs();
+      });
+      actions.push(del);
+    }
+    const kind = j.mode === 'survey' ? `نقشه‌برداری (${GEOREF_LABEL[j.georef] || ''})`
+      : j.mode === 'merge' ? '🧩 ادغام چند پرواز' : 'پیش‌نمایش';
+    const extra = j.status === 'done' ? summaryText(j) : '';
+    return el('div', { style: 'padding:8px 0;border-bottom:1px solid var(--stone-200)' }, [
+      el('div', { style: 'display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap' }, [
+        el('div', { style: 'flex:1 1 150px;min-width:0' }, [
+          el('div', { style: `font-weight:700;font-size:12px;color:${st.color}` }, `${st.label} — ${kind}`),
+          el('div', { style: 'font-size:11px;color:var(--stone-600)' }, `${fmtWhen(j.createdAt)}${j.photoCount ? ` — ${j.mode === 'merge' ? `${j.photoCount} پرواز` : `${j.photoCount} عکس`}` : ''}`),
+        ]),
+        el('div', { style: 'display:flex;gap:6px;flex-wrap:wrap' }, actions),
+      ]),
+      extra ? el('div', { style: 'font-size:11px;color:var(--stone-600);margin-top:4px' }, extra) : null,
+      j.status === 'failed' && j.error ? el('div', { style: 'font-size:11px;color:var(--rust-700);margin-top:4px' }, j.error) : null,
+    ]);
+  }
+
+  const mergeBtn = el('button', { class: 'btn', style: 'width:100%;background:var(--ochre-600);color:#fff' }, '🧩 ادغام پرواز‌ها');
+  mergeBtn.addEventListener('click', async () => {
+    mergeBtn.disabled = true; const orig = mergeBtn.textContent; mergeBtn.textContent = '⏳ در حال شروع ادغام...';
+    try {
+      const r = await mergeJobs(mineName);
+      showToast(`✅ ادغام ${r.flightCount} پرواز شروع شد — چند دقیقه تا چند ساعت طول می‌کشد`);
+    } catch (err) {
+      errBox.textContent = err.message;
+    }
+    mergeBtn.disabled = false; mergeBtn.textContent = orig;
+    if (isOpen()) loadJobs();
+  });
+
+  async function loadJobs() {
+    try {
+      const jobs = await listJobs(mineName);
+      jobsCache = jobs;
+      jobsBox.innerHTML = '';
+      if (!jobs.length) {
+        jobsBox.append(el('div', { style: 'font-size:11px;color:var(--stone-500)' }, 'هنوز مدلی برای این معدن ساخته نشده'));
+      } else {
+        jobs.forEach((j) => jobsBox.append(jobRow(j)));
+      }
+      const readyFlights = jobs.filter((j) => j.mode === 'survey' && j.status === 'done').length;
+      const mergeRunning = jobs.some((j) => j.mode === 'merge' && j.status === 'queued');
+      mergeBox.innerHTML = '';
+      mergeBox.style.display = readyFlights >= MIN_MERGE_FLIGHTS ? 'block' : 'none';
+      if (readyFlights >= MIN_MERGE_FLIGHTS) {
+        mergeBox.append(
+          el('div', { style: 'font-size:11px;color:var(--stone-600);margin-bottom:6px' },
+            `${readyFlights} پرواز نقشه‌برداریِ آماده در این معدن — می‌توانید همه را در یک مدل یکپارچه ادغام کنید.`),
+          mergeBtn,
+        );
+        mergeBtn.disabled = mergeRunning;
+        if (mergeRunning) mergeBtn.textContent = '⏳ ادغام قبلی هنوز در حال اجراست...';
+      }
+      schedulePoll(jobs);
+    } catch (err) {
+      jobsBox.innerHTML = '';
+      jobsBox.append(el('div', { style: 'font-size:11px;color:var(--rust-700)' }, `خطا در بارگذاری فهرست: ${err.message}`));
+    }
+  }
+
+  fileInput.addEventListener('change', () => {
+    errBox.textContent = '';
+    files = Array.from(fileInput.files || []).filter((f) => f.type === 'image/jpeg' || /\.jpe?g$/i.test(f.name));
+    fileInput.value = '';
+    const mb = files.reduce((n, f) => n + f.size, 0) / 1048576;
+    if (files.length > MAX_PHOTOS) {
+      errBox.textContent = `حداکثر ${MAX_PHOTOS} عکس در هر مدل مجاز است`;
+      files = [];
+    }
+    summary.textContent = files.length ? `${files.length} عکس انتخاب شد (${mb.toFixed(0)} مگابایت)` : '';
+    if (files.length && files.length < MIN_PHOTOS) errBox.textContent = `حداقل ${MIN_PHOTOS} عکس لازم است (برای مدل خوب معمولاً دهها عکس با هم‌پوشانی ۷۰٪)`;
+    refresh();
+  });
+  pickBtn.addEventListener('click', () => fileInput.click());
+
+  startBtn.addEventListener('click', async () => {
+    errBox.textContent = '';
+    if (files.length < MIN_PHOTOS || !panel.render(files.map((f) => f.name)).ok || !preflightDone()) return;
+    const settings = panel.getSettings();
+    const quality = QUALITY_OPTIONS.find((q) => q.id === qualitySelect.value) || QUALITY_OPTIONS[0];
+    setBusy(true);
+    let jobId = null;
+    try {
+      setProgress('در حال آماده‌سازی...', null);
+      const created = await createJob(mineName, { mode: settings.mode, georef: settings.georef });
+      jobId = created.jobId;
+      const { assets, photos } = await uploadPhotos({
+        jobId,
+        keyB64: created.key_b64,
+        files,
+        maxPixels: quality.maxPixels,
+        settings,
+        shouldCancel: () => !isOpen(),
+        onProgress: ({ phase, done, total }) => {
+          if (!isOpen()) return;
+          const label = phase === 'prepare' ? 'آماده‌سازی عکس‌ها' : 'آپلود';
+          setProgress(`${label}: ${done} از ${total} — تا پایان آپلود این صفحه را باز نگه دارید`, Math.round((done / total) * 100));
+        },
+      });
+      if (isOpen()) setProgress('در حال شروع پردازش...', null);
+      await startJob(jobId, { expected: assets, photos });
+      showToast('✅ پردازش شروع شد — چند دقیقه تا چند ساعت طول می‌کشد');
+      files = [];
+      summary.textContent = '';
+      preflightChecks.fill(false);
+      [...preflightBox.querySelectorAll('input[type=checkbox]')].forEach((cb) => { cb.checked = false; });
+      if (isOpen()) setProgress('پردازش شروع شد. می‌توانید این صفحه را ببندید و بعداً برگردید.', null);
+    } catch (err) {
+      if (err.message !== 'CANCELLED' && isOpen()) {
+        errBox.textContent = err.message;
+        setProgress('', null);
+      }
+    }
+    if (isOpen()) { setBusy(false); loadJobs(); }
+  });
+
+  const checkBtn = el('button', { class: 'btn-sm', style: 'background:var(--stone-100);color:var(--ink-700);margin-top:16px' }, '🔌 بررسی اتصال به GitHub');
+  const checkBox = el('div', { style: 'font-size:var(--text-xs);margin-top:8px;line-height:1.9' });
+  checkBtn.addEventListener('click', async () => {
+    checkBtn.disabled = true;
+    checkBox.textContent = '⏳ در حال بررسی...';
+    try {
+      const res = await runSelftest();
+      checkBox.innerHTML = '';
+      res.checks.forEach((c) => {
+        checkBox.append(el('div', { style: `color:${c.ok ? 'var(--patina-700)' : 'var(--rust-700)'}` }, `${c.ok ? '✅' : '❌'} ${c.name}${c.detail ? ` — ${c.detail}` : ''}`));
+      });
+      checkBox.append(el('div', { style: 'font-weight:700;margin-top:4px' }, res.ok ? 'همه‌چیز آماده است.' : 'مورد ❌ را اصلاح کنید و دوباره بررسی کنید.'));
+    } catch (err) {
+      checkBox.textContent = `❌ ${err.message}`;
+    }
+    checkBtn.disabled = false;
+  });
+
+  body.append(
+    el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:8px;line-height:1.9' },
+      'عکس‌های پهباد را انتخاب کنید تا مدل سه‌بعدی معدن ساخته شود. عکس‌ها رمز می‌شوند و بعد از ساخت مدل پاک می‌شوند. عکس‌ها باید هم‌پوشانی زیاد و موقعیت مکانی (GPS) داشته باشند. برای معدن‌های بزرگ، چند پرواز جداگانه (نقشه‌برداری دقیق) بسازید و بعد با دکمه‌ی ادغام یکی‌شان کنید.'),
+    pickBtn, fileInput, summary,
+    panel.node,
+    el('label', { style: 'margin-top:10px;display:block' }, 'کیفیت عکس برای آپلود'), qualitySelect, qualityNote,
+    preflightBox,
+    errBox, startBtn, progressText, progressBar,
+    el('h4', { style: 'margin-top:16px;font-size:var(--text-sm);color:var(--ink-700)' }, 'مدل‌های این معدن'),
+    jobsBox, mergeBox,
+    checkBtn, checkBox,
+  );
+  refresh();
+  loadJobs();
 }
