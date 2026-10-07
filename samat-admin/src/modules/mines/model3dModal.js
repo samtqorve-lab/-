@@ -5,17 +5,19 @@ import {
 } from '../../lib/model3d.js';
 import { createOptionsPanel } from '../../lib/model3dOptions.js';
 import { getMineCorners } from '../../lib/geo.js';
+import { saveHandoff } from '../../lib/pitDesignHandoff.js';
+import { setTab } from '../../router.js';
 
 /**
  * نسخه‌ی ادمین: همان ساخت مدل سه‌بعدی، به‌همراه «مشاهده»، «بررسی اتصال» و دسترسی به مدل‌های همه‌ی کاربران این معدن.
- * ساخت مدل سه‌بعدی از عکس‌های پهباد برای یک معدن. عکس‌ها در همین دستگاه کوچک و رمز می‌شوند، روی GitHub
+ * ساخت مدل سه‌بعدی از عکس‌های پهاد برای یک معدن. عکس‌ها در همین دستگاه کوچک و رمز می‌شوند، روی GitHub
  * با OpenDroneMap به مدل تبدیل می‌شوند و فقط خروجی رمزشده آنجا می‌ماند (نه در فضای Supabase).
  * دو نوع پردازش: «پیش‌نمایش سریع» و «نقشه‌برداری دقیق» (DSM برای محاسبه‌ی حجم؛ با GPS معمولی،
  * موقعیت دقیق PPK/RTK یا نقاط کنترل زمینی). ساخت چند دقیقه تا چند ساعت طول می‌کشد؛ بعد از شروع
  * می‌توان صفحه را بست.
  *
  * برای معدن‌های بزرگ که با یک پرواز پوشش داده نمی‌شوند: هر پرواز را جداگانه (دوباره از همین پنجره،
- * با «📂 انتخاب عکس‌های پهباد») در حالت «نقشه‌برداری دقیق» بسازید؛ وقتی دو یا چند پرواز survey از
+ * با «📂 انتخاب عکس‌های پهاد») در حالت «نقشه‌برداری دقیق» بسازید؛ وقتی دو یا چند پرواز survey از
  * این معدن آماده شد، دکمه‌ی «🧩 ادغام پرواز‌ها» همه‌شان را در یک DSM/ارتوفتو/مدل یکپارچه ادغام می‌کند.
  */
 
@@ -74,7 +76,7 @@ function summaryText(j) {
 
 export function openModel3dModal(mine, nameField) {
   const mineName = mine[nameField];
-  const { overlay, body } = openModal({ title: `🚡 مدل سه‌بعدی از پهباد — ${mineName}`, width: '440px' });
+  const { overlay, body, close: closeModal } = openModal({ title: `🚚 مدل سه‌بعدی از پهباد — ${mineName}`, width: '440px' });
   const isOpen = () => document.body.contains(overlay);
 
   let busy = false;
@@ -198,6 +200,17 @@ export function openModel3dModal(mine, nameField) {
           light.addEventListener('click', () => openViewer(light, '👁 سبک', 'model_lod1.glb'));
           actions.push(light);
         }
+        // ذخیرهٔ این مدل به‌عنوان توپوگرافی طراحی و رفتن به صفحهٔ طراحی پله‌بندی (آنجا خودکار بارگذاری می‌شود)
+        const design = el('button', { class: 'btn-sm', style: 'background:var(--ochre-600);color:#fff' }, '📐 طراحی پله‌بندی');
+        design.addEventListener('click', () => {
+          if (!saveHandoff(localStorage, { mineName, jobId: j.jobId })) {
+            errBox.textContent = 'ذخیرهٔ انتخاب ممکن نشد (حافظهٔ مرورگر در دسترس نیست). از داخل صفحهٔ طراحی پله‌بندی مدل را انتخاب کنید.';
+            return;
+          }
+          closeModal();
+          setTab('pitDesign');
+        });
+        actions.push(design);
         actions.push(assetButton(j, 'model.glb', '⬇️ مدل', 'background:var(--patina-700);color:#fff'));
       }
       ['dsm.tif', 'stats.json', 'ortho.tif', 'pointcloud.laz', 'contours.dxf', 'report.pdf']
