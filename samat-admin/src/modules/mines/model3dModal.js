@@ -8,14 +8,14 @@ import { getMineCorners } from '../../lib/geo.js';
 
 /**
  * نسخه‌ی ادمین: همان ساخت مدل سه‌بعدی، به‌همراه «مشاهده»، «بررسی اتصال» و دسترسی به مدل‌های همه‌ی کاربران این معدن.
- * ساخت مدل سه‌بعدی از عکس‌های پهپاد برای یک معدن. عکس‌ها در همین دستگاه کوچک و رمز می‌شوند، روی GitHub
+ * ساخت مدل سه‌بعدی از عکس‌های پهباد برای یک معدن. عکس‌ها در همین دستگاه کوچک و رمز می‌شوند، روی GitHub
  * با OpenDroneMap به مدل تبدیل می‌شوند و فقط خروجی رمزشده آنجا می‌ماند (نه در فضای Supabase).
  * دو نوع پردازش: «پیش‌نمایش سریع» و «نقشه‌برداری دقیق» (DSM برای محاسبه‌ی حجم؛ با GPS معمولی،
  * موقعیت دقیق PPK/RTK یا نقاط کنترل زمینی). ساخت چند دقیقه تا چند ساعت طول می‌کشد؛ بعد از شروع
  * می‌توان صفحه را بست.
  *
  * برای معدن‌های بزرگ که با یک پرواز پوشش داده نمی‌شوند: هر پرواز را جداگانه (دوباره از همین پنجره،
- * با «📂 انتخاب عکس‌های پهپاد») در حالت «نقشه‌برداری دقیق» بسازید؛ وقتی دو یا چند پرواز survey از
+ * با «📂 انتخاب عکس‌های پهباد») در حالت «نقشه‌برداری دقیق» بسازید؛ وقتی دو یا چند پرواز survey از
  * این معدن آماده شد، دکمه‌ی «🧩 ادغام پرواز‌ها» همه‌شان را در یک DSM/ارتوفتو/مدل یکپارچه ادغام می‌کند.
  */
 
@@ -35,7 +35,7 @@ const MIN_MERGE_FLIGHTS = 2;
 
 const PREFLIGHT_ITEMS = [
   'باتری‌ها شارژ و پروانه‌ها سالم و بدون آسیب است',
-  'GPS/موقعیت‌یاب پهپاد قفل شده (یا RTK/GCP آماده است)',
+  'GPS/موقعیت‌یاب پهباد قفل شده (یا RTK/GCP آماده است)',
   'مسیر پرواز با هم‌پوشانی حداقل ۷۰٪ برنامه‌ریزی شده',
   'وضعیت هوا (باد، بارش، دید) برای پرواز مناسب است',
   'مجوز/هماهنگی لازم برای پرواز در این منطقه گرفته شده',
@@ -74,7 +74,7 @@ function summaryText(j) {
 
 export function openModel3dModal(mine, nameField) {
   const mineName = mine[nameField];
-  const { overlay, body } = openModal({ title: `🚡 مدل سه‌بعدی از پهپاد — ${mineName}`, width: '440px' });
+  const { overlay, body } = openModal({ title: `🚡 مدل سه‌بعدی از پهباد — ${mineName}`, width: '440px' });
   const isOpen = () => document.body.contains(overlay);
 
   let busy = false;
@@ -88,7 +88,7 @@ export function openModel3dModal(mine, nameField) {
   const mergeBox = el('div', { style: 'margin-top:10px;display:none' });
   const errBox = el('div', { style: 'color:var(--rust-700);font-size:var(--text-xs);margin-top:8px;min-height:4px' });
   const fileInput = el('input', { type: 'file', accept: 'image/jpeg', multiple: '', style: 'display:none' });
-  const pickBtn = el('button', { class: 'btn', style: 'width:100%' }, '📂 انتخاب عکس‌های پهپاد');
+  const pickBtn = el('button', { class: 'btn', style: 'width:100%' }, '📂 انتخاب عکس‌های پهباد');
   const summary = el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-top:6px' });
   const qualitySelect = el('select', {}, QUALITY_OPTIONS.map((q) => el('option', { value: q.id }, q.label)));
   const qualityNote = el('div', { style: 'font-size:11px;color:var(--stone-600);margin-top:4px;display:none' }, 'با نقاط کنترل زمینی (GCP) عکس‌ها با اندازه‌ی اصلی آپلود می‌شوند.');
@@ -380,7 +380,7 @@ export function openModel3dModal(mine, nameField) {
 
   body.append(
     el('div', { style: 'font-size:var(--text-xs);color:var(--stone-600);margin-bottom:8px;line-height:1.9' },
-      'عکس‌های پهپاد را انتخاب کنید تا مدل سه‌بعدی معدن ساخته شود. عکس‌ها رمز می‌شوند و بعد از ساخت مدل پاک می‌شوند. عکس‌ها باید هم‌پوشانی زیاد و موقعیت مکانی (GPS) داشته باشند. برای معدن‌های بزرگ، چند پرواز جداگانه (نقشه‌برداری دقیق) بسازید و بعد با دکمه‌ی ادغام یکی‌شان کنید.'),
+      'عکس‌های پهباد را انتخاب کنید تا مدل سه‌بعدی معدن ساخته شود. عکس‌ها رمز می‌شوند و بعد از ساخت مدل پاک می‌شوند. عکس‌ها باید هم‌پوشانی زیاد و موقعیت مکانی (GPS) داشته باشند. برای معدن‌های بزرگ، چند پرواز جداگانه (نقشه‌برداری دقیق) بسازید و بعد با دکمه‌ی ادغام یکی‌شان کنید.'),
     pickBtn, fileInput, summary,
     panel.node,
     el('label', { style: 'margin-top:10px;display:block' }, 'کیفیت عکس برای آپلود'), qualitySelect, qualityNote,
