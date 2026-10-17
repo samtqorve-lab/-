@@ -20,6 +20,13 @@ import { attachJalaliDatePicker } from '../../lib/jalaliDatePicker.js';
 
 const FUEL_DEFAULTS_KEY = 'پیش_فرض_درخواست_سوخت';
 
+/** فونت‌های برگه‌ی چاپی — فونت‌های سیستمی (باید روی کامپیوتر چاپ‌کننده نصب باشند)؛ در نبودشان به وزیرمتن برمی‌گردد.
+ * متن ثابت فرم = بی‌نازنین، مقادیری که وارد/انتخاب می‌شوند = بی‌تیتر. */
+const FONT_TEXT = "'B Nazanin','BNazanin','Nazanin','Vazirmatn',serif";
+const FONT_VALUE = "'B Titr','BTitr','Titr','Vazirmatn',sans-serif";
+/** مقدار واردشده/انتخاب‌شده را (escape‌شده) با فونت بی‌تیتر در برگه می‌گذارد */
+const val = (x) => `<span style="font-family:${FONT_VALUE};font-weight:normal">${esc(x)}</span>`;
+
 const FUEL_UNITS = { 'نفت‌گاز': 'لیتر', 'گاز مایع': 'کیلوگرم', 'نفت سفید': 'لیتر' };
 const FUEL_EQUIP_COLS = {
   'نفت‌گاز': [['نام', 'نام ماشین'], ['نوع', 'نوع/پلاک'], ['تعداد', 'تعداد']],
@@ -256,7 +263,7 @@ function openPhotoViewer(name, overview, serial) {
         ['شماره و تاریخ مجوز', `${record['شماره_مجوز'] || ''} | ${record['تاریخ_مجوز'] || ''}`],
         ['شهرستان', county], ['محصول و ظرفیت اسمی', `${record['نام_محصول'] || ''} — ${record['ظرفیت'] || ''} ${record['واحد_سنجش'] || ''}`],
       ];
-    rows.forEach(([label, val]) => readonlyBox.append(el('div', {}, `${label}: ${esc(val || '—')}`)));
+    rows.forEach(([label, val2]) => readonlyBox.append(el('div', {}, `${label}: ${esc(val2 || '—')}`)));
   }
 
   function buildBodyText() {
@@ -268,18 +275,18 @@ function openPhotoViewer(name, overview, serial) {
     const monthReceived = `${JALALI_MONTHS[+received.monthSel.value - 1]} ${received.yearSel.value}`;
     const monthRequested = `${JALALI_MONTHS[+requested.monthSel.value - 1]} ${requested.yearSel.value}`;
     return department === 'معدن'
-      ? `احتراماً اینجانب ${esc(rep)} نماینده ${esc(record['نام_دارنده'] || '')} بهره بردار معدن ${esc(record['نام_معدن'] || '')} با شماره پروانه بهره برداری ${esc(record['شماره_پروانه'] || '')} مورخ ${esc(record['تاریخ_پروانه'] || '')} بدینوسیله اعلام میدارم که مقدار ${esc(amountReceived)} ${unit} ${fuelType} مربوط به ${esc(monthReceived)} را دریافت و در محل فوق الذکر به مصرف رسیده است و در ضمن باقیمانده سوخت به مقدار ${esc(remaining)} ${unit} بوده و بر اساس آمار ارائه شده در جدول ذیل، ماشین‌آلات/تجهیزات موجود در کارگاه و برنامه آتی تولید معدن مذکور متقاضی دریافت مقدار ${esc(amountRequested)} ${unit} ${fuelType} برای ${esc(monthRequested)} می‌باشم. خواهشمند است در این خصوص اقدام لازم را مبذول فرمائید.`
-      : `احتراماً اینجانب ${esc(rep)} نماینده واحد صنعتی ${esc(record['نام_واحد'] || '')} با شماره مجوز ${esc(record['شماره_مجوز'] || '')} مورخ ${esc(record['تاریخ_مجوز'] || '')} بدینوسیله اعلام میدارم که مقدار ${esc(amountReceived)} ${unit} ${fuelType} مربوط به ${esc(monthReceived)} را دریافت و در محل فوق الذکر به مصرف رسانده‌ام و در ضمن باقیمانده سوخت به مقدار ${esc(remaining)} ${unit} بوده و بر اساس آمار ارائه شده در جدول ذیل، ماشین‌آلات/تجهیزات موجود در کارگاه و برنامه آتی تولید واحد مذکور متقاضی دریافت مقدار ${esc(amountRequested)} ${unit} ${fuelType} برای ${esc(monthRequested)} می‌باشم. خواهشمند است در این خصوص اقدام لازم را مبذول فرمائید.`;
+      ? `احتراماً اینجانب ${val(rep)} نماینده ${val(record['نام_دارنده'] || '')} بهره بردار معدن ${val(record['نام_معدن'] || '')} با شماره پروانه بهره برداری ${val(record['شماره_پروانه'] || '')} مورخ ${val(record['تاریخ_پروانه'] || '')} بدینوسیله اعلام میدارم که مقدار ${val(amountReceived)} ${val(unit)} ${val(fuelType)} مربوط به ${val(monthReceived)} را دریافت و در محل فوق الذکر به مصرف رسیده است و در ضمن باقیمانده سوخت به مقدار ${val(remaining)} ${val(unit)} بوده و بر اساس آمار ارائه شده در جدول ذیل، ماشین‌آلات/تجهیزات موجود در کارگاه و برنامه آتی تولید معدن مذکور متقاضی دریافت مقدار ${val(amountRequested)} ${val(unit)} ${val(fuelType)} برای ${val(monthRequested)} می‌باشم. خواهشمند است در این خصوص اقدام لازم را مبذول فرمائید.`
+      : `احتراماً اینجانب ${val(rep)} نماینده واحد صنعتی ${val(record['نام_واحد'] || '')} با شماره مجوز ${val(record['شماره_مجوز'] || '')} مورخ ${val(record['تاریخ_مجوز'] || '')} بدینوسیله اعلام میدارم که مقدار ${val(amountReceived)} ${val(unit)} ${val(fuelType)} مربوط به ${val(monthReceived)} را دریافت و در محل فوق الذکر به مصرف رسانده‌ام و در ضمن باقیمانده سوخت به مقدار ${val(remaining)} ${val(unit)} بوده و بر اساس آمار ارائه شده در جدول ذیل، ماشین‌آلات/تجهیزات موجود در کارگاه و برنامه آتی تولید واحد مذکور متقاضی دریافت مقدار ${val(amountRequested)} ${val(unit)} ${val(fuelType)} برای ${val(monthRequested)} می‌باشم. خواهشمند است در این خصوص اقدام لازم را مبذول فرمائید.`;
   }
 
   function buildPrintHTML() {
     const cols = FUEL_EQUIP_COLS[fuelType];
     const waste = wasteInput.value.trim();
-    const reqDate = esc(reqDateInput.value.trim());
+    const reqDate = val(reqDateInput.value.trim());
     const oreEntries = cleanOreRows();
     const rows = equipRows.filter((r) => Object.values(r).some((v) => v));
     const tableHead = `<tr><th>ردیف</th>${cols.map(([, l]) => `<th>${esc(l)}</th>`).join('')}</tr>`;
-    const tableRows = rows.map((r, i) => `<tr><td>${i + 1}</td>${cols.map(([k]) => `<td>${esc(r[k] || '')}</td>`).join('')}</tr>`).join('');
+    const tableRows = rows.map((r, i) => `<tr><td>${val(i + 1)}</td>${cols.map(([k]) => `<td>${val(r[k] || '')}</td>`).join('')}</tr>`).join('');
     // بلوک امضا: «تاریخ» بالا، و «مهر و امضاء» دقیقاً زیر آن (با فضای خالی برای مهر/امضا)
     const signBlock = (signLabel) => `<div class="pf-sign-row"><div>`
       + `<div>تاریخ : ${reqDate}</div>`
@@ -290,27 +297,29 @@ function openPhotoViewer(name, overview, serial) {
     if (department === 'معدن') {
       // چند ماده معدنی: «۱۰۰ تن سنگ آهن، ۴۰ تن مس و ۵۰ تن باطله‌برداری»
       const oreParts = oreEntries.length
-        ? oreEntries.map((r) => `${esc(r['مقدار'])} تن ${esc(r['نام'] || (oreEntries.length === 1 ? 'ماده معدنی اصلی' : 'ماده معدنی'))}`)
+        ? oreEntries.map((r) => `${val(r['مقدار'])} تن ${val(r['نام'] || (oreEntries.length === 1 ? 'ماده معدنی اصلی' : 'ماده معدنی'))}`)
         : [' تن ماده معدنی اصلی'];
-      const productionText = joinFa([...oreParts, `${esc(waste)} تن باطله‌برداری`]);
-      followup = `ضمناً در ارتباط با آمار تولید/استخراج دوره قبل به اطلاع می‌رساند میزان استخراج اسمی این واحد ${esc(record['استخراج_سالیانه'] || '')} ${record['واحد'] || 'تن'} سالیانه و در این دوره ${productionText} می‌باشد و مورد تایید این سازمان می‌باشد. ضمناً لیست ماشین‌آلات/تجهیزات بشرح زیر می‌باشد:`;
+      const productionText = joinFa([...oreParts, `${val(waste)} تن باطله‌برداری`]);
+      followup = `ضمناً در ارتباط با آمار تولید/استخراج دوره قبل به اطلاع می‌رساند میزان استخراج اسمی این واحد ${val(record['استخراج_سالیانه'] || '')} ${val(record['واحد'] || 'تن')} سالیانه و در این دوره ${productionText} می‌باشد و مورد تایید این سازمان می‌باشد. ضمناً لیست ماشین‌آلات/تجهیزات بشرح زیر می‌باشد:`;
     } else {
       const unitW = record['واحد_سنجش'] || '';
       const prodParts = oreEntries.length
-        ? oreEntries.map((r) => `${esc(r['مقدار'])} ${unitW} ${esc(r['نام'])}`.replace(/\s+/g, ' ').trim())
-        : [unitW];
-      followup = `ضمناً در ارتباط با آمار تولید دوره قبل به اطلاع می‌رساند ظرفیت اسمی این واحد ${esc(record['ظرفیت'] || '')} ${unitW} ${esc(record['نام_محصول'] || '')} سالیانه و در این دوره ${joinFa(prodParts)} تولید و ${esc(waste)} ${unitW} ضایعات/دورریز داشته است و مورد تایید این سازمان می‌باشد. ضمناً لیست ماشین‌آلات/تجهیزات بشرح زیر می‌باشد:`;
+        ? oreEntries.map((r) => `${val(r['مقدار'])} ${val(unitW)} ${val(r['نام'])}`)
+        : [val(unitW)];
+      followup = `ضمناً در ارتباط با آمار تولید دوره قبل به اطلاع می‌رساند ظرفیت اسمی این واحد ${val(record['ظرفیت'] || '')} ${val(unitW)} ${val(record['نام_محصول'] || '')} سالیانه و در این دوره ${joinFa(prodParts)} تولید و ${val(waste)} ${val(unitW)} ضایعات/دورریز داشته است و مورد تایید این سازمان می‌باشد. ضمناً لیست ماشین‌آلات/تجهیزات بشرح زیر می‌باشد:`;
     }
-    return `<div class="pf-title">بسمه تعالی</div>`
+    return `<div style="font-family:${FONT_TEXT}">`
+      + `<div class="pf-title">بسمه تعالی</div>`
       + `<div class="pf-title pf-underline">فرم اعلام وصول سوخت و تایید میزان تولید</div>`
-      + `<div class="pf-body" style="margin-top:14px"><div>رئیس محترم اداره صنعت، معدن و تجارت شهرستان ${esc(county)}</div><div>با سلام /</div>`
+      + `<div class="pf-body" style="margin-top:14px"><div>رئیس محترم اداره صنعت، معدن و تجارت شهرستان ${val(county)}</div><div>با سلام /</div>`
       + `<div style="margin-top:8px">${buildBodyText()}</div></div>`
       + `${signBlock('مهر و امضاء مصرف کننده :')}<div class="pf-divider"></div>`
       + `<div class="pf-body"><div style="font-weight:700">بخش مربوط به تایید سازمان متولی</div>`
-      + `<div style="margin-top:6px">رئیس محترم شرکت ملی پخش فرآورده‌های نفتی ناحیه ${esc(county)}.......... مقدار سوخت اظهاریه فوق مطابق سامانه سوخت تجارت آسان مورد تایید می‌باشد.</div>`
+      + `<div style="margin-top:6px">رئیس محترم شرکت ملی پخش فرآورده‌های نفتی ناحیه ${val(county)}.......... مقدار سوخت اظهاریه فوق مطابق سامانه سوخت تجارت آسان مورد تایید می‌باشد.</div>`
       + `<div style="margin-top:8px">${followup}</div></div>`
       + `<table class="pf-table"><thead>${tableHead}</thead><tbody>${tableRows}</tbody></table>`
-      + `${signBlock('مهر و امضاء تایید کننده :')}`;
+      + `${signBlock('مهر و امضاء تایید کننده :')}`
+      + `</div>`;
   }
 
   function draw() {
