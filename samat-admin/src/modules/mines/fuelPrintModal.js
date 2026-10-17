@@ -275,10 +275,17 @@ function openPhotoViewer(name, overview, serial) {
   function buildPrintHTML() {
     const cols = FUEL_EQUIP_COLS[fuelType];
     const waste = wasteInput.value.trim();
+    const reqDate = esc(reqDateInput.value.trim());
     const oreEntries = cleanOreRows();
     const rows = equipRows.filter((r) => Object.values(r).some((v) => v));
     const tableHead = `<tr><th>ردیف</th>${cols.map(([, l]) => `<th>${esc(l)}</th>`).join('')}</tr>`;
     const tableRows = rows.map((r, i) => `<tr><td>${i + 1}</td>${cols.map(([k]) => `<td>${esc(r[k] || '')}</td>`).join('')}</tr>`).join('');
+    // بلوک امضا: «تاریخ» بالا، و «مهر و امضاء» دقیقاً زیر آن (با فضای خالی برای مهر/امضا)
+    const signBlock = (signLabel) => `<div class="pf-sign-row"><div>`
+      + `<div>تاریخ : ${reqDate}</div>`
+      + `<div style="margin-top:14px">${signLabel}</div>`
+      + `<div style="height:70px"></div>`
+      + `</div></div>`;
     let followup;
     if (department === 'معدن') {
       // چند ماده معدنی: «۱۰۰ تن سنگ آهن، ۴۰ تن مس و ۵۰ تن باطله‌برداری»
@@ -298,12 +305,12 @@ function openPhotoViewer(name, overview, serial) {
       + `<div class="pf-title pf-underline">فرم اعلام وصول سوخت و تایید میزان تولید</div>`
       + `<div class="pf-body" style="margin-top:14px"><div>رئیس محترم اداره صنعت، معدن و تجارت شهرستان ${esc(county)}</div><div>با سلام /</div>`
       + `<div style="margin-top:8px">${buildBodyText()}</div></div>`
-      + `<div class="pf-sign-row"><div>مهر و امضاء مصرف کننده :</div><div>تاریخ :</div></div><div class="pf-divider"></div>`
+      + `${signBlock('مهر و امضاء مصرف کننده :')}<div class="pf-divider"></div>`
       + `<div class="pf-body"><div style="font-weight:700">بخش مربوط به تایید سازمان متولی</div>`
       + `<div style="margin-top:6px">رئیس محترم شرکت ملی پخش فرآورده‌های نفتی ناحیه ${esc(county)}.......... مقدار سوخت اظهاریه فوق مطابق سامانه سوخت تجارت آسان مورد تایید می‌باشد.</div>`
       + `<div style="margin-top:8px">${followup}</div></div>`
       + `<table class="pf-table"><thead>${tableHead}</thead><tbody>${tableRows}</tbody></table>`
-      + `<div class="pf-sign-row"><div>مهر و امضاء تایید کننده :</div><div>تاریخ : ${esc(reqDateInput.value.trim())}</div></div>`;
+      + `${signBlock('مهر و امضاء تایید کننده :')}`;
   }
 
   function draw() {
