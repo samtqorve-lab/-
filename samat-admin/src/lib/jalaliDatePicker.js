@@ -20,8 +20,10 @@ export function attachJalaliDatePicker(input) {
     if (panel) return;
     const parsed = parseJalaliString(input.value) || todayJalali();
     view = { jy: parsed.jy, jm: parsed.jm };
+    // z-index عمداً بالاتر از مودال‌ها (۱۴۰۰ در openModal) و toast (۱۵۰۰) است — قبلاً ۱۱۰۰ بود و وقتی
+    // تقویم داخل یک مودال (مثل «چاپ درخواست سوخت») باز می‌شد، پشت overlay مودال گم می‌شد و دیده نمی‌شد.
     panel = el('div', {
-      style: 'position:absolute;z-index:1100;background:#fff;border:1px solid var(--stone-200);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:10px;width:240px;font-size:var(--text-sm)',
+      style: 'position:absolute;z-index:1600;background:#fff;border:1px solid var(--stone-200);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:10px;width:240px;font-size:var(--text-sm)',
     });
     positionPanel();
     document.body.append(panel);
