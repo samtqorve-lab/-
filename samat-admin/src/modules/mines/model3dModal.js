@@ -33,14 +33,6 @@ const ASSET_SHORT = {
 const POLL_MS = 30_000;
 const MIN_MERGE_FLIGHTS = 2;
 
-const PREFLIGHT_ITEMS = [
-  'باتری‌ها شارژ و پروانه‌ها سالم و بدون آسیب است',
-  'GPS/موقعیت‌یاب پهباد قفل شده (یا RTK/GCP آماده است)',
-  'مسیر پرواز با هم‌پوشانی حداقل ۷۰٪ برنامه‌ریزی شده',
-  'وضعیت هوا (باد، بارش، دید) برای پرواز مناسب است',
-  'مجوز/هماهنگی لازم برای پرواز در این منطقه گرفته شده',
-];
-
 function fmtWhen(iso) {
   try { return new Date(iso).toLocaleString('fa-IR'); } catch { return ''; }
 }
@@ -81,8 +73,6 @@ export function openModel3dModal(mine, nameField) {
   let jobsCache = [];
   let files = [];
   let pollTimer = null;
-  const preflightChecks = PREFLIGHT_ITEMS.map(() => false);
-  const preflightDone = () => preflightChecks.every(Boolean);
 
   const jobsBox = el('div', { style: 'margin-top:8px' });
   const mergeBox = el('div', { style: 'margin-top:10px;display:none' });
@@ -97,16 +87,7 @@ export function openModel3dModal(mine, nameField) {
   const progressBar = el('progress', { max: '100', value: '0', style: 'width:100%;display:none' });
   const panel = createOptionsPanel({ onChange: () => refresh() });
 
-  const preflightBox = el('div', { style: 'margin-top:10px;padding:8px;border:1px solid var(--stone-200);border-radius:8px' }, [
-    el('div', { style: 'font-weight:700;font-size:11px;margin-bottom:6px;color:var(--ink-700)' }, '✅ چک‌لیست پیش از پرواز'),
-    ...PREFLIGHT_ITEMS.map((label, i) => {
-      const cb = el('input', { type: 'checkbox', style: 'margin-inline-end:6px' });
-      cb.addEventListener('change', () => { preflightChecks[i] = cb.checked; refresh(); });
-      return el('label', { style: 'display:flex;align-items:center;gap:6px;font-size:11px;color:var(--stone-600);padding:2px 0;cursor:pointer' }, [cb, label]);
-    }),
-  ]);
-
-  /** وضعیت دکمه‌ها را با انتخاب عکس‌ها، تنظیمات پنل، چک‌لیست پیش‌پرواز و مشغول‌بودن هماهنگ می‌کند */
+  /** وضعیت دکمه‌ها را با انتخاب عکس‌ها، تنظیمات پنل و مشغول‌بودن هماهنگ می‌کند */
   function refresh() {
     const check = panel.render(files.map((f) => f.name));
     const locked = panel.forcesOriginalSize();
@@ -115,7 +96,7 @@ export function openModel3dModal(mine, nameField) {
     qualitySelect.disabled = busy || locked;
     pickBtn.disabled = busy;
     panel.setDisabled(busy);
-    startBtn.disabled = busy || files.length < MIN_PHOTOS || !check.ok || !preflightDone();
+    startBtn.disabled = busy || files.length < MIN_PHOTOS || !check.ok;
   }
 
   function setBusy(v) {
@@ -229,7 +210,7 @@ export function openModel3dModal(mine, nameField) {
       const retry = el('button', { class: 'btn-sm', style: 'background:var(--stone-200);color:var(--ink-700)' }, '🔁 تلاش مجدد');
       retry.addEventListener('click', async () => {
         retry.disabled = true;
-        try { await startJob(j.jobId, {}); showToast('دوباره در صف قرار گرفت'); } catch (err) { errBox.textContent = err.message; }
+        try { await startJob(j.jobId, {}); showToast('دوباره در صف قرار گرفت'); } catch (err) { errBox.textContent = err.message; showToast(err.message); }
         loadJobs();
       });
       actions.push(retry);
@@ -321,7 +302,7 @@ export function openModel3dModal(mine, nameField) {
 
   startBtn.addEventListener('click', async () => {
     errBox.textContent = '';
-    if (files.length < MIN_PHOTOS || !panel.render(files.map((f) => f.name)).ok || !preflightDone()) return;
+    if (files.length < MIN_PHOTOS || !panel.render(files.map((f) => f.name)).ok) return;
     const settings = panel.getSettings();
     const quality = QUALITY_OPTIONS.find((q) => q.id === qualitySelect.value) || QUALITY_OPTIONS[0];
     setBusy(true);
@@ -348,8 +329,6 @@ export function openModel3dModal(mine, nameField) {
       showToast('✅ پردازش شروع شد — چند دقیقه تا چند ساعت طول می‌کشد');
       files = [];
       summary.textContent = '';
-      preflightChecks.fill(false);
-      [...preflightBox.querySelectorAll('input[type=checkbox]')].forEach((cb) => { cb.checked = false; });
       if (isOpen()) setProgress('پردازش شروع شد. می‌توانید این صفحه را ببندید و بعداً برگردید.', null);
     } catch (err) {
       if (err.message !== 'CANCELLED' && isOpen()) {
@@ -384,7 +363,6 @@ export function openModel3dModal(mine, nameField) {
     pickBtn, fileInput, summary,
     panel.node,
     el('label', { style: 'margin-top:10px;display:block' }, 'کیفیت عکس برای آپلود'), qualitySelect, qualityNote,
-    preflightBox,
     errBox, startBtn, progressText, progressBar,
     el('h4', { style: 'margin-top:16px;font-size:var(--text-sm);color:var(--ink-700)' }, 'مدل‌های این معدن'),
     jobsBox, mergeBox,
