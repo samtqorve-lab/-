@@ -32,13 +32,15 @@ const ASSET_SHORT = {
 };
 const POLL_MS = 30_000;
 const MIN_MERGE_FLIGHTS = 2;
+// cleanup-stale-photos.yml در samat-3d عکس‌های آپلودشده را بعد از ۲ روز پاک می‌کند
+const PHOTO_RETENTION_MS = 2 * 24 * 60 * 60 * 1000;
 
 const PREFLIGHT_ITEMS = [
   'باتری‌ها شارژ و پروانه‌ها سالم و بدون آسیب است',
   'GPS/موقعیت‌یاب پهباد قفل شده (یا RTK/GCP آماده است)',
   'مسیر پرواز با هم‌پوشانی حداقل ۷۰٪ برنامه‌ریزی شده',
   'وضعیت هوا (باد، بارش، دید) برای پرواز مناسب است',
-  'مجوز/هماهنگی لازم برای پرواز در این منطقه گرفته شده',
+  'مجوز/هماهنگی لازم برای پرواز در این منطقه گرفته شده است',
 ];
 
 function fmtWhen(iso) {
@@ -225,14 +227,28 @@ export function openModel3dModal(mine, nameField) {
           actions.push(assetButton(j, a, `⬇️ ${ASSET_SHORT[a]}`, 'background:var(--stone-200);color:var(--ink-700)'));
         });
     }
+    let expiredNote = null;
     if (j.status === 'failed') {
-      const retry = el('button', { class: 'btn-sm', style: 'background:var(--stone-200);color:var(--ink-700)' }, '🔁 تلاش مجدد');
-      retry.addEventListener('click', async () => {
-        retry.disabled = true;
-        try { await startJob(j.jobId, {}); showToast('دوباره در صف قرار گرفت'); } catch (err) { errBox.textContent = err.message; }
-        loadJobs();
-      });
-      actions.push(retry);
+      if (Date.now() - new Date(j.createdAt).getTime() > PHOTO_RETENTION_MS) {
+        // عکس‌ها از GitHub پاک شده‌اند؛ «تلاش مجدد» بی‌فایده است و فقط بی‌واکنش به نظر می‌رسد
+        expiredNote = el('div', { style: 'font-size:11px;color:var(--ink-700);margin-top:4px' },
+          'عکس‌های این کار بعد از ۲ روز از سرور پاک شده‌اند؛ این کار را حذف کنید و عکس‌ها را دوباره آپلود کنید.');
+      } else {
+        const retry = el('button', { class: 'btn-sm', style: 'background:var(--stone-200);color:var(--ink-700)' }, '🔁 تلاش مجدد');
+        retry.addEventListener('click', async () => {
+          retry.disabled = true;
+          try {
+            await startJob(j.jobId, {});
+            showToast('دوباره در صف قرار گرفت');
+          } catch (err) {
+            // errBox بالای دکمه‌ی «شروع» است و در موبایل دیده نمی‌شود؛ پس همین متن را toast هم می‌کنیم
+            errBox.textContent = err.message;
+            showToast(`⚠️ ${err.message}`);
+          }
+          loadJobs();
+        });
+        actions.push(retry);
+      }
     }
     if (j.status !== 'queued') {
       const del = el('button', { class: 'btn-sm', style: 'background:var(--rust-100);color:var(--rust-700)' }, '🗑');
@@ -258,6 +274,7 @@ export function openModel3dModal(mine, nameField) {
       ]),
       extra ? el('div', { style: 'font-size:11px;color:var(--stone-600);margin-top:4px' }, extra) : null,
       j.status === 'failed' && j.error ? el('div', { style: 'font-size:11px;color:var(--rust-700);margin-top:4px' }, j.error) : null,
+      expiredNote,
     ]);
   }
 
