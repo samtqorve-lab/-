@@ -245,6 +245,8 @@ export function openReportsModal(record, department, rowId, ctx) {
       if (type === 'گزارش_آزاد') return `گزارش ${kindWord}${mineName}`;
       return `گزارش بازدید از محل ${kindWord}${mineName} واقع در ...`;
     };
+    // موضوع فقط وقتی با عوض‌شدن «نوع گزارش» خودکار عوض می‌شود که خالی باشد یا هنوز همان موضوع پیش‌فرضِ یکی از نوع‌ها باشد
+    const isAutoSubject = (s) => !s.trim() || Object.keys(TYPE_LABELS).some((t) => defaultSubject(t) === s);
 
     const base = existing ? { ...existing } : {
       reportType: 'بازدید',
@@ -326,8 +328,6 @@ export function openReportsModal(record, department, rowId, ctx) {
     monthSel.value = pm.month || JALALI_MONTHS[today.jm - 1];
     yearSel.value = pm.year || String(today.jy);
 
-    let lastAutoSubject = f.subject.value;
-
     /* بخش‌های مخصوص هر نوع گزارش */
     const visitOnly = el('div', {}, [
       field('محل/سایت بازدید', f.site),
@@ -393,12 +393,11 @@ export function openReportsModal(record, department, rowId, ctx) {
       coordsWrap.style.display = t === 'بازدید' ? 'block' : 'none';
       prodOnly.style.display = t === 'تولید_ماهانه' ? 'grid' : 'none';
       templateBtn.style.display = t === 'بازدید' ? 'inline-flex' : 'none';
-      if (!f.subject.value.trim() || f.subject.value === lastAutoSubject) {
-        f.subject.value = defaultSubject(t);
-        lastAutoSubject = f.subject.value;
-      }
     }
-    f.type.addEventListener('change', applyType);
+    f.type.addEventListener('change', () => {
+      applyType();
+      if (isAutoSubject(f.subject.value)) f.subject.value = defaultSubject(f.type.value);
+    });
 
     /* عکس‌ها */
     const keepPhotos = Array.isArray(base.photos) ? base.photos.map((p) => ({ ...p })) : [];
@@ -569,8 +568,5 @@ export function openReportsModal(record, department, rowId, ctx) {
     );
     document.body.append(overlay);
     applyType();
-    // applyType ممکن است موضوع را عوض کرده باشد؛ تغییر خودکار نباید به‌عنوان «تغییر کاربر» حساب شود
-    dirty = false;
-    if (existing) f.subject.value = base.subject || f.subject.value;
   }
 }
