@@ -138,6 +138,11 @@ export async function renderMineDetail(container, state, ctx) {
       ]),
       el('div', { style: 'display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end' }, [
         backBtn,
+        // «گزارش‌نویسی» (بازدید / تولید ماهانه / گزارش آزاد با ویرایشگر متن غنی) — برای همه‌ی بخش‌های دارای پروفایل؛
+        // نوشتن فقط برای ادمین/بازرس است (داخل خود پنجره بررسی می‌شود)، دیدن و چاپ برای همه
+        ...(['معدن', 'صنعت', 'اکتشاف', 'فرآوری'].includes(state.department)
+          ? [el('button', { class: 'btn btn-ghost', style: compactBtnStyle, onclick: async () => { const { openReportsModal } = await import('./reportModal.js'); openReportsModal(record, state.department, state.mineId, ctx); } }, '📝 گزارش‌نویسی')]
+          : []),
         ...(isAdminRole && (state.department === 'معدن' || state.department === 'صنعت')
           ? [el('button', { class: 'btn btn-ghost', style: compactBtnStyle, onclick: () => openFuelPrintModal(record, state.department, state.mineId, ctx) }, '🖨️ چاپ درخواست سوخت')]
           : []),
