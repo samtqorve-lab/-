@@ -17,6 +17,9 @@ const registry = new WeakMap(); // map → Map(jobId → { layer, bounds, label 
 const fmtWhen = (iso) => { try { return new Date(iso).toLocaleString('fa-IR'); } catch { return ''; } };
 const KIND = { survey: 'نقشه‌برداری', merge: '\u{1F9E9} ادغام', preview: 'پیش‌نمایش' };
 
+/** آیا این کار مدل سه‌بعدی (model.glb) دارد؟ کارهای قدیمی که فهرست فایل ندارند، دارا فرض می‌شوند. */
+const hasMeshAsset = (job) => !job.assets || !job.assets.length || job.assets.includes('model.glb');
+
 function layersOf(map) {
   if (!registry.has(map)) registry.set(map, new Map());
   return registry.get(map);
@@ -126,6 +129,16 @@ export async function openDroneMapPanel({ L, map, mine, name }) {
       actions, status,
     ]);
 
+    // ادغامی که DSM/ارتو ساخته ولی مدل سه‌بعدی ندارد: به‌جای پنهان‌کردنِ بی‌صدا، علت را نشان بده
+    if (!hasMeshAsset(job)) {
+      const s = job.summary || {};
+      const why = s.meshFailed
+        ? 'ادغام نقشه (DSM/ارتو) انجام شد ولی ساخت مدل سه‌بعدی شکست خورد — ادغام را دوباره اجرا کنید'
+        : 'برای این کار مدل سه‌بعدی ساخته نشده است';
+      actions.append(el('span', { style: 'font-size:11px;color:var(--rust-700)' }, `⚠️ ${why}`));
+      return rowBox;
+    }
+
     if (on) {
       const slider = el('input', { type: 'range', min: '0.1', max: '1', step: '0.05', value: String(on.layer.options.opacity), style: 'width:90px' });
       slider.addEventListener('input', () => on.layer.setOpacity(parseFloat(slider.value)));
@@ -179,7 +192,8 @@ export async function openDroneMapPanel({ L, map, mine, name }) {
   function render(jobs = render.jobs) {
     render.jobs = jobs;
     list.replaceChildren();
-    const ready = (jobs || []).filter((j) => j.status === 'done' && (!j.assets || !j.assets.length || j.assets.includes('model.glb')));
+    // کارهای ادغامِ بدون model.glb هم نمایش داده می‌شوند (با پیام علت) تا ادغام «ناپدید» نشود
+    const ready = (jobs || []).filter((j) => j.status === 'done' && (hasMeshAsset(j) || j.mode === 'merge'));
     if (!ready.length) {
       list.append(el('div', { style: 'font-size:11px;color:var(--stone-500)' }, 'مدل آماده‌ای برای این معدن نیست — از «مدل سه‌بعدی از پهباد» بسازید'));
       return;
