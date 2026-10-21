@@ -4,7 +4,7 @@
 
 import { el, esc, showToast, openModal } from './dom.js';
 import { todayJalali, formatJalali } from './jalaliCalendar.js';
-import { formalizeKeepingEdges } from './formalize.js';
+import { openFormalizeDialog } from './formalizeUi.js';
 
 /* ───────────── پاک‌سازی HTML ───────────── */
 
@@ -474,7 +474,7 @@ export function createRichEditor(opts = {}) {
       mkBtn('▦', 'درج جدول', () => { prepare(); openTableDialog(); }),
       mkBtn('―', 'خط جداکننده', () => exec('insertHorizontalRule')),
       mkBtn('🔗', 'درج لینک', () => { prepare(); insertLink(); }),
-      mkBtn('⛓︎‍💥', 'حذف لینک', () => exec('unlink')),
+      mkBtn('🔗✖', 'حذف لینک', () => exec('unlink')),
     ),
     group(
       mkBtn('📅', 'درج تاریخ امروز (شمسی)', () => { const t = todayJalali(); insertPlain(formatJalali(t.jy, t.jm, t.jd)); }),
@@ -483,10 +483,7 @@ export function createRichEditor(opts = {}) {
     ),
     group(
       toggleFind,
-      mkBtn('✍️', 'رسمی‌نویسی خودکار (تبدیل محاوره به رسمی)', () => {
-        const n = rewriteText((s) => formalizeKeepingEdges(s));
-        showToast(n ? '✅ متن رسمی‌نویسی شد (با Ctrl+Z قابل بازگشت است)' : 'مورد محاوره‌ای برای تغییر پیدا نشد');
-      }),
+      mkBtn('✍️', 'رسمی‌نویسی خودکار — پیش‌نمایش و تأیید تغییرات (روی متن انتخاب‌شده یا کل متن)', () => { prepare(); openFormalizeDialog({ area, changed }); }),
       voiceBtn,
       fullBtn,
     ),
