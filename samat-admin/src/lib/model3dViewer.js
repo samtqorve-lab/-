@@ -1,6 +1,9 @@
 import { el } from './dom.js';
 import { saveBlob } from './model3d.js';
 import {
+  EXPORT_FORMATS, MAX_TEXT_TRIANGLES, extractExportMeshes, buildExport as buildModelFile,
+} from './model3dExport.js';
+import {
   readRtcCenter, buildGeoref, enuToUtm, enuToLatLon, cornersToEnu, checkGeorefConsistency, describePoint,
 } from './model3dGeo.js';
 import {
@@ -88,7 +91,9 @@ export function openModel3dViewer(blob, {
   const rotateBtn = mkBtn('🔄 چرخش', () => {});
   const wireBtn = mkBtn('🕸 شبکه', () => {});
   const resetBtn = mkBtn('🎯 بازنشانی', () => {});
-  const saveBtn = mkBtn('💾 ذخیره', () => saveBlob(blob, 'model3d.glb').catch(() => {}));
+  // تا مدل لود نشده فقط GLB ذخیره می‌شود؛ بعد از لود، منوی قالب‌ها (GLB/OBJ/STL/PLY/DXF/LandXML/XYZ) جایگزین می‌شود
+  let onSave = () => saveBlob(blob, 'model3d.glb').catch(() => {});
+  const saveBtn = mkBtn('💾 ذخیره', () => onSave());
   const closeBtn = mkBtn('✕', () => close());
 
   const toolBtns = {
@@ -1031,6 +1036,73 @@ export function openModel3dViewer(blob, {
       satObj.material.transparent = o < 1;
       satObj.material.needsUpdate = true;
     });
+
+    // ── ذخیره در قالب‌های مختلف (GLB / OBJ / STL / PLY / DXF / LandXML / XYZ) ──
+    // خروجی از مش اصلی مدل ساخته می‌شود، نه از رنگ‌های لایه‌ی شیب/مقایسه: اگر لایه‌ی رنگی فعال باشد یا خواندن بافتِ
+    // صحنه‌ی زنده شکست بخورد، نسخه‌ی تازه‌ای از GLB خوانده می‌شود. مختصات: UTM مطلق (اگر مدل موقعیت جغرافیایی دارد)
+    // یا محلی؛ STL فقط ۳۲بیتی است و همیشه محلی ذخیره می‌شود. ساخت فایل‌ها: model3dExport.js
+    let saveCoord = georef ? 'utm' : 'local';
+
+    async function runExport(fmt) {
+      pickBox.style.display = 'none';
+      const useUtm = !!georef && saveCoord === 'utm' && fmt.id !== 'stl';
+      const opts = { wantTextures: fmt.needsTextures, bakeColors: fmt.wantsColors };
+      try {
+        const out = await busy(`در حال ساخت فایل ${fmt.label}...`, async () => {
+          let data = null;
+          if (!colorMode) {
+            try { data = await extractExportMeshes(THREE, gltf.scene, upAxis, opts); } catch { data = null; }
+          }
+          if (!data) {
+            const fresh = await parseGlb(await blob.arrayBuffer());
+            try { data = await extractExportMeshes(THREE, fresh.scene, upAxis, opts); } finally { disposeGltf(fresh); }
+          }
+          return buildModelFile(fmt.id, data, { offset: useUtm ? georef.rtc : null });
+        });
+        await saveBlob(out.blob, out.filename);
+        const note = fmt.id === 'stl' && georef && saveCoord === 'utm' ? ' — STL فقط ۳۲بیتی است؛ با مختصات محلی ذخیره شد' : '';
+        flash(`✅ ${out.filename} ذخیره شد${note}`, true);
+      } catch (err) {
+        flash(err.message || String(err));
+      }
+    }
+
+    function openSavePicker() {
+      const coordSel = el('select', { style: selStyle }, [
+        ...(georef ? [el('option', { value: 'utm' }, `UTM ${georef.zone}${georef.hemisphere} — مختصات مطلق (پیشنهادی برای DXF و LandXML)`)] : []),
+        el('option', { value: 'local' }, 'مختصات محلی (مبدأ خودِ مدل)'),
+      ]);
+      coordSel.value = georef ? saveCoord : 'local';
+      coordSel.addEventListener('change', () => { saveCoord = coordSel.value; });
+      const fmtBtn = (name, desc, onclick) => el('button', {
+        style: `${smallBtnStyle};display:block;width:100%;text-align:right;margin-bottom:5px;padding:7px 8px;white-space:normal`,
+        onclick,
+      }, [
+        el('div', { style: 'font-weight:700;font-size:12px' }, name),
+        el('div', { style: 'font-size:10px;color:#b9b29c;line-height:1.6' }, desc),
+      ]);
+      const notes = [georef
+        ? 'STL همیشه با مختصات محلی ذخیره می‌شود (۳۲بیتی است). مدل‌های خیلی سنگین را از نسخه‌ی سبک (LOD) خروجی بگیرید.'
+        : 'این مدل موقعیت جغرافیایی ندارد؛ مختصات خروجی‌ها فقط محلی است.'];
+      if (triangles > MAX_TEXT_TRIANGLES) {
+        notes.push(`⚠️ این مدل ${(triangles / 1e6).toLocaleString('fa-IR', { maximumFractionDigits: 1 })} میلیون مثلث دارد؛ قالب‌های متنی (OBJ، DXF، LandXML، XYZ) برایش ساخته نمی‌شوند — مدل سبک (LOD) را باز کنید.`);
+      }
+      pickBox.replaceChildren(
+        el('div', { style: 'font-weight:700;margin-bottom:6px' }, '💾 ذخیره‌ی مدل در چه قالبی؟'),
+        el('div', { style: 'font-size:10px;color:#b9b29c;margin-bottom:3px' }, 'سیستم مختصات'),
+        coordSel,
+        el('div', { style: 'height:8px' }),
+        fmtBtn('GLB', 'فایل اصلی مدل (با بافت) — بلندر و نمایشگرهای وب', () => {
+          pickBox.style.display = 'none';
+          saveBlob(blob, 'model3d.glb').catch(() => {});
+        }),
+        ...EXPORT_FORMATS.map((f) => fmtBtn(f.label, f.desc, () => { runExport(f).catch((err) => flash(err.message || String(err))); })),
+        ...notes.map((t) => el('div', { style: 'color:#8d8775;font-size:10px;margin:4px 0;line-height:1.7' }, t)),
+        mkSmall('انصراف', () => { pickBox.style.display = 'none'; }),
+      );
+      pickBox.style.display = 'block';
+    }
+    onSave = openSavePicker;
 
     // ── خروجی CSV ──
     function buildExport() {
