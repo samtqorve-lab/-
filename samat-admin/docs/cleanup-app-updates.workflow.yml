@@ -1,0 +1,81 @@
+name: Cleanup old APKs (Supabase Storage)
+
+# این فایل باید به مسیر .github/workflows/cleanup-app-updates.yml منتقل شود (توکن ابزار اجازه‌ی
+# نوشتن در .github/workflows را نداشت، پس این‌جا گذاشته شد).
+#
+# هر build یک APK با شماره‌ی خودش در باکت app-updates می‌گذارد (هرگز بازنویسی نمی‌شود، برای دور
+# زدن کش CDN) — و تا قبل از این هیچ‌چیز نسخه‌های قدیمی را پاک نمی‌کرد؛ نتیجه: Storage از سقف
+# پلن رد شد و Supabase کل پروژه را Restricted (HTTP 402) کرد.
+# این ورک‌فلو فقط N نسخه‌ی آخرِ هر اپ را نگه می‌دارد. فایل‌های بدون شماره (samat-admin.apk و
+# samat-tech.apk) و هر چیز دیگری در باکت را دست نمی‌زند.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'فقط فهرست را نشان بده، چیزی پاک نکن'
+        type: boolean
+        default: false
+      keep:
+        description: 'تعداد نسخه‌ی آخر که نگه داشته می‌شود (هر اپ)'
+        default: '5'
+  workflow_run:
+    workflows: ['Build Admin Android APK', 'Build Android APK']
+    types: [completed]
+  schedule:
+    - cron: '17 3 * * 0' # هر یکشنبه، ۰۳:۱۷ UTC
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cleanup-app-updates
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete old versioned APKs
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          KEEP_INPUT: ${{ github.event.inputs.keep }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          KEEP="${KEEP_INPUT:-5}"
+          case "$KEEP" in ''|*[!0-9]*) KEEP=5 ;; esac
+          if [ "$KEEP" -lt 3 ]; then KEEP=3; fi   # کف ایمنی: هیچ‌وقت کمتر از ۳ نسخه نگه نمی‌داریم
+
+          AUTH=(-H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" -H "apikey: $SUPABASE_SERVICE_ROLE_KEY")
+
+          ALL=$(curl -sS --fail -X POST "$SUPABASE_URL/storage/v1/object/list/app-updates" \
+            "${AUTH[@]}" -H "Content-Type: application/json" \
+            -d '{"prefix":"","limit":1000,"offset":0}' | jq -r '.[].name')
+
+          for APP in samat-admin samat-tech; do
+            # فقط نام‌هایی به شکل دقیق <app>-<عدد>.apk؛ بقیه (مثل samat-admin.apk) را دست نمی‌زنیم
+            OLD=$(printf '%s\n' "$ALL" | grep -E "^${APP}-[0-9]+\.apk$" \
+              | sed -E 's/^.*-([0-9]+)\.apk$/\1 &/' | sort -rn \
+              | awk -v keep="$KEEP" 'NR>keep {print $2}' || true)
+
+            TOTAL=$(printf '%s\n' "$ALL" | grep -cE "^${APP}-[0-9]+\.apk$" || true)
+            COUNT=$(printf '%s' "$OLD" | grep -c . || true)
+            echo "$APP: $TOTAL فایل نسخه‌دار، $COUNT مورد برای حذف (نگه‌داری $KEEP نسخه‌ی آخر)"
+            if [ "$COUNT" -eq 0 ]; then continue; fi
+
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "dry-run — این‌ها پاک می‌شدند:"; printf '%s\n' "$OLD"; continue
+            fi
+
+            # حذف در دسته‌های ۱۰۰تایی از طریق Storage API (حذف مستقیم با SQL توسط Supabase قفل است)
+            printf '%s\n' "$OLD" | split -l 100 - batch_
+            for B in batch_*; do
+              BODY=$(jq -Rn '{prefixes: [inputs]}' < "$B")
+              curl -sS --fail -X DELETE "$SUPABASE_URL/storage/v1/object/app-updates" \
+                "${AUTH[@]}" -H "Content-Type: application/json" -d "$BODY" > /dev/null
+              echo "  دسته‌ی $B حذف شد"
+              rm -f "$B"
+            done
+          done
