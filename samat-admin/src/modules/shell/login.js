@@ -7,6 +7,31 @@ import { isPushLoginEnabled, requestPushApproval, verifyFallbackCode } from '../
 import { autoEnableBiometricAfterLogin } from '../../lib/biometric.js';
 import { friendlyError } from '../../lib/utils.js';
 
+/**
+ * پیام خطای دقیق برای فرم ورود. قبلاً هر خطایی (حتی وقتی درخواست به سرور اصلاً نمی‌رسید — مثلاً
+ * پاسخ 402 از Supabase که هدر CORS ندارد و مرورگر آن را به‌صورت «Failed to fetch» رد می‌کند)
+ * به «کد پرسنلی یا رمز عبور نادرست است» تبدیل می‌شد و علت واقعی کاملاً پنهان می‌ماند.
+ */
+function loginErrorMessage(err) {
+  const msg = String((err && err.message) || err || '');
+  const m = msg.toLowerCase();
+  if (err && (err.code === 'invalid_credentials' || m.includes('invalid login credentials'))) {
+    return 'کد پرسنلی یا رمز عبور نادرست است.';
+  }
+  if (err && (err.status === 402 || m.includes('payment required'))) {
+    return 'سرویس سرور محدود شده است (خطای ۴۰۲ — احتمالاً مشکل پلن/صورت‌حساب Supabase). کد و رمز شما اشکالی ندارد.';
+  }
+  if (err && (err.name === 'TypeError' || err.name === 'AuthRetryableFetchError' || err.status === 0
+    || m.includes('failed to fetch') || m.includes('networkerror') || m.includes('load failed'))) {
+    return 'ارتباط با سرور برقرار نشد — اینترنت/فیلترینگ را بررسی کنید. اگر با اینترنت دیگر هم همین بود، مشکل از سرویس سرور است (مثلاً محدودیت پلن/صورت‌حساب Supabase)، نه رمز یا کد شما.';
+  }
+  if (m.includes('email not confirmed')) return 'ایمیل این حساب هنوز تایید نشده است.';
+  if (m.includes('rate limit') || m.includes('too many requests')) return friendlyError(err);
+  // پیام‌های فارسی که خود برنامه ساخته (مثل خطای public-lookup یا سقف ۳۵ ثانیه‌ای Push) را همان‌طور نشان بده
+  if (/[\u0600-\u06FF]/.test(msg)) return msg;
+  return `خطای ورود: ${msg}`;
+}
+
 export function mountLogin(root, onSuccess) {
   root.innerHTML = '';
 
@@ -144,7 +169,7 @@ export function mountLogin(root, onSuccess) {
             ? 'ورود از طریق اعلان روی گوشی رد شد.'
             : err.pushTimeout
               ? 'زمان تایید ورود به پایان رسید — دوباره تلاش کنید.'
-              : 'کد پرسنلی یا رمز عبور نادرست است.';
+              : loginErrorMessage(err);
         } finally {
           if (!loginCompleted) { submitBtn.disabled = false; submitBtn.textContent = 'ورود'; }
         }
